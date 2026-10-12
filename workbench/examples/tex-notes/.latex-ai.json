@@ -1,0 +1,31 @@
+{
+  "schema_version": 3,
+  "modules": {
+    "latex": {
+      "default_document": "paper",
+      "documents": {
+        "paper": {
+          "root": "main.tex"
+        },
+        "derivation": {
+          "root": "notes/derivation.tex"
+        },
+        "notebook": {
+          "root": "notes/notebook.tex"
+        }
+      }
+    },
+    "notes": {
+      "path": "notes",
+      "index": "index.md",
+      "session_state": "state.tex"
+    }
+  },
+  "integrations": {
+    "ci": {
+      "enabled": false,
+      "pdf_artifact": true
+    },
+    "editor": false
+  }
+}

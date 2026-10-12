@@ -1,0 +1,56 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Workbench: Check all",
+      "type": "process",
+      "command": "make",
+      "args": [
+        "check"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build: manuscript",
+      "type": "process",
+      "command": "make",
+      "args": [
+        "latex-ai-build",
+        "DOC=manuscript"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Check: manuscript",
+      "type": "process",
+      "command": "make",
+      "args": [
+        "latex-ai-document-check",
+        "DOC=manuscript"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Export PDF: manuscript",
+      "type": "process",
+      "command": "make",
+      "args": [
+        "latex-ai-pdf-artifact",
+        "DOC=manuscript"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

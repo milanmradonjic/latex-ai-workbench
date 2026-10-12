@@ -1,0 +1,21 @@
+# Generated LaTeX files; source PDFs and bibliography exports remain trackable.
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.lof
+*.lot
+*.bcf
+*.run.xml
+*.bbl
+*.blg
+*.nav
+*.snm
+*.vrb
+*.xdv
+.DS_Store
+__pycache__/
+.latex-ai/artifacts/

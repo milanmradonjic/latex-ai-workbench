@@ -1,0 +1,134 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Workbench: Check all",
+      "type": "process",
+      "command": "make",
+      "args": [
+        "check"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build: paper",
+      "type": "process",
+      "command": "make",
+      "args": [
+        "latex-ai-build",
+        "DOC=paper"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Check: paper",
+      "type": "process",
+      "command": "make",
+      "args": [
+        "latex-ai-document-check",
+        "DOC=paper"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Export PDF: paper",
+      "type": "process",
+      "command": "make",
+      "args": [
+        "latex-ai-pdf-artifact",
+        "DOC=paper"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build: derivation",
+      "type": "process",
+      "command": "make",
+      "args": [
+        "latex-ai-build",
+        "DOC=derivation"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Check: derivation",
+      "type": "process",
+      "command": "make",
+      "args": [
+        "latex-ai-document-check",
+        "DOC=derivation"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Export PDF: derivation",
+      "type": "process",
+      "command": "make",
+      "args": [
+        "latex-ai-pdf-artifact",
+        "DOC=derivation"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build: notebook",
+      "type": "process",
+      "command": "make",
+      "args": [
+        "latex-ai-build",
+        "DOC=notebook"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Check: notebook",
+      "type": "process",
+      "command": "make",
+      "args": [
+        "latex-ai-document-check",
+        "DOC=notebook"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Export PDF: notebook",
+      "type": "process",
+      "command": "make",
+      "args": [
+        "latex-ai-pdf-artifact",
+        "DOC=notebook"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+"""Project-local entry point; no installation or API credentials required."""
+import sys
+sys.dont_write_bytecode = True
+from bootstrap import main
+sys.exit(main())

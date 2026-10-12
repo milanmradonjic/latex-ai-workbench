@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "tasks": {
+    "decay": {
+      "description": "Synthetic vector figure from declared result data",
+      "command": ["python3", "scripts/plot_decay.py"],
+      "inputs": ["results/decay.json", "scripts/plot_decay.py"],
+      "outputs": ["figures/decay.svg"],
+      "environment": {"command": ["python3", "--version"]}
+    }
+  }
+}

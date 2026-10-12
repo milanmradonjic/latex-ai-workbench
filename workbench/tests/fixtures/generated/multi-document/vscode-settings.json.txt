@@ -1,0 +1,64 @@
+{
+  "[latex]": {
+    "editor.wordWrap": "on",
+    "editor.formatOnSave": false
+  },
+  "latex-workshop.latex.autoBuild.run": "never",
+  "latex-workshop.view.pdf.viewer": "tab",
+  "latex-workshop.view.pdf.tab.editorGroup": "right",
+  "latex-workshop.synctex.afterBuild.enabled": true,
+  "latex-workshop.latex.build.enableMagicComments": false,
+  "latex-workshop.latex.tools": [
+    {
+      "name": "make-paper",
+      "command": "make",
+      "args": [
+        "-C",
+        "%WORKSPACE_FOLDER%",
+        "latex-ai-build",
+        "DOC=paper"
+      ]
+    },
+    {
+      "name": "make-derivation",
+      "command": "make",
+      "args": [
+        "-C",
+        "%WORKSPACE_FOLDER%",
+        "latex-ai-build",
+        "DOC=derivation"
+      ]
+    },
+    {
+      "name": "make-notebook",
+      "command": "make",
+      "args": [
+        "-C",
+        "%WORKSPACE_FOLDER%",
+        "latex-ai-build",
+        "DOC=notebook"
+      ]
+    }
+  ],
+  "latex-workshop.latex.recipes": [
+    {
+      "name": "Build paper",
+      "tools": [
+        "make-paper"
+      ]
+    },
+    {
+      "name": "Build derivation",
+      "tools": [
+        "make-derivation"
+      ]
+    },
+    {
+      "name": "Build notebook",
+      "tools": [
+        "make-notebook"
+      ]
+    }
+  ],
+  "latex-workshop.latex.recipe.default": "Build paper"
+}

@@ -1,0 +1,457 @@
+{
+  "adopted-make-goal": [
+    {
+      "default": true,
+      "name": "manuscript",
+      "view": {
+        "bibliography": {
+          "backend": "none",
+          "export": null,
+          "files": []
+        },
+        "build_command": [
+          "make",
+          "pdf"
+        ],
+        "ci": {
+          "enabled": true,
+          "pdf_artifact": true,
+          "texlive_version": "2026"
+        },
+        "engine": "pdflatex",
+        "inputs": [],
+        "lint": {
+          "args": [],
+          "baseline": ".latex-ai/lint-baselines/manuscript.json",
+          "enabled": true
+        },
+        "name": "manuscript",
+        "output_dir": ".",
+        "root": "main.tex",
+        "validation": {
+          "manuscript_inputs": []
+        }
+      }
+    }
+  ],
+  "adopted-make-goal-reached-by-check": [
+    {
+      "default": true,
+      "name": "manuscript",
+      "view": {
+        "bibliography": {
+          "backend": "none",
+          "export": null,
+          "files": []
+        },
+        "build_command": [
+          "make",
+          "pdf"
+        ],
+        "ci": {
+          "enabled": true,
+          "pdf_artifact": true,
+          "texlive_version": "2026"
+        },
+        "engine": "pdflatex",
+        "inputs": [],
+        "lint": {
+          "args": [],
+          "baseline": ".latex-ai/lint-baselines/manuscript.json",
+          "enabled": true
+        },
+        "name": "manuscript",
+        "output_dir": ".",
+        "root": "main.tex",
+        "validation": {
+          "manuscript_inputs": []
+        }
+      }
+    }
+  ],
+  "adopted-make-own-short-names": [
+    {
+      "default": true,
+      "name": "manuscript",
+      "view": {
+        "bibliography": {
+          "backend": "none",
+          "export": null,
+          "files": []
+        },
+        "build_command": [
+          "make",
+          "pdf"
+        ],
+        "ci": {
+          "enabled": true,
+          "pdf_artifact": true,
+          "texlive_version": "2026"
+        },
+        "engine": "pdflatex",
+        "inputs": [],
+        "lint": {
+          "args": [],
+          "baseline": ".latex-ai/lint-baselines/manuscript.json",
+          "enabled": true
+        },
+        "name": "manuscript",
+        "output_dir": ".",
+        "root": "main.tex",
+        "validation": {
+          "manuscript_inputs": []
+        }
+      }
+    }
+  ],
+  "adopted-no-tex": [],
+  "adopted-other-build-command": [
+    {
+      "default": true,
+      "name": "manuscript",
+      "view": {
+        "bibliography": {
+          "backend": "none",
+          "export": null,
+          "files": []
+        },
+        "build_command": [
+          "python3",
+          "build.py"
+        ],
+        "ci": {
+          "enabled": true,
+          "pdf_artifact": true,
+          "texlive_version": "2026"
+        },
+        "engine": "pdflatex",
+        "inputs": [],
+        "lint": {
+          "args": [],
+          "baseline": ".latex-ai/lint-baselines/manuscript.json",
+          "enabled": true
+        },
+        "name": "manuscript",
+        "output_dir": ".",
+        "root": "main.tex",
+        "validation": {
+          "manuscript_inputs": []
+        }
+      }
+    }
+  ],
+  "every-key": [
+    {
+      "default": true,
+      "name": "paper",
+      "view": {
+        "bibliography": {
+          "backend": "biber",
+          "export": {
+            "format": "biblatex",
+            "path": "refs.bib",
+            "required": true
+          },
+          "files": [
+            "refs.bib",
+            "extra.bib"
+          ]
+        },
+        "build_command": null,
+        "ci": {
+          "enabled": true,
+          "pdf_artifact": true,
+          "texlive_version": "2026"
+        },
+        "engine": "lualatex",
+        "inputs": [
+          "data/*.csv"
+        ],
+        "lint": {
+          "args": [
+            "-n8"
+          ],
+          "baseline": ".latex-ai/lint-baselines/paper.json",
+          "enabled": true
+        },
+        "name": "paper",
+        "output_dir": "out",
+        "root": "main.tex",
+        "validation": {
+          "manuscript_inputs": [
+            "figures/*.pdf",
+            "data/*.csv"
+          ],
+          "package": null
+        }
+      }
+    },
+    {
+      "default": false,
+      "name": "note",
+      "view": {
+        "bibliography": {
+          "backend": "bibtex",
+          "export": {
+            "format": "biblatex",
+            "path": "refs.bib",
+            "required": true
+          },
+          "files": [
+            "refs.bib"
+          ]
+        },
+        "build_command": [
+          "make",
+          "note"
+        ],
+        "ci": {
+          "enabled": true,
+          "pdf_artifact": true,
+          "texlive_version": "2026"
+        },
+        "engine": "xelatex",
+        "inputs": [],
+        "lint": {
+          "args": [
+            "-n8"
+          ],
+          "baseline": "note.baseline.json",
+          "enabled": false
+        },
+        "name": "note",
+        "output_dir": "note-out",
+        "root": "notes/note.tex",
+        "validation": {
+          "manuscript_inputs": [
+            "figures/*.pdf"
+          ],
+          "package": null
+        }
+      }
+    }
+  ],
+  "multi-document": [
+    {
+      "default": true,
+      "name": "paper",
+      "view": {
+        "bibliography": {
+          "backend": "none",
+          "export": null,
+          "files": []
+        },
+        "build_command": null,
+        "ci": {
+          "enabled": true,
+          "pdf_artifact": true,
+          "texlive_version": "2026"
+        },
+        "engine": "pdflatex",
+        "inputs": [],
+        "lint": {
+          "args": [],
+          "baseline": ".latex-ai/lint-baselines/paper.json",
+          "enabled": true
+        },
+        "name": "paper",
+        "output_dir": ".latex-ai/artifacts/documents/paper/build",
+        "root": "main.tex",
+        "validation": {
+          "manuscript_inputs": []
+        }
+      }
+    },
+    {
+      "default": false,
+      "name": "derivation",
+      "view": {
+        "bibliography": {
+          "backend": "none",
+          "export": null,
+          "files": []
+        },
+        "build_command": null,
+        "ci": {
+          "enabled": true,
+          "pdf_artifact": true,
+          "texlive_version": "2026"
+        },
+        "engine": "pdflatex",
+        "inputs": [],
+        "lint": {
+          "args": [],
+          "baseline": ".latex-ai/lint-baselines/derivation.json",
+          "enabled": true
+        },
+        "name": "derivation",
+        "output_dir": ".latex-ai/artifacts/documents/derivation/build",
+        "root": "notes/derivation.tex",
+        "validation": {
+          "manuscript_inputs": []
+        }
+      }
+    },
+    {
+      "default": false,
+      "name": "notebook",
+      "view": {
+        "bibliography": {
+          "backend": "none",
+          "export": null,
+          "files": []
+        },
+        "build_command": null,
+        "ci": {
+          "enabled": true,
+          "pdf_artifact": true,
+          "texlive_version": "2026"
+        },
+        "engine": "pdflatex",
+        "inputs": [],
+        "lint": {
+          "args": [],
+          "baseline": ".latex-ai/lint-baselines/notebook.json",
+          "enabled": true
+        },
+        "name": "notebook",
+        "output_dir": ".latex-ai/artifacts/documents/notebook/build",
+        "root": "notes/notebook.tex",
+        "validation": {
+          "manuscript_inputs": []
+        }
+      }
+    }
+  ],
+  "profile-core": [],
+  "profile-notebook": [],
+  "profile-numerical": [],
+  "profile-research-paper": [
+    {
+      "default": true,
+      "name": "manuscript",
+      "view": {
+        "bibliography": {
+          "backend": "none",
+          "export": null,
+          "files": []
+        },
+        "build_command": null,
+        "ci": {
+          "enabled": true,
+          "pdf_artifact": true,
+          "texlive_version": "2026"
+        },
+        "engine": "pdflatex",
+        "inputs": [],
+        "lint": {
+          "args": [],
+          "baseline": ".latex-ai/lint-baselines/manuscript.json",
+          "enabled": true
+        },
+        "name": "manuscript",
+        "output_dir": ".latex-ai/artifacts/documents/manuscript/build",
+        "root": "main.tex",
+        "validation": {
+          "manuscript_inputs": []
+        }
+      }
+    }
+  ],
+  "profile-tex-notebook": [
+    {
+      "default": true,
+      "name": "manuscript",
+      "view": {
+        "bibliography": {
+          "backend": "none",
+          "export": null,
+          "files": []
+        },
+        "build_command": null,
+        "ci": {
+          "enabled": true,
+          "pdf_artifact": true,
+          "texlive_version": "2026"
+        },
+        "engine": "pdflatex",
+        "inputs": [],
+        "lint": {
+          "args": [],
+          "baseline": ".latex-ai/lint-baselines/manuscript.json",
+          "enabled": true
+        },
+        "name": "manuscript",
+        "output_dir": ".latex-ai/artifacts/documents/manuscript/build",
+        "root": "main.tex",
+        "validation": {
+          "manuscript_inputs": []
+        }
+      }
+    }
+  ],
+  "profile-writing": [
+    {
+      "default": true,
+      "name": "manuscript",
+      "view": {
+        "bibliography": {
+          "backend": "none",
+          "export": null,
+          "files": []
+        },
+        "build_command": null,
+        "ci": {
+          "enabled": true,
+          "pdf_artifact": true,
+          "texlive_version": "2026"
+        },
+        "engine": "pdflatex",
+        "inputs": [],
+        "lint": {
+          "args": [],
+          "baseline": ".latex-ai/lint-baselines/manuscript.json",
+          "enabled": true
+        },
+        "name": "manuscript",
+        "output_dir": ".latex-ai/artifacts/documents/manuscript/build",
+        "root": "main.tex",
+        "validation": {
+          "manuscript_inputs": []
+        }
+      }
+    }
+  ],
+  "profile-writing-no-editor-no-ci": [
+    {
+      "default": true,
+      "name": "manuscript",
+      "view": {
+        "bibliography": {
+          "backend": "none",
+          "export": null,
+          "files": []
+        },
+        "build_command": null,
+        "ci": {
+          "enabled": false,
+          "pdf_artifact": true,
+          "texlive_version": "2026"
+        },
+        "engine": "pdflatex",
+        "inputs": [],
+        "lint": {
+          "args": [],
+          "baseline": ".latex-ai/lint-baselines/manuscript.json",
+          "enabled": true
+        },
+        "name": "manuscript",
+        "output_dir": ".latex-ai/artifacts/documents/manuscript/build",
+        "root": "main.tex",
+        "validation": {
+          "manuscript_inputs": []
+        }
+      }
+    }
+  ]
+}

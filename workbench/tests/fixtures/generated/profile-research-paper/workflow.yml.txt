@@ -1,0 +1,73 @@
+name: LaTeX AI Workbench
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      LATEX_AI_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Select validation
+        id: plan
+        run: python3 -B .latex-ai/workbench.py plan --github-output "$GITHUB_OUTPUT"
+      - name: Check changed files and policy
+        run: python3 -B .latex-ai/workbench.py validate --files-only
+      - name: Install Markdown check tool
+        if: steps.plan.outputs.markdown == 'true' || steps.plan.outputs.unit == 'true'
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends pandoc
+      - name: Test workbench
+        if: steps.plan.outputs.check_unit == 'true'
+        run: make -C workbench test
+      - name: Check selected research modules
+        if: steps.plan.outputs.check_research == 'true'
+        run: make latex-ai-research-validate
+      - name: Test compiler portability
+        if: steps.plan.outputs.check_portability == 'true'
+        uses: xu-cheng/texlive-action@22c04326a5d855880f9d39bb955138bf11c6df80 # v3
+        with:
+          texlive_version: 2026
+          os: debian
+          run: |
+            apt-get update -qq
+            apt-get install -y --no-install-recommends python3 make
+            make -C workbench portability
+      - name: Check project Make rules
+        id: project_check
+        if: ${{ !cancelled() && steps.plan.outcome == 'success' && steps.plan.outputs.check_full == 'true' && steps.plan.outputs.project_check == 'true' }}
+        uses: xu-cheng/texlive-action@22c04326a5d855880f9d39bb955138bf11c6df80 # v3
+        with:
+          texlive_version: 2026
+          os: debian
+          run: |
+            apt-get update -qq
+            apt-get install -y --no-install-recommends python3 make
+            make check
+            make latex-ai-pdf-artifact DOC=manuscript
+      - name: Check document manuscript
+        id: document_0
+        if: ${{ !cancelled() && steps.plan.outcome == 'success' && contains(fromJSON(steps.plan.outputs.document_ids), 'manuscript') && steps.plan.outputs.check_full == 'true' && steps.plan.outputs.project_check != 'true' }}
+        uses: xu-cheng/texlive-action@22c04326a5d855880f9d39bb955138bf11c6df80 # v3
+        with:
+          texlive_version: 2026
+          os: debian
+          run: |
+            apt-get update -qq
+            apt-get install -y --no-install-recommends python3 make
+            make latex-ai-document-check DOC=manuscript
+            make latex-ai-pdf-artifact DOC=manuscript
+      - name: Upload PDF manuscript
+        if: ${{ !cancelled() && steps.plan.outcome == 'success' && contains(fromJSON(steps.plan.outputs.document_ids), 'manuscript') && (steps.project_check.outcome == 'success' || steps.document_0.outcome == 'success') }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: manuscript
+          path: .latex-ai/artifacts/documents/manuscript/document.pdf
+          include-hidden-files: true
+          if-no-files-found: error

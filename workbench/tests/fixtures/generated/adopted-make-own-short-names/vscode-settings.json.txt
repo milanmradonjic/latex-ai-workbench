@@ -1,0 +1,32 @@
+{
+  "[latex]": {
+    "editor.wordWrap": "on",
+    "editor.formatOnSave": false
+  },
+  "latex-workshop.latex.autoBuild.run": "never",
+  "latex-workshop.view.pdf.viewer": "tab",
+  "latex-workshop.view.pdf.tab.editorGroup": "right",
+  "latex-workshop.synctex.afterBuild.enabled": true,
+  "latex-workshop.latex.build.enableMagicComments": false,
+  "latex-workshop.latex.tools": [
+    {
+      "name": "make-manuscript",
+      "command": "make",
+      "args": [
+        "-C",
+        "%WORKSPACE_FOLDER%",
+        "latex-ai-build",
+        "DOC=manuscript"
+      ]
+    }
+  ],
+  "latex-workshop.latex.recipes": [
+    {
+      "name": "Build manuscript",
+      "tools": [
+        "make-manuscript"
+      ]
+    }
+  ],
+  "latex-workshop.latex.recipe.default": "Build manuscript"
+}

@@ -1,0 +1,11 @@
+# Keeps the commit pins of this repository's own workflows current (the workbench's generated workflows
+# take new pins from a new release of the workbench). Dependabot reads the tag in the comment after each pin.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns: ["*"]

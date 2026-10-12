@@ -1,0 +1,8 @@
+{
+  "description": "Synthetic deterministic scalar decay fixture, not a research result",
+  "gamma": 1.5,
+  "initial": 1.0,
+  "duration": 3.0,
+  "steps": 200,
+  "units": {"gamma": "s^-1", "duration": "s", "amplitude": "arbitrary"}
+}

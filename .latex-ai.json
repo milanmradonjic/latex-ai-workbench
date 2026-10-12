@@ -1,0 +1,40 @@
+{
+  "schema_version": 3,
+  "modules": {
+    "latex": {
+      "default_document": "manuscript",
+      "documents": {
+        "manuscript": {
+          "root": "main.tex",
+          "engine": "pdflatex",
+          "backend": "none",
+          "lint": {
+            "enabled": true,
+            "args": [],
+            "baseline": ".chktex-baseline.json"
+          },
+          "output_dir": ".",
+          "build_command": null
+        }
+      }
+    },
+    "bibliography": {
+      "files": [
+        "bibliography/zotero.bib"
+      ],
+      "export": {
+        "path": "bibliography/zotero.bib",
+        "required": true,
+        "format": "bibtex"
+      }
+    }
+  },
+  "integrations": {
+    "editor": true,
+    "ci": {
+      "enabled": true,
+      "pdf_artifact": true,
+      "texlive_version": "2026"
+    }
+  }
+}

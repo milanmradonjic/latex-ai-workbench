@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "tasks": {
+    "decay": {
+      "description": "Synthetic RK4 integration of da/dt = -gamma*a",
+      "command": ["python3", "scripts/decay.py"],
+      "inputs": ["parameters.json", "scripts/decay.py", "scripts/check_decay.py"],
+      "outputs": ["results/decay.json"],
+      "checks": [{"command": ["python3", "scripts/check_decay.py"], "cost": "cheap"}],
+      "environment": {"command": ["python3", "--version"]},
+      "rng": {"used": false}
+    }
+  }
+}

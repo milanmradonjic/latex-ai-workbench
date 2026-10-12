@@ -1,0 +1,257 @@
+prefix_rule(
+    pattern = ["git", "init"],
+    decision = "prompt",
+    justification = "Initializing a repository creates Git state and requires explicit user approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "clone"],
+    decision = "prompt",
+    justification = "Cloning creates a repository and checkout and requires explicit user approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "add"],
+    decision = "prompt",
+    justification = "Staging changes requires explicit user approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "commit"],
+    decision = "prompt",
+    justification = "Repository policy requires explicit user approval for commits.",
+)
+
+prefix_rule(
+    pattern = ["git", "push"],
+    decision = "prompt",
+    justification = "Repository policy requires explicit user approval before pushing.",
+)
+
+prefix_rule(
+    pattern = ["git", "pull"],
+    decision = "prompt",
+    justification = "Repository policy requires explicit user approval before pulling.",
+)
+
+prefix_rule(
+    pattern = ["git", "merge"],
+    decision = "prompt",
+    justification = "Repository policy requires explicit user approval before merging.",
+)
+
+prefix_rule(
+    pattern = ["git", "rebase"],
+    decision = "prompt",
+    justification = "Repository policy requires explicit user approval before rebasing.",
+)
+
+prefix_rule(
+    pattern = ["git", "reset"],
+    decision = "prompt",
+    justification = "Reset can discard or rewrite repository state.",
+)
+
+prefix_rule(
+    pattern = ["git", "restore"],
+    decision = "prompt",
+    justification = "Restore can discard working-tree changes.",
+)
+
+prefix_rule(
+    pattern = ["git", "clean"],
+    decision = "prompt",
+    justification = "Clean can permanently remove untracked files.",
+)
+
+prefix_rule(
+    pattern = ["git", "checkout"],
+    decision = "prompt",
+    justification = "Checkout can change branches or overwrite working-tree files.",
+)
+
+prefix_rule(
+    pattern = ["git", "switch"],
+    decision = "prompt",
+    justification = "Switch changes the active branch and requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "branch", ["-d", "-D", "--delete"]],
+    decision = "prompt",
+    justification = "Deleting branches requires explicit user approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "stash"],
+    decision = "prompt",
+    justification = "Stash changes working-tree state and requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "branch", ["-m", "-M", "--move", "-c", "-C", "--copy", "-f", "--force", "-u", "--set-upstream-to", "--unset-upstream", "--edit-description"]],
+    decision = "prompt",
+    justification = "Renaming, copying, forcing or re-targeting a branch is a branch change and requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "worktree", ["add", "remove", "move", "prune", "lock", "unlock", "repair"]],
+    decision = "prompt",
+    justification = "Creating or removing a worktree requires explicit user approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "cherry-pick"],
+    decision = "prompt",
+    justification = "Cherry-picking creates commits and requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "revert"],
+    decision = "prompt",
+    justification = "Reverting creates commits and requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "am"],
+    decision = "prompt",
+    justification = "Applying a mailbox patch creates commits and requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "rm"],
+    decision = "prompt",
+    justification = "Removing tracked files stages the deletion and requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "mv"],
+    decision = "prompt",
+    justification = "Moving tracked files stages the rename and requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "tag"],
+    decision = "prompt",
+    justification = "Creating or deleting tags changes repository references and requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "apply", ["--index", "--cached"]],
+    decision = "prompt",
+    justification = "Applying a patch to the index stages changes and requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "update-index"],
+    decision = "prompt",
+    justification = "Updating the index stages changes and requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "read-tree"],
+    decision = "prompt",
+    justification = "Reading a tree into the index changes staged state and requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "checkout-index"],
+    decision = "prompt",
+    justification = "Checking out from the index can overwrite working-tree files and requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "update-ref"],
+    decision = "prompt",
+    justification = "Updating references can rewrite history and requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "filter-branch"],
+    decision = "prompt",
+    justification = "Rewriting history requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "filter-repo"],
+    decision = "prompt",
+    justification = "Rewriting history requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "replace"],
+    decision = "prompt",
+    justification = "Replacing objects can rewrite history and requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "commit-tree"],
+    decision = "prompt",
+    justification = "Creating commit objects requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "reflog", ["expire", "delete"]],
+    decision = "prompt",
+    justification = "Expiring or deleting reflog entries discards recovery history and requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "remote", ["add", "remove", "rm", "rename", "set-url", "set-head", "set-branches", "prune", "update"]],
+    decision = "prompt",
+    justification = "Changing remotes can redirect pushes and requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "submodule", ["add", "update", "init", "deinit", "sync"]],
+    decision = "prompt",
+    justification = "Submodule changes alter the checkout and require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "fetch"],
+    decision = "prompt",
+    justification = "Fetching downloads objects and moves remote-tracking references, so it changes repository state and requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["git", "push", "origin", ["main", "master", "HEAD:main", "HEAD:master", "HEAD:refs/heads/main", "HEAD:refs/heads/master", "+main", "+master", "+HEAD:main", "+HEAD:master", "+HEAD:refs/heads/main", "+HEAD:refs/heads/master"]],
+    decision = "forbidden",
+    justification = "Changes reach the default branch only through a pull request; the owner merges it.",
+)
+
+prefix_rule(
+    pattern = ["git", "push", "-u", "origin", ["main", "master", "HEAD:main", "HEAD:master", "HEAD:refs/heads/main", "HEAD:refs/heads/master", "+main", "+master", "+HEAD:main", "+HEAD:master", "+HEAD:refs/heads/main", "+HEAD:refs/heads/master"]],
+    decision = "forbidden",
+    justification = "Changes reach the default branch only through a pull request; the owner merges it.",
+)
+
+prefix_rule(
+    pattern = ["git", "push", "--set-upstream", "origin", ["main", "master", "HEAD:main", "HEAD:master", "HEAD:refs/heads/main", "HEAD:refs/heads/master", "+main", "+master", "+HEAD:main", "+HEAD:master", "+HEAD:refs/heads/main", "+HEAD:refs/heads/master"]],
+    decision = "forbidden",
+    justification = "Changes reach the default branch only through a pull request; the owner merges it.",
+)
+
+prefix_rule(
+    pattern = ["git", "push", "-f", "origin", ["main", "master", "HEAD:main", "HEAD:master", "HEAD:refs/heads/main", "HEAD:refs/heads/master", "+main", "+master", "+HEAD:main", "+HEAD:master", "+HEAD:refs/heads/main", "+HEAD:refs/heads/master"]],
+    decision = "forbidden",
+    justification = "Changes reach the default branch only through a pull request; the owner merges it.",
+)
+
+prefix_rule(
+    pattern = ["git", "push", "--force", "origin", ["main", "master", "HEAD:main", "HEAD:master", "HEAD:refs/heads/main", "HEAD:refs/heads/master", "+main", "+master", "+HEAD:main", "+HEAD:master", "+HEAD:refs/heads/main", "+HEAD:refs/heads/master"]],
+    decision = "forbidden",
+    justification = "Changes reach the default branch only through a pull request; the owner merges it.",
+)
+
+prefix_rule(
+    pattern = ["git", "push", "--force-with-lease", "origin", ["main", "master", "HEAD:main", "HEAD:master", "HEAD:refs/heads/main", "HEAD:refs/heads/master", "+main", "+master", "+HEAD:main", "+HEAD:master", "+HEAD:refs/heads/main", "+HEAD:refs/heads/master"]],
+    decision = "forbidden",
+    justification = "Changes reach the default branch only through a pull request; the owner merges it.",
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", "merge"],
+    decision = "forbidden",
+    justification = "Agents open pull requests; only the owner merges them.",
+)

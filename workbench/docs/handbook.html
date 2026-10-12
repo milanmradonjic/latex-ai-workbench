@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workbench guide</title>
+<style>
+:root{--bg:#fbfbf8;--fg:#1d2024;--muted:#5b626b;--accent:#1f5fbf;--panel:#f1f2ee;--border:#d9dbd3;--code:#ebece6;
+--current:#1c7a3d;--stale:#a35d00;--failed:#b3261e;--running:#1f5fbf;--missing:#5b626b}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#15181b;--fg:#e3e5e8;--muted:#98a0a9;--accent:#8ab4f8;
+--panel:#1d2125;--border:#32383e;--code:#232830;--current:#6fcf8c;--stale:#f0b35a;--failed:#ff8a80;--running:#8ab4f8;--missing:#98a0a9}}
+:root[data-theme="dark"]{--bg:#15181b;--fg:#e3e5e8;--muted:#98a0a9;--accent:#8ab4f8;--panel:#1d2125;--border:#32383e;--code:#232830;
+--current:#6fcf8c;--stale:#f0b35a;--failed:#ff8a80;--running:#8ab4f8;--missing:#98a0a9}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--accent)}
+.skip{position:absolute;left:-999px}.skip:focus{left:8px;top:8px;background:var(--panel);padding:.4rem .6rem;z-index:2}
+header{padding:1.5rem 16px 1rem;max-width:62rem;margin:0 auto}
+h1{font-size:1.6rem;margin:0 0 .3rem}.lede{color:var(--muted);margin:0}
+.layout{display:grid;grid-template-columns:15rem minmax(0,1fr);gap:2rem;max-width:62rem;margin:0 auto;padding:0 16px 3rem}
+nav{position:sticky;top:1rem;align-self:start;font-size:.92rem;max-height:calc(100vh - 2rem);overflow:auto}
+nav h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:1rem 0 .3rem}
+nav ul{list-style:none;margin:0;padding:0}nav li{margin:.15rem 0}
+main{min-width:0;max-width:46rem}
+section{margin:0 0 2.4rem;scroll-margin-top:1rem}
+h2{font-size:1.3rem;margin:0 0 .5rem;border-bottom:1px solid var(--border);padding-bottom:.25rem}
+code{background:var(--code);padding:.05em .3em;border-radius:4px;font:.9em ui-monospace,"SF Mono",Menlo,Consolas,"DejaVu Sans Mono",monospace}
+pre{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:.7rem .9rem;overflow-x:auto;margin:.6rem 0;
+font:.84rem/1.3 ui-monospace,"SF Mono",Menlo,Consolas,"DejaVu Sans Mono",monospace}
+pre code{background:none;padding:0;font:inherit}
+figure{margin:.8rem 0}figure pre{line-height:1.12}figcaption{color:var(--muted);font-size:.9rem}
+dl{margin:.6rem 0}dt{font-weight:600;margin-top:.55rem}dd{margin:.1rem 0 0 1.2rem}
+.note{border-left:4px solid var(--accent);background:var(--panel);padding:.5rem .8rem;margin:.8rem 0;border-radius:0 6px 6px 0}
+.project{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:.8rem 1rem}
+.project dt{margin-top:.4rem}.project ul{margin:.1rem 0;padding-left:1.1rem;color:var(--muted)}
+.state{font-weight:600;white-space:nowrap}.state::before{content:"\25CF  "}
+.state-current{color:var(--current)}.state-stale{color:var(--stale)}.state-failed{color:var(--failed)}
+.state-running{color:var(--running)}.state-missing{color:var(--missing)}
+.soon{color:var(--muted);font-size:.85em}
+footer{max-width:62rem;margin:0 auto;padding:1rem 16px 2rem;color:var(--muted);font-size:.88rem}
+@media (max-width:820px){.layout{grid-template-columns:1fr}nav{position:static;max-height:12rem;border:1px solid var(--border);border-radius:8px;padding:0 .8rem .6rem}}
+@media print{nav,.skip{display:none}.layout{display:block}pre,figure,.note{break-inside:avoid}body{font-size:11pt}a{color:inherit}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the guide</a>
+<header><h1>LaTeX AI Workbench 3.7.0: guide</h1><p class="lede">What it is, how the parts fit, and how to do the common things.</p></header>
+<div class="layout">
+<nav aria-label="Guide topics">
+<ul><li><a href="#overview">What this is</a></li></ul>
+<h2>Understand it</h2><ul>
+<li><a href="#map">What lives where</a></li>
+<li><a href="#loop">The everyday loop</a></li>
+<li><a href="#checks">What runs when</a></li>
+<li><a href="#states">Document states</a></li>
+<li><a href="#research">Numerical tasks and figures</a></li>
+<li><a href="#names">Command names</a></li>
+</ul>
+<h2>Do something</h2><ul>
+<li><a href="#install">I want to put the workbench into a project</a></li>
+<li><a href="#first-day">I just installed it. What do I do first?</a></li>
+<li><a href="#edit">I changed something. What do I run?</a></li>
+<li><a href="#pdf">I want a PDF I can send</a></li>
+<li><a href="#stale">I see stale, failed or missing in the status. What now?</a></li>
+<li><a href="#baseline">I already had a paper, and ChkTeX warnings fail the check</a></li>
+<li><a href="#document">I want a second TeX document next to my paper</a></li>
+<li><a href="#task">I want to run a numerical task and plot the result</a></li>
+<li><a href="#module">I want to turn a module on or off</a></li>
+<li><a href="#upgrade">I want to move to a newer release</a></li>
+<li><a href="#agent">I want an AI assistant to work on this project</a></li>
+<li><a href="#defect">I think the workbench itself is wrong</a></li>
+</ul>
+<h2>Look something up</h2><ul>
+<li><a href="#trouble">Reading a message</a></li>
+<li><a href="#glossary">Glossary</a></li>
+</ul>
+</nav>
+<main id="main">
+<section id="overview"><h2>What this is</h2>
+<p>The workbench is a set of <code>make</code> commands that live inside your project. They check your files, build your PDF, remember what was built from what, and tell you when something is out of date. It never edits your writing, and it never changes Git: committing is always your decision.</p>
+<p>You do not have to learn all of it. Five commands cover most days:</p>
+<dl><dt><code>make status</code></dt><dd>Where the project stands, and what to do next. Start here whenever you are unsure.</dd><dt><code>make validate</code></dt><dd>After editing: run only the checks your changes need. <code>make validation-plan</code> previews them.</dd><dt><code>make check</code></dt><dd>The full check of everything. Run it before you share the work.</dd><dt><code>make build</code></dt><dd>Build the PDF of a LaTeX document, when LaTeX is on.</dd><dt><code>make guide</code></dt><dd>This guide. <code>make guide-html</code> writes it as a web page.</dd></dl>
+<p>Type commands in the project folder, the one that holds <code>.latex-ai.json</code>. If a command is not found, or does something you did not expect, your own Makefile may already use that name: see the topic <code>names</code>.</p>
+</section>
+<section id="map"><h2>What lives where</h2>
+<figure><pre role="img" aria-label="Four kinds of file: yours, settings, the installed workbench, and what it records.">your project folder
+┌────────────────────────────────────────────────────────────────────────┐
+│ YOURS: the workbench never overwrites these                            │
+│   main.tex  refs.bib  notes/  data  scripts  your own Makefile rules   │
+├────────────────────────────────────────────────────────────────────────┤
+│ SETTINGS: you edit them, or `latex-ai-init configure` does             │
+│   .latex-ai.json   which modules are on, which documents exist         │
+│   Makefile         your rules, plus one marked block of workbench ones │
+│   AGENTS.md        the rules an AI assistant follows here              │
+├────────────────────────────────────────────────────────────────────────┤
+│ THE WORKBENCH: an installed copy; never edit it by hand                │
+│   .latex-ai/*.py             the code that `make ...` runs             │
+│   .latex-ai/installation.json  what was installed; keep it in Git      │
+├────────────────────────────────────────────────────────────────────────┤
+│ WHAT IT RECORDS: written by the commands                               │
+│   .latex-ai/artifacts/   build receipts, exported PDFs, reports        │
+│                          (Git ignores this folder)                     │
+│   results/runs/          one record per numerical run (if enabled)     │
+└────────────────────────────────────────────────────────────────────────┘</pre><figcaption>Four kinds of file: yours, settings, the installed workbench, and what it records.</figcaption></figure>
+<p>Rule of thumb: edit YOURS and SETTINGS, and only read the rest. If something in the workbench part looks wrong, do not repair it by hand: report it (topic <code>defect</code>).</p>
+</section>
+<section id="loop"><h2>The everyday loop</h2>
+<figure><pre role="img" aria-label="The loop for a normal working session. Only the last step before sharing is `make check`.">┌──────────────────────┐
+│     make status      │  where do things stand, and what comes next?
+└───────────┬──────────┘
+            ▼
+┌──────────────────────┐
+│   edit your files    │  TeX, notes, data: as you always do
+└───────────┬──────────┘
+            ▼
+┌──────────────────────┐
+│ make validation-plan │  which checks do my changes need? (runs nothing)
+└───────────┬──────────┘
+            ▼
+┌──────────────────────┐
+│    make validate     │  run exactly those checks; repeat until they pass
+└───────────┬──────────┘
+            ▼
+┌──────────────────────┐
+│      make check      │  everything, once, before you share the work
+└───────────┬──────────┘
+            ▼
+┌──────────────────────┐
+│       git diff       │  you review; committing is your decision
+└──────────────────────┘</pre><figcaption>The loop for a normal working session. Only the last step before sharing is <code>make check</code>.</figcaption></figure>
+<p class="note"><strong>Note.</strong> Choosing checks by what changed compares your files with the last Git commit. Without a Git repository, or before the first commit, every check is selected and <code>make status</code> says so.</p>
+</section>
+<section id="checks"><h2>What runs when</h2>
+<figure><pre role="img" aria-label="How the files you changed decide what `make validate` runs."> you changed                      make validate runs
+┌────────────────────────────┐   ┌────────────────────────────────────────┐
+│ notes, Markdown, scripts   │──▶│ quick file checks, no TeX build        │
+│ AGENTS.md, permissions     │──▶│ structure checks; you review meaning   │
+│ .tex, .bib, figures, data  │──▶│ build and check documents using them   │
+│ Makefile, settings, CI     │──▶│ file checks, then a full check         │
+│ no Git, or unknown files   │──▶│ everything, to be safe                 │
+└────────────────────────────┘   └────────────────────────────────────────┘</pre><figcaption>How the files you changed decide what <code>make validate</code> runs.</figcaption></figure>
+<p><code>make validate</code> is the quick one: it asks Git which files changed and runs only the checks they need. <code>make check</code> always covers everything, though it may reuse a build whose verified record is still current.</p>
+<p><code>make validation-plan</code> shows the selection and the reason for each choice without running anything.</p>
+<p class="note"><strong>Note.</strong> If your own Makefile gives <code>check</code> rules of its own, <code>make validate</code> runs <code>make check</code> so that they are never skipped.</p>
+</section>
+<section id="states"><h2>Document states</h2>
+<figure><pre role="img" aria-label="The life of a LaTeX document&#x27;s build. Only `current` means its PDF can be trusted.">┌─────────┐ make document-check ┌─────────┐ you edit a source ┌───────┐
+│ missing ├────────────────────▶│ current ├──────────────────▶│ stale │
+└─────────┘   (build succeeds)  └─────────┘ or a build setting└───┬───┘
+                                     ▲                            │
+                                     └────────────────────────────┘
+                                    make document-check (succeeds)
+
+A build that fails or is interrupted leaves the document   failed
+A build that is in progress shows as                       running</pre><figcaption>The life of a LaTeX document&#x27;s build. Only <code>current</code> means its PDF can be trusted.</figcaption></figure>
+<dl><dt>current</dt><dd>The last verified build matches the sources and settings as they are now. Nothing to do.</dd><dt>stale</dt><dd>A source or a build setting changed since the verified build. <code>make status</code> lists what changed under the document; rebuild with <code>make document-check DOC=name</code>.</dd><dt>failed</dt><dd>The last build failed or was interrupted. Read the first compiler error it printed, fix the source, rebuild. Restoring the old text does not clear it; only a successful build does.</dd><dt>running</dt><dd>A build is in progress. Wait for it; <code>make status</code> shows its owner and compiler. docs/troubleshooting.md in the workbench package explains how to inspect it safely.</dd><dt>missing</dt><dd>Never built, so there is no PDF to trust yet. <code>make document-check DOC=name</code> builds and checks it.</dd></dl>
+<p class="note"><strong>Note.</strong> An exported PDF (<code>make pdf-artifact</code>) is a copy. Rebuilding does not update it; export again.</p>
+</section>
+<section id="research"><h2>Numerical tasks and figures</h2>
+<figure><pre role="img" aria-label="Runs produce results, figures are drawn from results, and the paper includes figures.">experiments.json                  figures/manifest.json
+(tasks you declared)              (figures you declared)
+      │ make run TASK=x                 │ make figure TASK=y
+      ▼                                 ▼
+┌───────────┐         ┌───────────┐             ┌───────┐
+│  results  ├─feeds──▶│  figures  ├─included in▶│ paper │
+└─────┬─────┘         └───────────┘             └───────┘
+      │ every run leaves a record in results/runs/
+      ▼
+make freshness and make status say which results are stale and name the
+command that refreshes each. Nothing is ever run for you.</pre><figcaption>Runs produce results, figures are drawn from results, and the paper includes figures.</figcaption></figure>
+<p>Tasks are declared in manifest files: <code>experiments.json</code> for runs and <code>figures/manifest.json</code> for figures. A new manifest holds an example to copy, and the format is in docs/research.md in the workbench package.</p>
+<p><code>make validate</code> and <code>make check</code> never start a run. They only fail while a result is stale and name the command that refreshes it. You decide when to run it.</p>
+</section>
+<section id="names"><h2>Command names</h2>
+<figure><pre role="img" aria-label="A short name is only an alias; your own rule always wins.">make build ──▶ does your Makefile already have a `build` target?
+                    │ no                       │ yes
+                    ▼                          ▼
+      the workbench&#x27;s build       your recipe runs, unchanged.
+      (a short alias)             The workbench&#x27;s own is
+                                  `make latex-ai-build`</pre><figcaption>A short name is only an alias; your own rule always wins.</figcaption></figure>
+<p>Every workbench command has a long name that starts with <code>latex-ai-</code> and always reaches the workbench. The short name (<code>build</code>, <code>help</code>, <code>doctor</code>) is added only where your Makefile has no target of that name. <code>make help</code> and this guide show the names that work in your project.</p>
+<p>Some commands take a variable after the command, for example <code>make build DOC=notes</code>:</p>
+<dl><dt><code>DOC=name</code></dt><dd>Choose a document. Without it, the default document is used.</dd><dt><code>TASK=name</code></dt><dd>Choose a declared numerical or figure task.</dd><dt><code>TOPIC=name</code></dt><dd>Choose a part of this guide, for example <code>make guide TOPIC=loop</code>.</dd><dt><code>ISSUE_NOTE=&quot;...&quot;</code></dt><dd>What you saw and what you expected, for <code>make latex-ai-issue</code>.</dd></dl>
+<p><code>latex-ai-init</code> is not a Make target. It is a file in the workbench package that installs, upgrades, audits and reconfigures a project, so you run it as <code>python3 /path/to/workbench/latex-ai-init</code>.</p>
+</section>
+<section id="install"><h2>I want to put the workbench into a project</h2>
+<ol>
+<li>Look first. This writes nothing and lists what would be added:<pre>python3 /path/to/workbench/latex-ai-init init /path/to/project \
+    --dry-run --diff</pre></li>
+<li>A folder with one main <code>.tex</code> file needs nothing more (with several, add <code>--root thesis.tex</code>). For an empty folder, or one without a manuscript, say what it is for: add <code>--profile notebook</code> (the others are <code>core</code>, <code>tex-notebook</code>, <code>numerical</code>, <code>writing</code> and <code>research-paper</code>).</li>
+<li>If the preview is right, run the same command without <code>--dry-run --diff</code>.</li>
+<li>Then, in the project folder:<pre>make help</pre></li>
+</ol>
+<p class="note"><strong>Note.</strong> The installer never overwrites your files, never touches Git, and backs up the files it manages before replacing them. A paper that has its own Makefile also needs the command that builds it (<code>--build-command</code>); the installer says so. Run it as <code>python3 /path/to/workbench/latex-ai-init</code>: it is a file in the workbench package, not a command on your PATH.</p>
+</section>
+<section id="first-day"><h2>I just installed it. What do I do first?</h2>
+<p>Run these in the project folder, one at a time.</p>
+<ol>
+<li>See which commands this project has:<pre>make help</pre></li>
+<li>See where things stand and what to do next:<pre>make status</pre></li>
+<li>Confirm that the tools it needs are installed (LaTeX projects need a TeX distribution):<pre>make doctor</pre></li>
+<li>Run the first full check:<pre>make check</pre></li>
+</ol>
+<p class="note"><strong>Note.</strong> A paper you already had usually has some ChkTeX warnings, and they fail the check: see the topic <code>baseline</code>. If you see <code>INTERNAL ERROR</code>, see <code>defect</code>. Nothing here changes Git.</p>
+</section>
+<section id="edit"><h2>I changed something. What do I run?</h2>
+<ol>
+<li>Preview which checks your changes need. This runs nothing:<pre>make validation-plan</pre></li>
+<li>Run those checks:<pre>make validate</pre></li>
+<li>Fix what it reports and repeat.</li>
+<li>Before you share the work, check everything:<pre>make check</pre></li>
+<li>Review the changes yourself. Committing is your decision:<pre>git diff</pre></li>
+</ol>
+<p class="note"><strong>Note.</strong> Choosing checks by what changed needs a Git repository with at least one commit. Without one, every check runs and <code>make status</code> says so. The topic <code>checks</code> explains the choice.</p>
+</section>
+<section id="pdf"><h2>I want a PDF I can send</h2>
+<ol>
+<li>Build it. <code>DOC=name</code> picks a document other than the default:<pre>make build</pre></li>
+<li>Check it, including bibliography and ChkTeX:<pre>make check</pre></li>
+<li>Copy the verified PDF out:<pre>make pdf-artifact</pre></li>
+</ol>
+<p>The copy lands under <code>.latex-ai/artifacts/</code>; for a named document it is <code>.latex-ai/artifacts/documents/NAME/document.pdf</code>.</p>
+<p class="note"><strong>Note.</strong> Export refuses a PDF whose build is not <code>current</code> (topic <code>states</code>). Rebuilding does not update an earlier copy, so export again after a rebuild.</p>
+</section>
+<section id="stale"><h2>I see stale, failed or missing in the status. What now?</h2>
+<p>Each document has a state (topic <code>states</code>). Only <code>current</code> means its PDF can be trusted.</p>
+<ol>
+<li>Read the lines under the document in the status. They name what changed:<pre>make status</pre></li>
+<li>Rebuild and check that one document:<pre>make document-check DOC=name</pre></li>
+<li>If it fails, read the first error it prints (it names the compiler log), fix the source, and run the same command again.</li>
+<li>If it says another build is active, wait. <code>make status</code> shows who owns it. Do not delete lock or receipt files.</li>
+</ol>
+</section>
+<section id="baseline"><h2>I already had a paper, and ChkTeX warnings fail the check</h2>
+<p>ChkTeX warnings fail <code>make check</code>, and a paper that already exists usually has some. There are two honest choices.</p>
+<ol>
+<li>Fix the warnings one by one. List them with:<pre>make lint</pre></li>
+<li>Or accept today&#x27;s warnings as a recorded baseline. From then on only new warnings fail:<pre>make lint-baseline</pre></li>
+<li>Run <code>make check</code> again.</li>
+</ol>
+<p class="note"><strong>Note.</strong> Accepting a baseline is the owner&#x27;s decision, not a routine step: an assistant should ask you first. The list is saved under <code>.latex-ai/lint-baselines/</code> unless the configuration says otherwise, and belongs in version control.</p>
+</section>
+<section id="document"><h2>I want a second TeX document next to my paper</h2>
+<ol>
+<li>Write the new document as a complete <code>.tex</code> file, for example <code>notes/derivation.tex</code>.</li>
+<li>Preview the registration, then apply it by running the same command without <code>--dry-run --diff</code>:<pre>python3 /path/to/workbench/latex-ai-init configure . \
+    --document derivation --root notes/derivation.tex --dry-run --diff</pre></li>
+<li>Build and check the new document:<pre>make document-check DOC=derivation</pre></li>
+<li>Export its PDF:<pre>make pdf-artifact DOC=derivation</pre></li>
+<li>List every document and its state:<pre>make documents</pre></li>
+</ol>
+<p class="note"><strong>Note.</strong> Each document has its own build record and PDF. <code>make check</code> covers all of them, and <code>make build</code> without <code>DOC</code> uses the default document.</p>
+</section>
+<section id="task"><h2>I want to run a numerical task and plot the result</h2>
+<ol>
+<li>Declare the task in its manifest: <code>experiments.json</code> for runs, <code>figures/manifest.json</code> for figures. A new manifest holds an example to copy; the format is in docs/research.md in the workbench package.</li>
+<li>Run the task:<pre>make run TASK=name</pre></li>
+<li>Draw the figure from its results:<pre>make figure TASK=name</pre></li>
+<li>See which results are current and which are stale:<pre>make freshness</pre></li>
+</ol>
+<p class="note"><strong>Note.</strong> Nothing runs by itself. <code>make validate</code> and <code>make check</code> fail while a result is stale and name the command that refreshes it. These commands need the numerics and figures modules (topic <code>module</code>).</p>
+</section>
+<section id="module"><h2>I want to turn a module on or off</h2>
+<p><code>make help</code> lists the modules that are not enabled here and prints the command that enables one.</p>
+<ol>
+<li>Preview the change, with a module&#x27;s name instead of NAME (for example <code>markdown</code>):<pre>python3 /path/to/workbench/latex-ai-init configure . \
+    --enable NAME --dry-run --diff</pre></li>
+<li>If the preview is what you want, run the same command without <code>--dry-run --diff</code>.</li>
+<li>To turn one off, use <code>--disable NAME</code> the same way. Your notes and run records are kept.</li>
+</ol>
+<p class="note"><strong>Note.</strong> <code>latex-ai-init</code> is a file in the workbench package, not a command on your PATH: run it as <code>python3 /path/to/workbench/latex-ai-init</code>.</p>
+</section>
+<section id="upgrade"><h2>I want to move to a newer release</h2>
+<ol>
+<li>Run the NEW package&#x27;s installer in preview mode:<pre>python3 /path/to/new-workbench/latex-ai-init upgrade . --dry-run --diff</pre></li>
+<li>Read the plan. Conflicts are reported by name and there is no overwrite switch: reconcile them deliberately.</li>
+<li>Apply it by running the same command without <code>--dry-run</code>. Files that change get a backup first.</li>
+<li>Then confirm the tools and the project:<pre>make doctor</pre></li>
+<li>And check everything:<pre>make check</pre></li>
+</ol>
+<p class="note"><strong>Note.</strong> Never delete <code>.latex-ai/installation.json</code> to force an upgrade. It is what makes merging safe.</p>
+</section>
+<section id="agent"><h2>I want an AI assistant to work on this project</h2>
+<ol>
+<li>Point it at <code>AGENTS.md</code> in the project root. That is the policy it follows, and the installer put it there.</li>
+<li>Ask it to start with <code>make status</code>, to run <code>make validate</code> after its edits and <code>make check</code> before it says it is done.</li>
+<li>Expect a question before any Git change: staging, committing, pushing, switching branches and the like need your approval. Answer deliberately; these prompts are guardrails, not a security boundary.</li>
+<li>It must not edit <code>.latex-ai/</code> or loosen a check to get a pass. If it believes the workbench is wrong, it should write a report (topic <code>defect</code>) and tell you.</li>
+</ol>
+<p class="note"><strong>Note.</strong> For a second opinion, ask another assistant to review the diff under the same <code>AGENTS.md</code>. docs/agents.md describes the writer and reviewer roles.</p>
+</section>
+<section id="defect"><h2>I think the workbench itself is wrong</h2>
+<p>An ordinary failure prints <code>ERROR:</code>; your file or tool is at fault and the message says which. <code>INTERNAL ERROR</code> means the workbench itself failed. A check that passes when it plainly should not is the other case worth reporting.</p>
+<ol>
+<li>Write a local report:<pre>make latex-ai-issue ISSUE_NOTE=&quot;observed ... expected ...&quot;</pre></li>
+<li>It is saved as <code>.latex-ai/artifacts/issues/report-*.json</code>. Nothing is sent anywhere, so read it first if you like.</li>
+<li>Pass it to whoever maintains the workbench, and do not trust the verdict that looked wrong until it has been looked at.</li>
+</ol>
+<p class="note"><strong>Note.</strong> Do not edit the installed files in <code>.latex-ai/</code>. A repair belongs in the workbench package, with a test.</p>
+</section>
+<section id="trouble"><h2>Reading a message</h2>
+<dl><dt><code>ERROR: ...</code></dt><dd>An ordinary failure with a cause you can fix. Read the file or tool it names. A <code>Hint:</code> line below it, when present, is the next action.</dd><dt><code>INTERNAL ERROR</code></dt><dd>A fault inside the workbench, not in your project. Report it (topic <code>defect</code>).</dd><dt><code>Configuration problem</code></dt><dd><code>.latex-ai.json</code> is missing or cannot be read. <code>make help</code>, <code>make status</code>, <code>make guide</code> and <code>make latex-ai-issue</code> still work, and the message says how to fix it.</dd><dt><code>Module is disabled: NAME</code></dt><dd>The command belongs to a module that is off here. The hint prints the command that turns it on (topic <code>module</code>).</dd><dt><code>Another build is active</code></dt><dd>A build is already running, or its compiler still is. Wait; <code>make status</code> shows the owner.</dd><dt><code>Build inputs changed during execution</code></dt><dd>A generator rewrote a file the document reads while it was being built. The message names the files; docs/troubleshooting.md in the workbench package explains the fix.</dd></dl>
+<p>docs/troubleshooting.md in the workbench package has a table of symptoms and the next action for each.</p>
+</section>
+<section id="glossary"><h2>Glossary</h2>
+<dl><dt>AGENTS.md</dt><dd>The rules file an AI assistant reads first. Among them: Git changes need your approval.</dd><dt>Alias</dt><dd>A short command name such as <code>build</code> that points to the long <code>latex-ai-</code> name. It exists only where your Makefile has no target of that name.</dd><dt>Artifact</dt><dd>A file the workbench writes under <code>.latex-ai/artifacts/</code>: build receipts, exported PDFs, reports and the web version of this guide. Git ignores them.</dd><dt>Baseline (lint)</dt><dd>A recorded list of ChkTeX warnings you chose to accept. Only new warnings fail.</dd><dt>Build receipt</dt><dd>The record of one build: what was compiled, with which settings, from which file contents, producing which outputs. It is what lets the workbench say a PDF is current.</dd><dt>Check and validate</dt><dd><code>make check</code> runs everything. <code>make validate</code> runs only what your changed files need.</dd><dt>Claim</dt><dd>A statement in your research tied to its evidence (the claims module).</dd><dt>Configuration</dt><dd><code>.latex-ai.json</code>: which modules are on and which documents exist.</dd><dt>Document</dt><dd>A LaTeX file the workbench builds under a name of its own, with its own receipt and PDF. Your paper is one; notes can be more.</dd><dt>Doctor</dt><dd><code>make doctor</code> checks that the tools the project needs are installed.</dd><dt>Evidence</dt><dd>What the commands record about what happened: build receipts and run records. It does not prove that your science is right.</dd><dt>Freshness</dt><dd>Whether a result is still up to date with its inputs. A result that is not is stale.</dd><dt>Installer</dt><dd><code>latex-ai-init</code>, a file in the workbench package that installs, upgrades, audits and reconfigures a project. Run it as <code>python3 /path/to/workbench/latex-ai-init</code>.</dd><dt>Manifest</dt><dd>Two kinds. The installation manifest <code>.latex-ai/installation.json</code> records what was installed. A task manifest declares your numerical runs or figures.</dd><dt>Module</dt><dd>An optional capability: latex, bibliography, notes, markdown, numerics, figures, provenance, freshness, claims.</dd><dt>Plan</dt><dd>The preview of which checks your changes need (<code>make validation-plan</code>).</dd><dt>Profile</dt><dd>A starting choice of modules made at install time. It is not a lasting policy.</dd><dt>Provenance</dt><dd>The record kept of every numerical run, by default in <code>results/runs/</code>.</dd><dt>Reserved name</dt><dd>The long <code>latex-ai-</code> name of a command, which works in every project.</dd><dt>Root</dt><dd>The main <code>.tex</code> file of a document.</dd><dt>Runtime</dt><dd>The workbench code installed in <code>.latex-ai/</code>. It belongs to the workbench: do not edit it.</dd><dt>Schema</dt><dd>The version of the configuration format. Workbench 3 reads schema 3 only.</dd><dt>Stale</dt><dd>Out of date: a document whose sources or settings changed since its verified build, or a result whose inputs changed since it was produced.</dd><dt>Verified</dt><dd>Said of a PDF whose build receipt matches the sources and settings as they are now.</dd><dt>Workbench</dt><dd>This tool: the commands, their checks and the records they keep.</dd></dl>
+</section>
+</main>
+</div>
+<footer>This copy is generic. <code>make guide-html</code> in a project adds that project's state and command names. Generated from handbook.py by <code>make -C workbench handbook</code>; do not edit it by hand.</footer>
+</body>
+</html>

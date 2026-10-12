@@ -1,0 +1,12 @@
+{
+  "schema_version": 3,
+  "modules": {
+    "notes": {},
+    "markdown": {},
+    "bibliography": {
+      "files": [
+        "references.bib"
+      ]
+    }
+  }
+}
