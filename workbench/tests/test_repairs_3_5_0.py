@@ -30,7 +30,7 @@ class PinnedActions(unittest.TestCase):
                 self.assertEqual(unpinned(adapters.workflow(config)), [])
 
     def test_a_pin_is_the_commit_of_the_tag_and_keeps_the_tag_for_a_reader(self):
-        text = adapters.workflow(FIXTURES["profile-research-paper"][0])
+        text = adapters.workflow(FIXTURES["profile-writing"][0])
         for action, tag in (("actions/checkout", "v7"), ("actions/upload-artifact", "v7"), ("xu-cheng/texlive-action", "v3")):
             with self.subTest(action=action):
                 self.assertRegex(text, rf"uses: {re.escape(action)}@[0-9a-f]{{40}} # {tag}\n")

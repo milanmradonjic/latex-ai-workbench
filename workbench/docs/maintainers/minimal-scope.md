@@ -73,6 +73,10 @@ records, VS Code files and Makefile output of what remains do not change: the re
 generation, the handbook, then the upgrade machinery. The changes to the build core come last: the Make adoption layer, the locks, and
 the per-document targets. The full version stays available as the tagged first commit of this repository.
 
+## Progress
+
+- **4.0.0** removed the research modules, the notes and Markdown modules and what served them ([verification](verification-4.0.0.md)).
+
 ## Not yet decided
 
 Which exact Git guardrail rules remain, what the planner for changed files still routes once CI and research are gone, what the minimal

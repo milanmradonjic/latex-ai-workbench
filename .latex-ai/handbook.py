@@ -72,8 +72,7 @@ MAP = frame("your project folder", [
       ".latex-ai/installation.json  what was installed; keep it in Git"]),
     ("WHAT IT RECORDS: written by the commands",
      [".latex-ai/artifacts/   build receipts, exported PDFs, reports",
-      "                       (Git ignores this folder)",
-      "results/runs/          one record per numerical run (if enabled)"]),
+      "                       (Git ignores this folder)"]),
 ])
 
 LOOP = flow([
@@ -103,19 +102,6 @@ LIFE = """\
 
 A build that fails or is interrupted leaves the document   failed
 A build that is in progress shows as                       running"""
-
-RESEARCH = """\
-experiments.json                  figures/manifest.json
-(tasks you declared)              (figures you declared)
-      │ make run TASK=x                 │ make figure TASK=y
-      ▼                                 ▼
-┌───────────┐         ┌───────────┐             ┌───────┐
-│  results  ├─feeds──▶│  figures  ├─included in▶│ paper │
-└─────┬─────┘         └───────────┘             └───────┘
-      │ every run leaves a record in results/runs/
-      ▼
-make freshness and make status say which results are stale and name the
-command that refreshes each. Nothing is ever run for you."""
 
 NAMES = """\
 make build ──▶ does your Makefile already have a `build` target?
@@ -197,14 +183,6 @@ TOPICS = (
         note("An exported PDF (`make pdf-artifact`) is a copy. Rebuilding does not update it; export again."),
     ), needs=("latex",)),
 
-    Topic("research", "Numerical tasks and figures", "How runs, results, figures and the paper depend on each other", (
-        diagram(RESEARCH, "Runs produce results, figures are drawn from results, and the paper includes figures."),
-        p("Tasks are declared in manifest files: `experiments.json` for runs and `figures/manifest.json` for figures. A new "
-          "manifest holds an example to copy, and the format is in docs/research.md in the workbench package."),
-        p("`make validate` and `make check` never start a run. They only fail while a result is stale and name the command "
-          "that refreshes it. You decide when to run it."),
-    ), needs=("numerics", "figures")),
-
     Topic("names", "Command names", "Why a command can have two names, and the variables it takes", (
         diagram(NAMES, "A short name is only an alias; your own rule always wins."),
         p("Every workbench command has a long name that starts with `latex-ai-` and always reaches the workbench. The short "
@@ -212,7 +190,6 @@ TOPICS = (
           "`make help` and this guide show the names that work in your project."),
         p("Some commands take a variable after the command, for example `make build DOC=notes`:"),
         defs(("`DOC=name`", "Choose a document. Without it, the default document is used."),
-             ("`TASK=name`", "Choose a declared numerical or figure task."),
              ("`TOPIC=name`", "Choose a part of this guide, for example `make guide TOPIC=loop`."),
              ("`ISSUE_NOTE=\"...\"`", "What you saw and what you expected, for `make latex-ai-issue`.")),
         p(f"`latex-ai-init` is not a Make target. It is a file in the workbench package that installs, upgrades, audits and "
@@ -223,8 +200,8 @@ TOPICS = (
         steps(("Look first. This writes nothing and lists what would be added:",
                f"{INSTALLER} init /path/to/project \\\n    --dry-run --diff"),
               "A folder with one main `.tex` file needs nothing more (with several, add `--root thesis.tex`). For an empty folder, "
-              "or one without a manuscript, say what it is for: add `--profile notebook` (the others are `core`, "
-              "`tex-notebook`, `numerical`, `writing` and `research-paper`).",
+              "or one without a manuscript, say what it is for: add `--profile core` (the other is "
+              "`writing`).",
               "If the preview is right, run the same command without `--dry-run --diff`.",
               ("Then, in the project folder:", "make help")),
         note("The installer never overwrites your files, never touches Git, and backs up the files it manages before replacing "
@@ -293,22 +270,12 @@ TOPICS = (
              "uses the default document."),
     ), kind="howto", needs=("latex",)),
 
-    Topic("task", "I want to run a numerical task and plot the result", "Declare it, run it, draw it, see what is stale", (
-        steps("Declare the task in its manifest: `experiments.json` for runs, `figures/manifest.json` for figures. A new "
-              "manifest holds an example to copy; the format is in docs/research.md in the workbench package.",
-              ("Run the task:", "make run TASK=name"),
-              ("Draw the figure from its results:", "make figure TASK=name"),
-              ("See which results are current and which are stale:", "make freshness")),
-        note("Nothing runs by itself. `make validate` and `make check` fail while a result is stale and name the command "
-             "that refreshes it. These commands need the numerics and figures modules (topic `module`)."),
-    ), kind="howto", needs=("numerics", "figures")),
-
     Topic("module", "I want to turn a module on or off", "Modules are optional capabilities; switch them with the installer", (
         p("`make help` lists the modules that are not enabled here and prints the command that enables one."),
         steps(("Preview the change, with a module's name instead of NAME (for example `markdown`):",
                f"{INSTALLER} configure . \\\n    --enable NAME --dry-run --diff"),
               "If the preview is what you want, run the same command without `--dry-run --diff`.",
-              "To turn one off, use `--disable NAME` the same way. Your notes and run records are kept."),
+              "To turn one off, use `--disable NAME` the same way. Your files are kept."),
         note(f"`latex-ai-init` is a file in the workbench package, not a command on your PATH: run it as `{INSTALLER}`."),
     ), kind="howto"),
 
@@ -371,29 +338,23 @@ TOPICS = (
              ("Build receipt", "The record of one build: what was compiled, with which settings, from which file contents, "
                                "producing which outputs. It is what lets the workbench say a PDF is current."),
              ("Check and validate", "`make check` runs everything. `make validate` runs only what your changed files need."),
-             ("Claim", "A statement in your research tied to its evidence (the claims module)."),
              ("Configuration", "`.latex-ai.json`: which modules are on and which documents exist."),
              ("Document", "A LaTeX file the workbench builds under a name of its own, with its own receipt and PDF. "
-                          "Your paper is one; notes can be more."),
+                          "Your paper is one; a supplement or notes can be more."),
              ("Doctor", "`make doctor` checks that the tools the project needs are installed."),
-             ("Evidence", "What the commands record about what happened: build receipts and run records. It does not prove "
+             ("Evidence", "What the commands record about what happened: build receipts. It does not prove "
                           "that your science is right."),
-             ("Freshness", "Whether a result is still up to date with its inputs. A result that is not is stale."),
              ("Installer", f"`latex-ai-init`, a file in the workbench package that installs, upgrades, audits and "
                            f"reconfigures a project. Run it as `{INSTALLER}`."),
-             ("Manifest", "Two kinds. The installation manifest `.latex-ai/installation.json` records what was installed. A "
-                          "task manifest declares your numerical runs or figures."),
-             ("Module", "An optional capability: latex, bibliography, notes, markdown, numerics, figures, provenance, "
-                        "freshness, claims."),
+             ("Manifest", "The installation manifest `.latex-ai/installation.json` records what was installed."),
+             ("Module", "An optional capability: latex, bibliography, markdown."),
              ("Plan", "The preview of which checks your changes need (`make validation-plan`)."),
              ("Profile", "A starting choice of modules made at install time. It is not a lasting policy."),
-             ("Provenance", "The record kept of every numerical run, by default in `results/runs/`."),
              ("Reserved name", "The long `latex-ai-` name of a command, which works in every project."),
              ("Root", "The main `.tex` file of a document."),
              ("Runtime", "The workbench code installed in `.latex-ai/`. It belongs to the workbench: do not edit it."),
              ("Schema", "The version of the configuration format. Workbench 3 reads schema 3 only."),
-             ("Stale", "Out of date: a document whose sources or settings changed since its verified build, or a result "
-                       "whose inputs changed since it was produced."),
+             ("Stale", "Out of date: a document whose sources or settings changed since its verified build."),
              ("Verified", "Said of a PDF whose build receipt matches the sources and settings as they are now."),
              ("Workbench", "This tool: the commands, their checks and the records they keep.")),
     ), kind="reference"),

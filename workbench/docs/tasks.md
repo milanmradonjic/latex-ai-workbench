@@ -15,14 +15,9 @@ names apply. `latex-ai-init` below is a file in the workbench package, run as
 | Check everything before sharing | `make check` | [daily use](daily-use.md) |
 | Check only what I changed | `make validate` (preview: `make validation-plan`) | [validation](validation.md) |
 | Build the PDF | `make build` (`make lint`, `make bib-check`, `make pdf-artifact`) | [daily use](daily-use.md) |
-| Set up compiled TeX notes | `latex-ai-init init PROJECT --profile tex-notebook` | [TeX notes](tex-notes.md) |
+| Add another LaTeX document (notes, a supplement) | `latex-ai-init configure . --document NAME --root FILE` | [TeX notes](tex-notes.md) |
 | Check one named TeX document | `make latex-ai-document-check DOC=NAME` | [TeX notes](tex-notes.md) |
-| Run a numerical task | `make run TASK=name` | [research](research.md) |
-| Build a figure from results | `make figure TASK=name` | [research](research.md) |
-| Find out which results are stale, and why | `make freshness` (or `make status`) | [research](research.md) |
 | Adopt the style check on a paper that already has warnings | `make lint-baseline` (accepts today's warnings; new ones still fail) | [configuration](configuration.md#accepting-existing-style-warnings) |
-| Check that claims have their evidence | `make claims-check` | [research](research.md) |
-| Check or render Markdown notes | `make md-check`, `make md-render` | [Markdown](markdown.md) |
 | Turn a module on or off later | `latex-ai-init configure . --enable NAME` (or `--disable NAME`); `make help` prints the command; replace `/path/to/workbench` with where you keep the package | [modules](modules.md) |
 | Change what is checked | edit `.latex-ai.json` | [configuration](configuration.md) |
 | Set up Zotero and Better BibTeX | follow the guide | [bibliography](bibliography.md) |

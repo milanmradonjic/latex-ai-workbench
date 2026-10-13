@@ -42,8 +42,7 @@ MULTI_DOCUMENT = {
     "schema_version": 3,
     "modules": {"latex": {"default_document": "paper", "documents": {
                     "paper": {"root": "main.tex"}, "derivation": {"root": "notes/derivation.tex"},
-                    "notebook": {"root": "notes/notebook.tex"}}},
-                "notes": {"path": "notes", "index": "index.md", "session_state": "state.tex"}},
+                    "notebook": {"root": "notes/notebook.tex"}}}},
     "integrations": {"editor": True, "ci": {"enabled": True, "pdf_artifact": True, "texlive_version": "2026"}},
 }
 
@@ -63,7 +62,7 @@ FIXTURES = {
     "adopted-make-goal-reached-by-check": (profile("writing", build_command=["make", "pdf"]), CHECK_REACHES_GOAL),
     "adopted-make-own-short-names": (profile("writing", build_command=["make", "pdf"]), OWN_SHORT_NAMES),
     "adopted-other-build-command": (profile("writing", build_command=["python3", "build.py"]), OTHER_BUILD),
-    "adopted-no-tex": (profile("numerical"), OWN_CHECK),
+    "adopted-no-tex": (profile("core"), OWN_CHECK),
 }
 
 

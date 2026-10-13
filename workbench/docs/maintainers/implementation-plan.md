@@ -64,7 +64,7 @@ numeric/figure runs and manuscript edits restored current outputs. Notes-only
 checks preserved scientific output hashes. Four recoverable run records and
 the final report are retained; see [verification](verification.md).
 
-The pilot supported a small [workflow guide](../research-loop.md) covering current
+The pilot supported a small workflow guide covering current
 configuration/output checks, figure dependencies, when to add result links and
 deliberate manuscript updates. No new execution or synchronization layer was
 needed. The owner authorized a local commit of the workflow guide and pilot

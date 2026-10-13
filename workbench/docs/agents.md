@@ -80,20 +80,18 @@ is therefore the policy and these files only supplement it.
 
 ## Suspected workbench defects
 
-The workbench tells its own faults apart from ordinary failures. A failed check, a stale
-freshness report or a malformed file is reported as `ERROR:` with exit status 1. Anything
+The workbench tells its own faults apart from ordinary failures. A failed check or a malformed file is reported as `ERROR:` with exit status 1. Anything
 else, such as an unexpected exception inside the workbench, is reported as `INTERNAL ERROR`
 with exit status 70 and a pointer to the report command (`make` reports the recipe as `Error 70`
 but exits 2 itself, so the label is the reliable signal); the traceback is kept in the OS
 temp directory, never in the project, so read-only commands stay read-only. (Hand-edited
-configuration, manifests, claims and run records were fuzzed so that bad data gives a
-diagnostic and not this label.)
+configuration was fuzzed so that bad data gives a diagnostic and not this label.)
 
 `make latex-ai-issue ISSUE_NOTE="observed ... expected ..." ISSUE_COMMAND="the command"` (or
 `python3 .latex-ai/workbench.py issue --note ...`) writes one local file,
 `.latex-ai/artifacts/issues/report-*.json` (ignored by Git), holding the version, how the
-installed files compare with the manifest, the configuration, the validation plan, the latest
-run records, tool versions, Git branch and head, and recent internal faults. It works even when
+installed files compare with the manifest, the configuration, the validation plan,
+tool versions, Git branch and head, and recent internal faults. It works even when
 the configuration is broken or the defect lies in the code that gathers part of the evidence (that
 section then records the failure and the rest of the report is still written), never includes
 environment variables, and nothing is sent anywhere: review it and pass it to whoever maintains the workbench. `AGENTS.md` tells agents
@@ -104,5 +102,4 @@ always provides: a project's own `issue` target is kept, so the short `make issu
 alias where nothing else uses that name, and the guidance never relies on it.
 
 This catches faults that announce themselves. A plausible wrong result that passes every check
-does not, which is why attribution checks (a task's check comparing its output with its inputs,
-as in the decay example) matter more than any flag.
+does not, which is why the review of a change matters more than any flag.

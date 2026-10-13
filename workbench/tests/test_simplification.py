@@ -16,7 +16,6 @@ import bootstrap
 import documents
 import latex
 import runtime
-import markdown
 import schema3_workflow
 from test_support import isolate_environment
 
@@ -35,37 +34,6 @@ class SimplificationTests(unittest.TestCase):
 
     def test_hosted_multi_document_workflow_matches_generated_adapter(self):
         self.assertEqual(schema3_workflow.DESTINATION.read_text(), schema3_workflow.generated_workflow())
-
-    def test_selected_documents_keep_project_module_checks_in_shared_plan(self):
-        (self.project / "main.tex").write_text("\\documentclass{article}\n")
-        config = self.config()
-        config["modules"].update(notes={}, markdown={})
-        plan = runtime.validation_plan(self.project, config, [core.CONFIG])
-        self.assertFalse(plan["project_check"])
-        self.assertEqual(plan["actions"], ["research", "markdown", "full"])
-        self.assertEqual(core.validation_actions({**plan, "project_check": True}), ["full"])
-
-    def test_selected_validation_executes_module_checks_once(self):
-        (self.project / "main.tex").write_text("\\documentclass{article}\n")
-        config = self.config()
-        config["modules"].update(notes={}, markdown={})
-        (self.project / core.CONFIG).write_text(json.dumps(config))
-        plan = runtime.validation_plan(self.project, config, [core.CONFIG])
-        with patch.object(runtime, "file_checks"), patch.object(runtime, "research_checks") as research_check, patch.object(markdown, "check") as markdown_check, patch.object(runtime, "run") as run:
-            runtime.validate_changes(self.project, plan)
-        research_check.assert_called_once()
-        markdown_check.assert_called_once()
-        self.assertEqual(run.call_args.args[0], ["make", "latex-ai-document-check", "DOC=paper"])
-
-    def test_document_ci_preflight_rejects_missing_project_notes(self):
-        (self.project / "main.tex").write_text("\\documentclass{article}\n")
-        config = self.config()
-        config["modules"]["notes"] = {}
-        (self.project / core.CONFIG).write_text(json.dumps(config))
-        plan = runtime.validation_plan(self.project, config, [core.CONFIG])
-        self.assertIn("research", plan["actions"])
-        with patch.object(sys, "argv", ["workbench", "research-check", "--changed", "--files", core.CONFIG, "--project", str(self.project)]), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            self.assertEqual(runtime.main(), 1)
 
     def test_old_project_schemas_refuse_installation_without_writes(self):
         for version in (1, 2):

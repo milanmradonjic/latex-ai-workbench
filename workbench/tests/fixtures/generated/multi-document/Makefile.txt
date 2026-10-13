@@ -82,16 +82,6 @@ latex-ai-clean:
 	@$(PYTHON) .latex-ai/workbench.py clean --document "$$DOC"
 .PHONY: clean
 clean: latex-ai-clean
-.PHONY: latex-ai-research-check
-latex-ai-research-check:
-	@$(PYTHON) .latex-ai/workbench.py research-check
-.PHONY: research-check
-research-check: latex-ai-research-check
-.PHONY: latex-ai-research-validate
-latex-ai-research-validate:
-	@$(PYTHON) .latex-ai/workbench.py research-check --changed
-.PHONY: research-validate
-research-validate: latex-ai-research-validate
 .PHONY: latex-ai-modules
 latex-ai-modules:
 	@$(PYTHON) .latex-ai/workbench.py modules

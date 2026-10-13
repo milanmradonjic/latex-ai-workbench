@@ -14,11 +14,6 @@
           "root": "notes/notebook.tex"
         }
       }
-    },
-    "notes": {
-      "path": "notes",
-      "index": "index.md",
-      "session_state": "state.tex"
     }
   },
   "integrations": {

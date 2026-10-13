@@ -173,59 +173,29 @@ def main():
     (bad / "paper.tex").write_text(PLAIN)
     run("negative-recovered", bad, ["make", "check"])
 
-    notebook = create("notes-only", {})
-    init("notes-only", notebook, "--profile", "notebook")
+    notebook = create("notes-only", {"notes/session.md": "A question.\n"})
+    init("notes-only", notebook, "--profile", "core")
     run("notes-only-doctor", notebook, ["make", "doctor"])
     run("notes-only-check", notebook, ["make", "check"])
     run("notes-only-audit", notebook, [sys.executable, str(CLI), "audit", str(notebook)])
     if (notebook / ".latex-ai/latex.py").exists() or (notebook / ".vscode").exists():
         raise RuntimeError("Notes-only project acquired a LaTeX/editor module")
 
-    numerical = create("numerics-no-tex", {})
-    shutil.copytree(PACKAGE / "examples/decay", numerical, dirs_exist_ok=True)
-    init("numerical", numerical)
-    run("numerical-doctor", numerical, ["make", "doctor"])
-    run("numerical-run", numerical, ["make", "run", "TASK=decay"])
-    run("numerical-figure", numerical, ["make", "figure", "TASK=decay"])
-    run("numerical-check", numerical, ["make", "check"])
-    run("numerical-freshness", numerical, ["make", "freshness"])
-    run("numerical-audit", numerical, [sys.executable, str(CLI), "audit", str(numerical)])
-    # Change parameters, prove read-only stale propagation, then refresh explicitly.
-    parameters = numerical / "parameters.json"
-    original = parameters.read_bytes()
-    value = json.loads(original)
-    value["gamma"] = 2.0
-    parameters.write_text(json.dumps(value))
-    before = {p.relative_to(numerical).as_posix(): p.read_bytes() for p in numerical.rglob("*") if p.is_file()}
-    run("numerical-stale", numerical, ["make", "freshness"], expected=1, diagnostic="upstream task is stale")
-    after = {p.relative_to(numerical).as_posix(): p.read_bytes() for p in numerical.rglob("*") if p.is_file()}
-    if before != after:
-        raise RuntimeError("Freshness inspection modified files")
-    run("numerical-stale-validate", numerical, [sys.executable, ".latex-ai/workbench.py", "validate", "--files", "parameters.json"], expected=1, diagnostic="was not produced from the current parameters")
-    run("numerical-refresh-run", numerical, ["make", "run", "TASK=decay"])
-    run("numerical-refresh-figure", numerical, ["make", "figure", "TASK=decay"])
-    run("numerical-refreshed-check", numerical, ["make", "check"])
-    relocated = base / "relocated project"
-    shutil.copytree(numerical, relocated)
-    run("numerical-relocated-check", relocated, ["make", "check"])
-    run("numerical-disable", numerical, [sys.executable, str(CLI), "configure", str(numerical), "--disable", "numerics", "--disable", "figures", "--disable", "freshness"])
-    run("numerical-disabled-check", numerical, ["make", "check"])
-    if not (numerical / "figures/decay.svg").is_file() or not list((numerical / "results/runs").glob("*/record.json")):
-        raise RuntimeError("Module disable discarded research artifacts")
-
     run("mixed-upgrade", bad, [sys.executable, str(CLI), "upgrade", str(bad)])
-    run("mixed-enable-notes", bad, [sys.executable, str(CLI), "configure", str(bad), "--enable", "notes"])
     run("mixed-check", bad, ["make", "check"])
     run("mixed-audit", bad, [sys.executable, str(CLI), "audit", str(bad)])
 
-    # Named notebooks cover independent engines, receipts and exports with the
-    # real lint policy. No format conversion or scientific task is involved.
+    # Named documents cover independent engines, receipts and exports with the
+    # real lint policy. No format conversion is involved.
+    notebook_source = "\\documentclass{article}\n\\begin{document}\n\\section*{Notebook}\n\\input{session-state.tex}\n\\end{document}\n"
     for engine in ("pdflatex", "lualatex", "xelatex"):
-        name = "tex-notebook-" + engine
-        project = create(name, {"notes/derivation.tex": PLAIN})
-        init(name, project, "--profile", "tex-notebook", "--engine", engine)
-        run(name + "-register", project, [sys.executable, str(CLI), "configure", str(project),
-                                         "--document", "derivation", "--root", "notes/derivation.tex", "--engine", engine])
+        name = "named-documents-" + engine
+        project = create(name, {"main.tex": PLAIN, "notes/derivation.tex": PLAIN, "notes/notebook.tex": notebook_source,
+                                "notes/session-state.tex": "\\section*{Current question}\n"})
+        init(name, project, "--profile", "writing", "--root", "main.tex", "--engine", engine)
+        for document, root in (("notebook", "notes/notebook.tex"), ("derivation", "notes/derivation.tex")):
+            run(name + "-register-" + document, project, [sys.executable, str(CLI), "configure", str(project),
+                                                          "--document", document, "--root", root, "--engine", engine])
         run(name + "-check", project, ["make", "-j4", "check"])
         for target in ("notebook", "derivation"):
             run(name + "-export-" + target, project, ["make", "latex-ai-pdf-artifact", "DOC=" + target])

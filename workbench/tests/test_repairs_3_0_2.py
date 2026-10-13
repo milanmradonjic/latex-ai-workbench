@@ -20,13 +20,12 @@ import schema
 import diagnostics
 import latex
 import processes
-import research
 from test_support import ProjectCase
 
 PACKAGE = Path(__file__).resolve().parents[1]
 MAKE = bool(shutil.which("make"))
 SOURCE = "\\documentclass{article}\n\\begin{document}Audit fixture.\\end{document}\n"
-HOLD = ("import sys, time\nsys.path.insert(0, {package!r})\nfrom pathlib import Path\nimport core, research\n"
+HOLD = ("import sys, time\nsys.path.insert(0, {package!r})\nfrom pathlib import Path\nimport core\n"
         "with {lock}:\n    print('held', flush=True)\n    time.sleep(60)\n")
 
 
@@ -52,17 +51,10 @@ class Repairs(ProjectCase):
                 pass
         self.assertTrue((self.project / ".latex-ai/artifacts/locks/build.lock").is_file())
 
-    def test_research_task_lock_is_the_project_lock(self):
-        (self.root / "a").mkdir(); (self.root / "b").mkdir()
-        self.hold(f"research.task_lock(Path({str(self.project)!r}), 'numerics', 'solve')", self.root / "a")
-        with patch.object(tempfile, "tempdir", str(self.root / "b")), self.assertRaises(core.WorkbenchError):
-            with research.task_lock(self.project, "numerics", "solve"):
-                pass
-
     def test_a_lock_that_cannot_be_created_fails_closed(self):
-        # Before: research.task_lock caught the error and ran the task without any lock.
+        # Before 3.0.2 a lock that could not be created was skipped, and the work ran without any lock.
         with patch.object(Path, "mkdir", side_effect=PermissionError("denied")), self.assertRaises(core.WorkbenchError):
-            with research.task_lock(self.project, "numerics", "solve"):
+            with core.operation_lock(self.project, "build"):
                 self.fail("ran without a lock")
 
     def test_fault_records_are_kept_per_user(self):

@@ -12,7 +12,7 @@ import re
 
 import make_graph
 from commands import RECURSIVE_GOALS, RESERVED_PREFIX
-from core import (CONFIG, GENERATED_TREES, MODULES, WorkbenchError, document_paths, has_module, integrations, local_path, module_config, module_names,
+from core import (CONFIG, MODULES, REMOVED_MODULES, WorkbenchError, document_paths, has_module, integrations, local_path, module_config, module_names,
                   path_identity, path_name, read_json)
 
 DEFAULTS = {"engine": "pdflatex", "backend": "none", "lint": {"enabled": True, "args": []},
@@ -476,10 +476,15 @@ def validate_config(project, config, planned_sources=None):
     modules = config.get("modules")
     if not isinstance(modules, dict):
         raise WorkbenchError("modules must be an object")
-    unknown_keys(modules, MODULES, "", noun="module")
     disabled = config.get("disabled_modules", {})
     if not isinstance(disabled, dict):
         raise WorkbenchError("disabled_modules must be an object")
+    gone = [name for name in REMOVED_MODULES if name in modules or name in disabled]
+    if gone:
+        raise WorkbenchError(f"Workbench 4 no longer has the module{'s' if len(gone) > 1 else ''}: {', '.join(gone)}",
+                             hint=f"remove {'them' if len(gone) > 1 else 'it'} from \"modules\" and \"disabled_modules\" in {CONFIG}; "
+                                  "your notes, results and other files are not touched (docs/maintainers/minimal-scope.md says why)")
+    unknown_keys(modules, MODULES, "", noun="module")
     unknown_keys(disabled, MODULES, "saved disabled", noun="module")
     if set(disabled) & modules.keys():
         raise WorkbenchError(f"Module is both enabled and saved as disabled: {', '.join(sorted(set(disabled) & modules.keys()))}")
@@ -493,34 +498,6 @@ def validate_config(project, config, planned_sources=None):
         missing = set(MODULES[name]["requires"]) - modules.keys()
         if name in modules and missing:
             raise WorkbenchError(f"{name} requires enabled module(s): {', '.join(sorted(missing))}")
-        effective = {**copy.deepcopy(MODULES[name]["defaults"]), **values}
-        if name == "notes":
-            base = local_path(project, effective["path"])
-            for key in ("index", "session_state"):
-                entry = local_path(project, (Path(effective["path"]) / effective[key]).as_posix()) if isinstance(effective[key], str) else None
-                if entry is None or not entry.is_relative_to(base) or entry == base or ".." in Path(effective[key]).parts or Path(effective[key]).is_absolute():
-                    raise WorkbenchError(f"Invalid notes.{key} path: {effective[key]!r}", hint="use a file name inside the notes directory")
-        if name == "markdown":
-            patterns = effective["files"]
-            if not isinstance(patterns, list) or not patterns:
-                raise WorkbenchError("markdown.files must be a nonempty list of project-relative paths/globs")
-            for pattern in patterns:
-                if not project_pattern(pattern):
-                    raise WorkbenchError(f"Invalid Markdown input pattern: {pattern!r}", hint="use a project-relative glob without '..'")
-                local_path(project, pattern)
-                if not Path(pattern).parts or Path(pattern).parts[0] in GENERATED_TREES:
-                    raise WorkbenchError("Markdown inputs cannot be generated/infrastructure trees")
-        for key in ("path", "manifest"):
-            if key in effective:
-                local_path(project, effective[key])
-                parts = Path(effective[key]).parts
-                if not parts or local_path(project, effective[key]) == project.resolve() or ".." in parts or parts[0] in {".git", ".latex-ai", ".vscode", ".github", ".codex", ".claude"} or effective[key] in {CONFIG, "AGENTS.md", "CLAUDE.md", "Makefile", "makefile", "GNUmakefile", ".gitignore"}:
-                    raise WorkbenchError(f"Reserved module path: {effective[key]}")
-                if key == "manifest" and Path(effective[key]).suffix != ".json":
-                    raise WorkbenchError("Module manifests must use .json paths")
-    manifests = [path_identity(project, module_config(config, name)["manifest"]) for name in ("numerics", "figures", "claims") if name in modules]
-    if len(manifests) != len(set(manifests)):
-        raise WorkbenchError("Module manifests must use distinct paths")
     adapters = config.get("integrations", {})
     if not isinstance(adapters, dict):
         raise WorkbenchError("integrations must be an object")

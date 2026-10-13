@@ -16,9 +16,9 @@ python3 /path/to/workbench/latex-ai-init audit /path/to/project --json
 
 Audit missing components and conflicts; an absent installation returns 1.
 Select a profile or modules and enable editor/CI adapters only
-when needed; read [module setup](../../../docs/modules.md). Notes/numerics-only
-projects do not need a TeX root. Profiles choose initial configuration only.
-For handwritten TeX notes, use `tex-notebook` or register independent roots
+when needed; read [module setup](../../../docs/modules.md). Projects without a manuscript
+do not need a TeX root. Profiles choose initial configuration only.
+For handwritten TeX notes, register independent roots
 with `configure --document ID --root PATH`. Preview first. Read
 [TeX notes](../../../docs/tex-notes.md) for named output ownership, mixed formats
 and adopted Make restrictions. Only project configuration schema 3 is supported.

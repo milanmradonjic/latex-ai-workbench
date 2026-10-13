@@ -667,7 +667,7 @@ class WorkbenchTests(unittest.TestCase):
                 schema.validate_config(self.project, {**base, "validation": {"package": bad}})
 
     def test_every_git_query_runs_with_optional_locks_disabled(self):
-        import research
+        import diagnostics
         seen = []
         index = self.project / "fake-index"
         index.write_bytes(b"index")
@@ -679,7 +679,7 @@ class WorkbenchTests(unittest.TestCase):
             rt.changed_files(self.project)
             rt.project_files(self.project)
             boot.git_snapshot(self.project)
-            research.git_state(self.project)
+            diagnostics.git_state(self.project)
         self.assertGreaterEqual({command for command, _ in seen}, {"diff", "ls-files", "status", "rev-parse", "config", "branch"})
         self.assertEqual({lock for _, lock in seen}, {"0"})  # git status/diff would otherwise rewrite a stale .git/index
 
@@ -771,8 +771,8 @@ class WorkbenchTests(unittest.TestCase):
         output = self.project / "routing-output"
         with patch.object(sys, "argv", ["runtime", "plan", "--project", str(self.project), "--files", "README.md", "--github-output", str(output)]), patch.object(rt, "run", side_effect=AssertionError("Build invoked")), contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(rt.main(), 0)
-        self.assertEqual(output.read_text(), "unit=false\nportability=false\nmanuscript=false\nbibliography=false\nresearch=false\nmarkdown=false\n"
-                         "check_unit=false\ncheck_bibliography=false\ncheck_research=false\ncheck_markdown=false\ncheck_portability=false\ncheck_full=false\ndocument_ids=[]\nproject_check=false\n")
+        self.assertEqual(output.read_text(), "unit=false\nportability=false\nmanuscript=false\nbibliography=false\n"
+                         "check_unit=false\ncheck_bibliography=false\ncheck_portability=false\ncheck_full=false\ndocument_ids=[]\nproject_check=false\n")
 
     def test_recursion_guard_blocks_same_project_but_allows_synthetic_children(self):
         self.init()

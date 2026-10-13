@@ -6,8 +6,8 @@ This module is also the one place that knows how a workbench command is named in
 """
 import re
 
-from commands import COMMANDS, RESEARCH  # the registry derives every name shown to readers
-from core import MODULES, VERSION, WorkbenchError, has_module, module_config
+from commands import COMMANDS  # the registry derives every name shown to readers
+from core import MODULES, VERSION, WorkbenchError, has_module
 import make_graph
 from make_graph import MAKEFILES, active_makefile, makefile_text  # read the project's Makefile
 from schema import STATES, specifications
@@ -24,11 +24,8 @@ def enabled(command, config):
 
 PURPOSE = {
     "latex": "build and check a LaTeX manuscript", "bibliography": "check bibliography files and keys",
-    "notes": "keep research notes and session state", "markdown": "check and render Markdown notes",
-    "numerics": "declared, reproducible numerical runs", "figures": "figures built from run results",
-    "provenance": "a record of every run", "freshness": "tell when results are stale", "claims": "tie claims to their evidence",
 }
-CHECKED = ("files", "policy", "unit", "portability", "manuscript", "bibliography", "research", "markdown")
+CHECKED = ("files", "policy", "unit", "portability", "manuscript", "bibliography")
 
 
 def included_texts(project, text, seen=None):
@@ -112,7 +109,7 @@ def module_disabled(config, name):
     return WorkbenchError(f"Module is disabled: {name}", hint="turn it on with: " + enable_command(config, name))
 
 
-def help_text(project, config, problem, declared):
+def help_text(project, config, problem):
     names = available(project, config)
     enabled = enabled_modules(config)
     lines = [f"LaTeX AI Workbench {VERSION}: commands for this project" + (f" (enabled: {', '.join(enabled)})" if enabled else "")]
@@ -132,8 +129,7 @@ def help_text(project, config, problem, declared):
             short = command.short
             usage = command.usage if config or not command.usage.startswith("DOC") else ""
             line = f"make {names[short]}" + (f" {usage}" if usage else "")
-            note = declared.get(short)
-            lines.append(f"  {line:<34}{command.description}" + (f" (declared: {', '.join(note)})" if note else ""))
+            lines.append(f"  {line:<34}{command.description}")
     disabled = [name for name in MODULES if name not in enabled and config is not None]
     if disabled:
         lines += ["", "Not enabled here: " + "; ".join(f"{name} ({PURPOSE[name]})" for name in disabled),
@@ -141,13 +137,13 @@ def help_text(project, config, problem, declared):
     if config and has_module(config, "latex"):
         lines += ["", "Documents: " + ", ".join(document.name + (" (default)" if document.default else "") for document in specifications(config)),
                   "  make check checks all documents; build/export without DOC uses the default."]
-    lines += ["", "Nothing here changes Git. Written guides: docs/quickstart.md and docs/tasks.md in the workbench package (the folder the installer was run from)."]
+    lines += ["", "Nothing here changes Git. Written guide: docs/quickstart.md in the workbench package (the folder the installer was run from)."]
     if names["guide"]:
         lines.append(f"Pictures, how-tos and a glossary: make {names['guide']}" + (f", or make {names['guide-html']} for a web page." if names["guide-html"] else "."))
     return "\n".join(lines)
 
 
-def status_text(project, config, problem, installed, git, plan, plan_error, fresh, fresh_error, documents=None):
+def status_text(project, config, problem, installed, git, plan, plan_error, documents=None):
     names = available(project, config)
     lines = [f"LaTeX AI Workbench {VERSION}: status of {project.name}", ""]
     next_steps, validate_step, last_steps, waiting = [], [], [], []
@@ -222,29 +218,15 @@ def status_text(project, config, problem, installed, git, plan, plan_error, fres
         check = f"make {names['check']}" if names["check"] else None
         if missing and check and not any(step.split("   ")[0] == check for step in last_steps):
             last_steps.append(f"{check}   (no verified build yet: {', '.join(missing)})")
-    if fresh_error:
-        row("Research", f"could not be determined: {fresh_error}")
-    elif fresh is not None and not fresh:
-        manifests = " and ".join(module_config(config, name)["manifest"] for name in ("numerics", "figures") if has_module(config, name))
-        row("Research", f"no task declared yet; declare them in {manifests or 'a task manifest'} (format: docs/research.md in the workbench package)")
-        next_steps.append(f"declare your first task in {manifests or 'a task manifest'} (a new manifest holds an example to copy)")
-    elif fresh is not None:
-        stale = [item for item in fresh if item["status"] == "stale"]
-        row("Research", f"{len(fresh)} task(s): {len(fresh) - len(stale)} current" + (f", {len(stale)} stale" if stale else ""))
-        for item in stale:
-            lines.append(f"               {item['module']}/{item['task']}: stale; {'; '.join(item['reasons'])}")
-            action = "run" if item["module"] == "numerics" else "figure"
-            if names[action]:
-                next_steps.append(f"make {names[action]} TASK={item['task']}")
     lines.append("")
-    builds = validate_step + last_steps  # after any research step: validating or checking a stale result can only fail
+    builds = validate_step + last_steps
     if waiting:  # a second build is refused while one runs, so the wait comes first and the rest follows it
         builds = [step + "   (after the running build ends)" for step in builds]
     next_steps = waiting + next_steps + builds
     if next_steps:
         lines.append("Next:")
         lines += [f"  {step}" for step in dict.fromkeys(next_steps)]
-    elif plan_error or fresh_error:
+    elif plan_error:
         lines.append("Nothing can be suggested until the problem reported above is fixed.")
     else:
         lines.append("Nothing pending." + (f" `make {names['check']}` runs the full check." if names["check"] else ""))

@@ -25,20 +25,13 @@ absent, then may reuse unchanged verified outputs on subsequent checks.
 
 ## Choosing a profile and modules
 
-For new projects choose `--profile core`, `notebook`, `tex-notebook`, `numerical`, `writing` or
-`research-paper`, or an explicit `--modules` list. Editor/CI adapters are opt-in
-for modular projects. Read [module configuration and profiles](modules.md)
-and [research commands/records](research.md). The [synthetic decay example](../examples/decay/README.md)
-provides a complete numerical/figure/freshness loop without TeX.
-The opt-in [Markdown module](markdown.md) adds local link/anchor/citation
-checks and explicit HTML export using Pandoc. Existing profiles remain unchanged.
-The [research loop guide](research-loop.md) connects notes, scientific tasks,
-figures and handwritten TeX without automatic execution or synchronization.
+For new projects choose `--profile core` or `writing`, or an explicit `--modules` list.
+Editor/CI adapters are opt-in for modular projects. Read
+[module configuration and profiles](modules.md).
 
 Every installation uses schema 3. Older project schemas are unsupported and are
 never automatically converted. Upgrades retain supported project choices. The reference
-uses only LaTeX and bibliography; optional research modules are demonstrated in
-synthetic projects, rather than added to its toy manuscript.
+uses LaTeX and bibliography.
 
 ## Package and installed project
 
@@ -47,7 +40,7 @@ synthetic projects, rather than added to its toy manuscript.
 | Reusable templates | `templates/` | Agent policy, Make, editor, permissions; workflow rendered from config |
 | Setup/audit/upgrade | `latex-ai-init`, `bootstrap.py` | Detect conventions, plan safe changes, manage installation |
 | Runtime/core | `runtime.py`, `core.py`, `guide.py`, `handbook.py`, `diagnostics.py` | Vendored to `.latex-ai/`; dispatcher, config and file checks, help/status/guide, local defect reports |
-| Optional backends | `latex.py`, `research.py`, `markdown.py` | Installed when their modules are enabled |
+| Optional backends | `latex.py`, `documents.py` | Installed when LaTeX or bibliography is enabled |
 | Configuration | Project `.latex-ai.json` | Enabled modules, paths, commands, optional adapters; schema 3 only |
 | Upgrade state | Project `.latex-ai/installation.json` | Release and merge baselines (digests for files installed whole, text where a merge needs it); keep in version control |
 | Operating skill | `skills/latex-ai-workbench/` | Bootstrap, writing, independent review, upgrades |

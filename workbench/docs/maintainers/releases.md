@@ -3,6 +3,31 @@
 Workbench 3 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 4.0.0 — the research, notes and Markdown modules are removed
+
+The first step of [the minimal scope](minimal-scope.md): what the owner does not need goes, so that what remains is small enough to
+keep in mind. This is a breaking release. Nothing of a project's own files is touched.
+
+- **Removed modules:** `numerics`, `figures`, `provenance`, `freshness`, `claims`, `notes` and `markdown`, with the code that served
+  them (`research.py`, `task_graph.py`, `markdown.py`: about 800 lines), the profiles that needed them (`notebook`, `tex-notebook`,
+  `numerical`, `research-paper`; `core` and `writing` remain), their Make targets and commands (`run`, `figure`, `freshness`, `history`,
+  `claims-check`, `research-check`, `research-validate`, `md-check`, `md-render`), the `--task`, `--changed` and `--expensive-checks`
+  options, the decay example, the Markdown example, their documents (`research.md`, `research-loop.md`, `markdown.md`) and their
+  parts of the guide, the policy text and the skill. The Markdown link check of the file checks is not the module: it stays.
+- **A configuration that names a removed module** is refused, by name, with a hint to remove it from `"modules"` and
+  `"disabled_modules"` in `.latex-ai.json`; no file is changed. Notes, manifests, run records and results stay where they are.
+- **Generated files:** the Makefile and editor files of a project with LaTeX and bibliography are byte-identical. The workflow loses the
+  step that installed Pandoc (three lines), and `AGENTS.md` loses the paragraphs about research tasks, freshness and Markdown. The
+  workflow of a project without LaTeX is named `AI Workbench` and no longer `Research AI Workbench`.
+- **JSON shapes:** `plan --json`, `validate --json` and `status --json` no longer carry `research`, `research_modules`, `markdown`,
+  `freshness` and `freshness_error`; `check --json` no longer carries `expensive_checks_executed`; `modules` lists two modules. The GitHub
+  outputs `research`, `markdown`, `check_research` and `check_markdown` are gone.
+- **Tests:** about a quarter of the suite described what is gone and went with it (448 to 379 tests); the rest were rewritten
+  where they used a removed profile only to get a project without TeX. `tests/test_scope_4_0_0.py` pins what is gone, and fails
+  against 3.7.0 in every part.
+
+See [the verification record](verification-4.0.0.md).
+
 ## 3.7.0 — each fact the code spelled twice is spelled once
 
 Phase 3, finding F9 of the architecture audit. A change to one copy of a list had to be made again in the others, and the
@@ -758,4 +783,4 @@ modules explicitly and supports projects without TeX. Schema 1 remains readable;
 choices only; `configure --enable/--disable` changes installed module selection.
 Research files are editable initial seeds retained on upgrade/disable. Optional
 commands, editor and CI adapters follow enabled modules. Read
-[modules and migration](../modules.md) and [research commands](../research.md).
+[modules and migration](../modules.md) and research commands.

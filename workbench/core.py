@@ -14,7 +14,7 @@ import tempfile
 import time
 import processes
 
-VERSION = "3.7.0"
+VERSION = "4.0.0"
 CONFIG = ".latex-ai.json"
 # Trees that are never project sources: version control, workbench state, environments, caches and installed packages. Every
 # walk and every check of a declared path agrees on them; the installer adds the folders it alone leaves out.
@@ -232,19 +232,10 @@ def make_has_extra_prereqs():
 MODULES = {
     "latex": {"runtime": "latex.py", "check_group": "latex", "tools": [], "requires": [], "defaults": {"default_document": "manuscript", "documents": {"manuscript": {"root": "main.tex"}}}},
     "bibliography": {"runtime": "latex.py", "check_group": "bibliography", "tools": [], "requires": [], "defaults": {"files": [], "export": None}},
-    "notes": {"runtime": "research.py", "check_group": "research", "tools": [], "requires": [], "defaults": {"path": "notes", "index": "index.md", "session_state": "session-state.md"}},
-    "markdown": {"runtime": "markdown.py", "check_group": "markdown", "tools": ['pandoc'], "requires": [], "defaults": {"files": ["notes/**/*.md"]}},
-    "numerics": {"runtime": "research.py", "check_group": "research", "tools": [], "requires": [], "defaults": {"manifest": "experiments.json"}},
-    "figures": {"runtime": "research.py", "check_group": "research", "tools": [], "requires": [], "defaults": {"manifest": "figures/manifest.json"}},
-    "provenance": {"runtime": "research.py", "check_group": "research", "tools": [], "requires": [], "defaults": {"path": "results/runs"}},
-    "freshness": {"runtime": "research.py", "check_group": "research", "tools": [], "requires": ["provenance"], "defaults": {}},
-    "claims": {"runtime": "research.py", "check_group": "research", "tools": [], "requires": [], "defaults": {"manifest": "claims.json"}},
 }
-PROFILES = {
-    "core": [], "writing": ["latex"], "notebook": ["notes"], "tex-notebook": ["latex", "notes"],
-    "numerical": ["numerics", "provenance", "freshness"],
-    "research-paper": ["latex", "notes", "numerics", "provenance", "figures", "freshness"],
-}
+PROFILES = {"core": [], "writing": ["latex"]}
+# Modules of workbench 3 that workbench 4 no longer has. A configuration naming one is refused with a hint, not as an unknown name.
+REMOVED_MODULES = ("notes", "markdown", "numerics", "figures", "provenance", "freshness", "claims")
 
 
 def has_module(config, name):
@@ -369,7 +360,7 @@ def module_names(config, group=None):
 
 # Every file of the distribution whose change affects installed projects: the planner treats a change to
 # one as a build/configuration change. runtime_sources (below) is the subset a given project receives.
-RUNTIME_FILES = ("runtime.py", "commands.py", "schema.py", "core.py", "latex.py", "documents.py", "research.py", "task_graph.py", "markdown.py", "diagnostics.py", "handbook.py",
+RUNTIME_FILES = ("runtime.py", "commands.py", "schema.py", "core.py", "latex.py", "documents.py", "diagnostics.py", "handbook.py",
                  "guide.py", "make_graph.py", "processes.py", "output_transaction.py", "recipe-shell.sh",
                  "bootstrap.py", "adapters.py", "installation.py", "latex-ai-init")
 
@@ -378,7 +369,6 @@ def runtime_sources(config):
     return {"runtime.py": "workbench.py", "commands.py": "commands.py", "schema.py": "schema.py", "core.py": "core.py", "diagnostics.py": "diagnostics.py", "guide.py": "guide.py",
             "handbook.py": "handbook.py", "make_graph.py": "make_graph.py", "processes.py": "processes.py",
             **{MODULES[name]["runtime"]: MODULES[name]["runtime"] for name in module_names(config)},
-            **({"task_graph.py": "task_graph.py"} if module_names(config, "research") else {}),
             **({"documents.py": "documents.py"} if has_module(config, "latex") or
                "latex" in config.get("disabled_modules", {}) else {}),
             **({"output_transaction.py": "output_transaction.py", "recipe-shell.sh": "recipe-shell.sh"}
@@ -390,8 +380,6 @@ def runtime_sources(config):
 VALIDATION_ACTIONS = {
     "unit": {"label": "Test workbench", "argv": ("make", "-C", "{package}", "test"), "stage": "host"},
     "bibliography": {"label": "Check bibliography", "argv": ("make", "latex-ai-bib-check"), "stage": "host"},
-    "research": {"label": "Check selected research modules", "argv": ("make", "latex-ai-research-validate"), "stage": "host"},
-    "markdown": {"label": "Check Markdown", "argv": ("make", "latex-ai-md-check"), "stage": "host"},
     "portability": {"label": "Test compiler portability", "argv": ("make", "-C", "{package}", "portability"), "stage": "tex"},
     "full": {"label": "Check project", "argv": ("make", "check"), "stage": "project"},
 }
@@ -403,10 +391,6 @@ def validation_argv(name, package="workbench"):
 
 def validation_actions(plan):
     full = bool(plan["manuscript"] or plan["fallback"])
-    # A project-wide make check covers module checks. Individual document
-    # checks cover only TeX, so their shared module preflight stays explicit.
-    split_documents = full and bool(plan.get("documents")) and not plan.get("project_check")
+    # A project-wide make check covers the bibliography check, so it is selected on its own only without a full check.
     return [name for name in VALIDATION_ACTIONS
-            if (full if name == "full" else plan.get(name, False) and
-                (name in {"unit", "portability"} or not full or
-                 split_documents and name in {"research", "markdown"}))]
+            if (full if name == "full" else plan.get(name, False) and (name in {"unit", "portability"} or not full))]

@@ -17,11 +17,8 @@ For everyday notes, documentation, policy, code and manuscript edits, use
 `make validation-plan` to preview relevant checks and `make validate` to run
 them. Ordinary documentation-only work skips the manuscript build. See the
 [change-aware validation guide](workbench/docs/validation.md).
-The optional [Markdown module](workbench/docs/markdown.md) checks declared
-notes, links, anchors and citations and can explicitly export local HTML.
-Plain notes and the current reference do not require Pandoc.
-The [TeX notes guide](workbench/docs/tex-notes.md) covers compiled notebooks,
-independent note documents and mixed Markdown/TeX organization in schema 3.
+The [TeX notes guide](workbench/docs/tex-notes.md) covers independent note documents
+and several documents in one project (schema 3).
 
 The reusable package lives entirely under `workbench/`. Copy that directory to
 a convenient location inside your permitted filesystem scope to use it with
@@ -33,7 +30,7 @@ See the [quickstart](workbench/docs/quickstart.md), the [task finder](workbench/
 [upgrade guide](workbench/docs/upgrading.md), and
 [agent operating skill](workbench/skills/latex-ai-workbench/SKILL.md).
 
-The [current verification record](workbench/docs/maintainers/verification-3.7.0.md) records local
+The [current verification record](workbench/docs/maintainers/verification-4.0.0.md) records local
 test results, preserved files and remaining human setup steps.
 
 The reference deliberately contains no example literature citations. Its

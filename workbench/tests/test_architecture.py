@@ -22,7 +22,6 @@ import installation
 import core
 import schema
 import latex
-import research
 import runtime as rt
 
 
@@ -34,45 +33,6 @@ class ArchitectureTests(unittest.TestCase):
 
     def tearDown(self):
         self.temp.cleanup()
-
-    def test_path_aliases_propagate_staleness_and_select_checks(self):
-        p = self.project
-        (p / "params").write_text("one")
-        (p / "producer.py").write_text("from pathlib import Path\nPath('result').write_text(Path('params').read_text())\n")
-        (p / "consumer.py").write_text("from pathlib import Path\nPath('figure').write_text(Path('result').read_text())\n")
-        config = {'schema_version': 3, 'modules': {'numerics': {}, 'provenance': {}, 'freshness': {}}}
-        tasks = {"producer": {"command": [sys.executable, "producer.py"], "inputs": ["./params"], "outputs": ["result"]},
-                 "consumer": {"command": [sys.executable, "consumer.py"], "inputs": ["./result"], "outputs": ["figure"]}}
-        (p / "experiments.json").write_text(json.dumps({"schema_version": 1, "tasks": tasks}))
-        with contextlib.redirect_stdout(io.StringIO()):
-            for name in tasks:
-                research.execute(p, config, "numerics", name)
-        (p / "params").write_text("two")
-        report = research.freshness(p, config)
-        self.assertEqual([r["status"] for r in report], ["stale", "stale"])
-        self.assertEqual(research.affected(p, config, ["params"]), ["freshness", "numerics"])
-
-    def test_input_output_aliases_and_duplicate_producers_are_rejected(self):
-        p = self.project
-        (p / "result").write_text("original")
-        (p / "alias").symlink_to("result")
-        os.link(p / "result", p / "hardlink")
-        for name in ("./result", "alias", "hardlink"):
-            with self.subTest(name=name), self.assertRaises(core.WorkbenchError):
-                research.checked_tasks(p, {}, {"schema_version": 1, "tasks": {
-                    "bad": {"command": ["true"], "inputs": [name], "outputs": ["result"]}}})
-        config = {'schema_version': 3, 'modules': {'numerics': {}, 'provenance': {}, 'freshness': {}}}
-        (p / "input").write_text("input")
-        task = {"command": ["true"], "inputs": ["input"], "outputs": ["result"]}
-        (p / "experiments.json").write_text(json.dumps({"schema_version": 1, "tasks": {
-            "a": task, "b": {**task, "outputs": ["./result"]}}}))
-        with self.assertRaisesRegex(core.WorkbenchError, "Multiple producers"):
-            research.freshness(p, config)
-
-    def test_root_aliases_are_configuration_errors(self):
-        for module, values in (("notes", {"path": "./"}), ("markdown", {"files": ["."]})):
-            with self.subTest(module=module), self.assertRaises(core.WorkbenchError):
-                schema.validate_config(self.project, {'schema_version': 3, 'modules': {module: values}})
 
     def test_custom_noop_cannot_validate_old_artifacts(self):
         p = self.project
@@ -167,11 +127,6 @@ boot.apply(Path(sys.argv[2]), json.loads(sys.argv[3]))
                 config = {'schema_version': 3, 'modules': {name: {} for name in modules}, 'integrations': {'ci': {'enabled': True}}}
                 if "latex" in modules:
                     config["modules"]["latex"] = {"default_document": "manuscript", "documents": {"manuscript": {"root": "main.tex"}}}
-                for name in ("numerics", "figures"):
-                    if name in modules:
-                        manifest = p / core.module_config(config, name)["manifest"]
-                        manifest.parent.mkdir(parents=True, exist_ok=True)
-                        manifest.write_text(json.dumps({"schema_version": 1, "tasks": {}}))
                 (p / core.CONFIG).write_text(json.dumps(config))
                 workflow = boot.workflow(config)
                 supported = set(re.findall(r"outputs.check_([a-z]+)", workflow))
@@ -202,7 +157,6 @@ boot.apply(Path(sys.argv[2]), json.loads(sys.argv[3]))
         self.assertEqual(effective, core.effective_config(effective))
         self.assertEqual(json.dumps(persisted), before)
         self.assertIn("latex.py", core.runtime_sources(effective))
-        self.assertNotIn("research.py", core.runtime_sources(effective))
 
 
     def test_bibliography_alias_selects_standalone_validation(self):
@@ -343,7 +297,7 @@ class ImportLayering(unittest.TestCase):
 
     def test_function_local_imports_name_only_modules_that_not_every_project_has(self):
         """A lazy import of a module every project installs dodges nothing now that the graph has no cycle; one of
-        an optional module (latex, research, markdown, documents, output_transaction) is how an absent module stays absent."""
+        an optional module (latex, documents, output_transaction) is how an absent module stays absent."""
         always = {name[:-3] for name in core.runtime_sources({"schema_version": 3, "modules": {}}) if name.endswith(".py")}
         offenders = []
         for module in self.modules:

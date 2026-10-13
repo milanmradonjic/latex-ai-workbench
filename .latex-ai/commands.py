@@ -8,14 +8,9 @@ in ``runtime`` (``-`` written ``_``); a test keeps the two in step. The order is
 """
 from typing import NamedTuple, Optional, Tuple
 
-from core import MODULES
-
-RESEARCH = tuple(name for name, spec in MODULES.items() if spec["check_group"] == "research")
-EXPLICIT = "Research (explicit; checks never start a run)"
-
-# What a recipe takes from Make variables, by the ``selects`` of a target (TASK, DOC, TOPIC and the issue
+# What a recipe takes from Make variables, by the ``selects`` of a target (DOC, TOPIC and the issue
 # variables reach recipes through the environment, never as Make text spliced into a shell line).
-RECIPE_ARGUMENTS = {"": "", "document": ' --document "$$DOC"', "task": ' --task "$$TASK"', "topic": ' --topic "$$TOPIC"',
+RECIPE_ARGUMENTS = {"": "", "document": ' --document "$$DOC"', "topic": ' --topic "$$TOPIC"',
                     "note": ' --note "$$ISSUE_NOTE" --command "$$ISSUE_COMMAND"'}
 
 
@@ -30,9 +25,8 @@ class Target(NamedTuple):
     reserved: Optional[str]
     group: str
     description: str
-    arguments: str = ""   # runtime arguments after the action name (research-validate: --changed)
-    selects: str = ""     # what the recipe takes from Make variables: "document", "task", "topic" or "note"
-    usage: str = ""       # the assignment `make help` shows after the name: TASK=NAME or DOC=NAME
+    selects: str = ""     # what the recipe takes from Make variables: "document", "topic" or "note"
+    usage: str = ""       # the assignment `make help` shows after the name: DOC=NAME
 
 
 class Action(NamedTuple):
@@ -100,23 +94,6 @@ ACTIONS = (
         Target("pdf-artifact", "latex-ai-pdf-artifact", "Manuscript", "Copy the verified current PDF to .latex-ai/artifacts/", selects="document", usage="DOC=NAME"),)),
     Action("clean", module="latex", document=True, view=True, targets=(
         Target("clean", "latex-ai-clean", "Manuscript", "Remove build files", selects="document", usage="DOC=NAME"),)),
-    Action("run", module="numerics", targets=(
-        Target("run", "latex-ai-run", EXPLICIT, "Run one declared numerics task", selects="task", usage="TASK=NAME"),)),
-    Action("figure", module="figures", targets=(
-        Target("figure", "latex-ai-figure", EXPLICIT, "Build one declared figure", selects="task", usage="TASK=NAME"),)),
-    Action("freshness", module="freshness", native_json=True, targets=(
-        Target("freshness", "latex-ai-freshness", EXPLICIT, "Report which results are current or stale"),)),
-    Action("history", module="provenance", targets=(
-        Target("history", "latex-ai-history", "Inspect and report", "List archived run attempts and their record paths; never execute or prune"),)),
-    Action("claims-check", module="claims", targets=(
-        Target("claims-check", "latex-ai-claims-check", EXPLICIT, "Check that every claim has its evidence"),)),
-    Action("research-check", needs=RESEARCH, targets=(
-        Target("research-check", "latex-ai-research-check", EXPLICIT, "Run all research-module checks"),
-        Target("research-validate", "latex-ai-research-validate", EXPLICIT, "Run only the research checks your changes affect", arguments="--changed"))),
-    Action("md-check", module="markdown", targets=(
-        Target("md-check", "latex-ai-md-check", "Markdown", "Check the Markdown notes"),)),
-    Action("md-render", module="markdown", targets=(
-        Target("md-render", "latex-ai-md-render", "Markdown", "Render the Markdown notes"),)),
     Action("modules", native_json=True, targets=(
         Target("modules", "latex-ai-modules", "Inspect and report", "Show which modules are enabled (JSON)"),)),
     Action("issue", standalone=True, targets=(
@@ -139,7 +116,7 @@ def _commands():
     for action in ACTIONS:
         needs = action.needs if action.needs is not None else ((action.module,) if action.module else ())
         for target in action.targets:
-            recipe = None if target.reserved is None else f"{action.name} {target.arguments}".strip()
+            recipe = None if target.reserved is None else action.name
             rows.append(Command(target.short, target.reserved, target.group, target.description, recipe, needs, target.selects, target.usage))
     return rows
 

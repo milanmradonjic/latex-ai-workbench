@@ -18,8 +18,6 @@ from latex import bibliography_check, source_tree, tex_without_comments
 from core import MODULES, PROFILES, has_module, line_buffered, module_config, integrations, effective_config, runtime_sources
 from diagnostics import EXTENDABLE, MANIFEST_SCHEMA, current_record, extends, file_record, is_installed, managed_text
 import copy
-import contextlib
-import io
 import guide
 from guide import MAKEFILES, make_targets
 from adapters import core_makefile, integration_text, make_adapter, merge_block, module_make_targets, workflow
@@ -135,17 +133,6 @@ def detect_config(project, inventory, args):
         raise WorkbenchError("Not installed; use init first")
     if args.document or args.default_document:
         raise WorkbenchError("Document configuration options require an installed project; use configure")
-    if args.profile == "tex-notebook":
-        if args.root or args.build_command:
-            raise WorkbenchError("The tex-notebook profile seeds notes/index.tex; register existing roots with configure or the writing profile")
-        config = {"schema_version": 3, "modules": {
-            "latex": {"default_document": "notebook", "documents": {"notebook": {
-                "root": "notes/index.tex", "engine": args.engine or "pdflatex", "backend": args.backend or "none",
-                "lint": {"enabled": not args.no_lint, "args": []}}}},
-            "notes": {"path": "notes", "index": "index.tex", "session_state": "session-state.tex"}},
-            "integrations": {"editor": args.editor and not args.skip_editor, "ci": {
-                "enabled": args.ci and not args.no_ci, "pdf_artifact": not args.no_artifact, "texlive_version": "2026"}}}
-        return validate_config(project, config, planned_sources=note_seeds(config))
     if args.profile is not None or args.modules is not None:
         names = PROFILES[args.profile] if args.profile is not None else [n.strip() for n in args.modules.split(",") if n.strip()]
         if set(names) - MODULES.keys():
@@ -172,7 +159,7 @@ def detect_config(project, inventory, args):
         raise WorkbenchError("Root is ambiguous or absent; select --root PATH. Candidates: " + (", ".join(roots) or "none found"),
                              hint=f"name the manuscript's main file, for example --root {roots[0]}" if roots else
                              "a manuscript needs its main .tex file (with \\documentclass) to exist: create it, or name it with --root. "
-                             "A project without a manuscript takes a profile without LaTeX: --profile notebook, numerical or core")
+                             "A project without a manuscript takes a profile without LaTeX: --profile core")
     root = local_path(project, selected)
     if not root.is_file():
         raise WorkbenchError(f"Root not found: {selected}")
@@ -342,50 +329,6 @@ def three_way(base, local, new):
     raise WorkbenchError("Upgrade conflicts with local changes")
 
 
-def seed_paths(config):
-    paths = {module_config(config, name)["manifest"] for name in ("numerics", "figures", "claims") if has_module(config, name)}
-    if has_module(config, "notes"):
-        values = module_config(config, "notes")
-        paths.update((Path(values["path"]) / values[key]).as_posix() for key in ("index", "session_state"))
-    return paths
-
-
-def note_seeds(config):
-    if not has_module(config, "notes"):
-        return {}
-    values = module_config(config, "notes")
-    result = {}
-    for key in ("index", "session_state"):
-        path = (Path(values["path"]) / values[key]).as_posix()
-        suffix = Path(path).suffix.lower()
-        if suffix == ".md":
-            relative = os.path.relpath(Path(values["path"]) / values["session_state"], Path(path).parent).replace(os.sep, "/")
-            result[path] = ("# Research notes\n\nRecord ideas, derivations and decisions here.\n\n[Session state](" + relative + ")\n"
-                            if key == "index" else "# Session state\n\n## Current question\n\n## Established results and assumptions\n\n## Open issues\n\n## Next action\n")
-        elif suffix == ".tex":
-            if key == "index":
-                relative = os.path.relpath(Path(values["path"]) / values["session_state"], Path(path).parent).replace(os.sep, "/")
-                body = "\\input{" + relative + "}\n" if Path(relative).suffix == ".tex" else "\\section*{Session state}\n% See " + relative + "\n"
-                result[path] = "\\documentclass{article}\n\\usepackage{amsmath}\n\\begin{document}\n\\section*{Research notes}\n" + body + "\\end{document}\n"
-            else:
-                result[path] = "\\section*{Current question}\n\n\\section*{Established results and assumptions}\n\n\\section*{Open issues}\n\n\\section*{Next action}\n"
-    return result
-
-
-# Seeded into a new task manifest beside the (empty) task list: the format, where the user will look for it.
-EXAMPLE_TASK = {
-    "numerics": {"note": "Not a task. Copy the object under \"task\" into \"tasks\" under a name of your choice, fit it to your project, and run it "
-                         "with: make run TASK=<name>. The full format is under \"Task manifests\" in docs/research.md of the workbench package.",
-                 "task": {"description": "What this run computes", "command": ["python3", "analysis/run.py", "configs/run.json"],
-                          "inputs": ["analysis/run.py", "configs/run.json"], "outputs": ["results/run.json"],
-                          "checks": [{"command": ["python3", "analysis/check.py"], "cost": "cheap"}]}},
-    "figures": {"note": "Not a task. Copy the object under \"task\" into \"tasks\" under a name of your choice, fit it to your project, and build it "
-                        "with: make figure TASK=<name>. A figure that reads a declared result becomes stale when that result does.",
-                "task": {"description": "What this figure shows", "command": ["python3", "analysis/plot.py"],
-                         "inputs": ["analysis/plot.py", "results/run.json"], "outputs": ["figures/result.pdf"]}},
-}
-
-
 def compiled_pdf(tex, project=None):
     root = local_path(project, tex["root"]) if project is not None else Path(tex["root"])
     output = (local_path(project, tex["output_dir"]) if project is not None else Path(tex["output_dir"])) if tex.get("output_dir") else root.parent
@@ -459,11 +402,6 @@ def desired_files(config, project=None):
             files[".vscode/settings.json"] = encoded(settings)
         else:
             files[".vscode/tasks.json"] = encoded({"version": "2.0.0", "tasks": [{"label": "Workbench: Check", "type": "process", "command": "make", "args": ["check"], "options": {"cwd": "${workspaceFolder}"}, "problemMatcher": []}]})
-    for name in ("numerics", "figures", "claims"):
-        if has_module(config, name):
-            path = module_config(config, name)["manifest"]
-            files[path] = encoded({"schema_version": 1, "claims": []} if name == "claims" else {"schema_version": 1, "tasks": {}, "example": EXAMPLE_TASK[name]})
-    files.update(note_seeds(config))
     if adapter["ci"].get("enabled", False):
         files[".github/workflows/latex-ai.yml"] = workflow(config)
     return files
@@ -522,13 +460,6 @@ def plan(project, config, args):
     if config_before is None or args.mode == "configure":
         if config_before is None or json.loads(config_before) != config:
             updates.append({"path": CONFIG, "before": config_before, "after": encoded(config)})
-    seeds = seed_paths(config)
-    if has_module(config, "notes"):
-        values = module_config(config, "notes")
-        for key in ("index", "session_state"):
-            path = (Path(values["path"]) / values[key]).as_posix()
-            if path not in wanted and not local_path(project, path).is_file():
-                conflicts.append(f"Missing notes entry point: {path}; create it before installation (seed templates support .md and .tex)")
     if not has_module(config, "latex") and ".vscode/settings.json" in oldfiles:
         wanted[".vscode/settings.json"] = encoded({"latex-workshop.latex.autoBuild.run": "never"})
     for name, upstream in wanted.items():
@@ -537,9 +468,9 @@ def plan(project, config, args):
                 upstream = encoded(json.loads(upstream))
             current = read(project, name)
             record = oldfiles.get(name)
-            strategy = record["strategy"] if record else "seed" if name in seeds else "full"
+            strategy = record["strategy"] if record else "full"
             if strategy == "seed" and (current is not None or record):
-                # Research notes/manifests belong to the project after creation:
+                # A seeded file belongs to the project after creation:
                 # never overwritten, and never recreated if the project deleted them.
                 if current is None:
                     notes.append(f"Project-owned {name} was deleted locally; not recreated")
@@ -676,18 +607,6 @@ def main(argv=None):
                 bibliography_check(project, document_settings(config))
         except WorkbenchError as error:
             conflicts.append("Bibliography: " + str(error))
-        if config.get("modules") is not None:
-            import research
-            for name in ("numerics", "figures", "claims"):
-                if has_module(config, name) and local_path(project, module_config(config, name)["manifest"]).is_file():
-                    try:
-                        if name == "claims":
-                            with contextlib.redirect_stdout(io.StringIO()):
-                                research.check_claims(project, config)
-                        else:
-                            research.tasks(project, config, name)
-                    except (WorkbenchError, ValueError, KeyError, TypeError) as error:
-                        conflicts.append(f"{name} manifest: {error}")
         # The Makefile as it will be: the planned text of whichever name is active, else the one on disk.
         final_makefile = next((u["after"] for u in updates if u["path"] in MAKEFILES), None) or guide.makefile_text(project)
         for short, reserved in guide.shadowed(final_makefile, project):

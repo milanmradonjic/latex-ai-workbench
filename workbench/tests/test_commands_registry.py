@@ -54,11 +54,11 @@ class CommandRegistry(unittest.TestCase):
                         self.assertEqual(target.usage.split("=")[0], {"document": "DOC", "task": "TASK"}[target.selects])
 
     def test_json_output_is_native_only_where_the_commands_always_printed_their_own(self):
-        self.assertEqual({action.name for action in commands.ACTIONS if action.native_json}, {"plan", "modules", "freshness"})
+        self.assertEqual({action.name for action in commands.ACTIONS if action.native_json}, {"plan", "modules"})
 
     def test_every_installed_runtime_carries_the_registry(self):
         self.assertIn("commands.py", core.RUNTIME_FILES)
-        for modules in ({}, {"latex": {"default_document": "paper", "documents": {"paper": {"root": "main.tex"}}}}, {"notes": {}}):
+        for modules in ({}, {"latex": {"default_document": "paper", "documents": {"paper": {"root": "main.tex"}}}}, {"bibliography": {}}):
             with self.subTest(modules=sorted(modules)):
                 self.assertIn("commands.py", core.runtime_sources({"schema_version": 3, "modules": modules}))
 
