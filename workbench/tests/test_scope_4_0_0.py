@@ -71,7 +71,7 @@ class Scope(unittest.TestCase):
                     self.assertNotRegex(text, r"(?i)pandoc|research|latex-ai-(?:run|figure|freshness|history|claims|md-)")
 
     def test_the_policy_and_the_guide_do_not_describe_what_is_gone(self):
-        for name in ("templates/AGENTS.md", "docs/handbook.md", "README.md", "skills/latex-ai-workbench/SKILL.md"):
+        for name in ("templates/AGENTS.md", "README.md", "skills/latex-ai-workbench/SKILL.md"):
             text = (PACKAGE / name).read_text(encoding="utf-8")
             with self.subTest(file=name):
                 self.assertIsNone(REMOVED_WORDS.search(text), REMOVED_WORDS.search(text))
@@ -79,8 +79,6 @@ class Scope(unittest.TestCase):
 
     def test_no_live_document_describes_what_is_gone(self):
         for path in sorted((PACKAGE / "docs").glob("*.md")):
-            if path.name == "handbook.md":
-                continue
             with self.subTest(file=path.name):
                 self.assertIsNone(REMOVED_WORDS.search(path.read_text(encoding="utf-8")))
 

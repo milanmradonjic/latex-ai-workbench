@@ -180,10 +180,10 @@ def module_make_targets(config, existing=(), omitted=()):
     name, plus the short alias where the project has no target of that name. Guidance and hints can therefore
     always name a command that reaches the workbench, and no command is named in a second place."""
     commands = [command for command in guide.COMMANDS if command.reserved and command.reserved not in omitted and guide.enabled(command, config)]
-    # DOC and TOPIC reach recipes through the environment ("$$DOC"), never as Make text
-    # spliced into a shell line, so their value cannot be interpreted as shell syntax.
+    # DOC reaches recipes through the environment ("$$DOC"), never as Make text
+    # spliced into a shell line, so its value cannot be interpreted as shell syntax.
     result = ["export ISSUE_NOTE ISSUE_COMMAND"]  # the same rule for the issue report's free text
-    result.append("export DOC TOPIC")  # selectors
+    result.append("export DOC")  # the document selector
     for command in commands:
         result.extend([f".PHONY: {command.reserved}", f"{command.reserved}:"])
         result.append(f"\t@$(PYTHON) .latex-ai/workbench.py {command.action}{RECIPE_ARGUMENTS[command.selects]}")

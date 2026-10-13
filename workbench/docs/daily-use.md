@@ -1,7 +1,7 @@
 # Daily project work
 
 Read AGENTS and config, then start with `make status`. If you cannot place something,
-`make guide` shows how the parts fit, with pictures and how-tos ([the guide](handbook.md)). Edit authored files,
+`make guide` prints a short manual for this project. Edit authored files,
 preview the selected checks, and validate:
 
 ```sh

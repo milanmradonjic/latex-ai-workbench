@@ -3,6 +3,24 @@
 Workbench 3 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 4.2.0 — the long generated handbook is replaced by a short manual
+
+The third step of [the minimal scope](minimal-scope.md).
+
+- **Removed:** `handbook.py` (724 lines: the pictures, twelve how-tos, the glossary, and three renderers for them), its generated copies
+  `docs/handbook.md` and `docs/handbook.html`, `make handbook`, the `guide-html` command and its web page, the `TOPIC` variable and the
+  `--topic` option, and the guide's own tests.
+- **Added:** `make guide` prints a short manual of one screen, `guide.manual_text`: the project's modules and documents with their states,
+  the everyday loop, what to run for one document, what the states mean, what to do when something goes wrong, and how AI agents work here.
+  It is written with the command names that work in that project (where the Makefile keeps its own `build`, the manual says
+  `make latex-ai-build`) and reads and writes nothing. A test keeps it under 60 lines.
+- **Generated files:** the Makefile block of every installed project loses the `guide-html` targets and `export DOC TOPIC` becomes
+  `export DOC`; the editor files are byte-identical. An upgrade rewrites the block; a `.latex-ai/handbook.py` an earlier release installed
+  stays in the project as a retained file (the installer does not delete), and nothing uses it.
+- **Tests:** the handbook's tests went, the guide's tests are rewritten for the manual, and 4 new ones pin what is gone (371 tests after 4.1.0, 363 now).
+
+See [the verification record](verification-4.2.0.md).
+
 ## 4.1.0 — the workbench no longer generates CI workflows
 
 The second step of [the minimal scope](minimal-scope.md). The releases of this series remove features in minor releases:

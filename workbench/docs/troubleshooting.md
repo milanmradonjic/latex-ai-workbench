@@ -1,8 +1,7 @@
 # Find the next action
 
 Start with `make latex-ai-status` and `make latex-ai-doctor`. Help lists commands
-that exist in this project, and `make latex-ai-guide` explains how the parts fit
-(pictures, how-tos and a glossary; [the guide](handbook.md) is the same text). Do not edit the vendored runtime to hide a failure.
+that exist in this project, and `make latex-ai-guide` is a short manual for it. Do not edit the vendored runtime to hide a failure.
 
 | Symptom | Next action |
 |---|---|

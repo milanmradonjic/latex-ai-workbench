@@ -1,9 +1,8 @@
-"""Orientation added in 3.0.1: the guide (text and HTML), the reasons status gives, and the regrouped help.
+"""Orientation: the short manual (`make guide`), the reasons status gives, and the grouped help.
 
-The guide is generated from one source (handbook.py). These tests keep it honest: every command it names must
-exist, the packaged copies must equal what the code renders, and the read-only commands must stay read-only.
+Until 4.2.0 the guide was a long generated handbook (pictures, topics, a web page). These tests keep what replaced it honest: every
+command the manual names exists, it is written with the names that work in the project, and the read-only commands stay read-only.
 """
-from html.parser import HTMLParser
 import json
 from pathlib import Path
 import re
@@ -19,120 +18,10 @@ from test_support import ProjectCase, fixture_env
 PACKAGE = Path(__file__).resolve().parents[1]
 MAKE = bool(shutil.which("make"))
 SOURCE = "\\documentclass{article}\n\\begin{document}Guide fixture.\\end{document}\n"
-BOX = re.compile("[\u2500-\u257f\u25b2-\u25bc]")
 
 
-class Anchors(HTMLParser):
-    def __init__(self):
-        super().__init__()
-        self.ids, self.links, self.external = set(), [], []
-
-    def handle_starttag(self, tag, attributes):
-        values = dict(attributes)
-        if values.get("id"):
-            self.ids.add(values["id"])
-        for key in ("href", "src"):
-            value = values.get(key) or ""
-            if key == "href" and value.startswith("#"):
-                self.links.append(value[1:])
-            elif value and not value.startswith("#"):
-                self.external.append(value)
-        if tag in {"script", "link", "img", "iframe"}:
-            self.external.append(f"<{tag}>")
 
 
-class Handbook(unittest.TestCase):
-    def setUp(self):
-        import handbook
-        self.handbook = handbook
-
-    def test_topics_are_complete_and_addressable(self):
-        ids = [topic.id for topic in self.handbook.TOPICS]
-        self.assertEqual(len(ids), len(set(ids)), "duplicate topic id")
-        for topic in self.handbook.TOPICS:
-            with self.subTest(topic.id):
-                self.assertTrue(topic.title and topic.summary and topic.blocks)
-                self.assertRegex(topic.id, r"^[a-z][a-z0-9-]*$")
-        for needed in ("overview", "map", "loop", "checks", "states", "names", "glossary", "trouble"):
-            self.assertIn(needed, ids)
-        howtos = [topic for topic in self.handbook.TOPICS if topic.kind == "howto"]
-        self.assertGreaterEqual(len(howtos), 8)
-        for topic in howtos:
-            self.assertTrue(topic.title.startswith("I "), topic.title)  # each is a want or a situation of the reader's
-            self.assertTrue(any(block[0] == "steps" for block in topic.blocks), topic.id)
-
-    def test_every_command_the_guide_names_exists(self):
-        known = {name for command in guide.COMMANDS for name in (command.short, command.reserved) if name}
-        text = self.handbook.render_markdown()
-        named = re.findall(r"\bmake ([a-z][\w-]*)", text)
-        self.assertGreater(len(named), 40)
-        self.assertEqual(sorted(set(named) - known), [])
-        for argument in re.findall(r"\bmake [a-z][\w-]*((?: [A-Z]+=\S+)*)", text):
-            self.assertLessEqual({item.split("=")[0] for item in argument.split()}, {"DOC", "TASK", "TOPIC", "ISSUE_NOTE", "ISSUE_COMMAND"})
-
-    def test_every_installer_command_it_shows_is_one_the_installer_has(self):
-        text = self.handbook.render_markdown()
-        verbs = set(re.findall(r"latex-ai-init ([a-z]+)", text))
-        self.assertTrue(verbs and verbs <= {"init", "configure", "upgrade", "audit", "recover"}, verbs)
-
-    def test_text_form_fits_a_terminal_and_has_an_ascii_fallback(self):
-        text = self.handbook.render_text("all")
-        self.assertTrue(BOX.search(text), "the diagrams should use box drawing where the terminal can show it")
-        for line in text.splitlines():
-            self.assertLessEqual(len(line), 78, line)
-        fallback = self.handbook.render_text("all", ascii_only=True)
-        self.assertTrue(fallback.isascii(), sorted({char for char in fallback if not char.isascii()}))
-        self.assertEqual([len(line) for line in fallback.splitlines()], [len(line) for line in text.splitlines()],
-                         "the fallback must keep the layout")
-
-    def test_one_topic_renders_alone_and_unknown_ones_are_refused(self):
-        loop = self.handbook.render_text("loop")
-        self.assertIn("make status", loop)
-        self.assertNotIn("Glossary", loop)
-        with self.assertRaises(core.WorkbenchError) as caught:
-            self.handbook.render_text("nonsense")
-        self.assertIn("nonsense", str(caught.exception))
-        for known in ("loop", "glossary", "stale"):
-            self.assertIn(known, caught.exception.hint)
-
-    def test_commands_are_written_with_the_names_that_work_in_the_project(self):
-        names = {"build": "latex-ai-build", "check": "check", "lint": None, "doctor": "latex-ai-doctor"}
-        before = "`make build DOC=a`, `make check`, `make lint`, `make doctor` and `make unknown`"
-        self.assertEqual(self.handbook.localize(before, names),
-                         "`make latex-ai-build DOC=a`, `make check`, `make lint`, `make latex-ai-doctor` and `make unknown`")
-        self.assertEqual(self.handbook.localize(before, {}), before)
-
-    def test_html_is_one_self_contained_page_whose_links_resolve(self):
-        page = self.handbook.render_html()
-        parser = Anchors()
-        parser.feed(page)
-        self.assertTrue(page.startswith("<!doctype html>"))
-        self.assertEqual(parser.external, [], "the page must not depend on anything outside itself")
-        self.assertEqual(sorted(set(parser.links) - parser.ids), [])
-        self.assertLessEqual({topic.id for topic in self.handbook.TOPICS}, parser.ids)
-        self.assertIn("prefers-color-scheme: dark", page)
-        self.assertIn("@media print", page)
-        self.assertIn('<meta name="viewport"', page)
-
-    def test_html_escapes_what_comes_from_the_project(self):
-        context = {"name": "<b>x</b> & y", "modules": ["<i>latex</i>"], "names": {}, "problem": ["<bad> & worse", "fix <it>"],
-                   "documents": [{"id": "a<b", "state": "stale", "default": True, "root": "m.tex", "engine": "pdflatex",
-                                  "reasons": ["changed: <script>alert(1)</script>"]}]}
-        page = self.handbook.render_html(context)
-        self.assertNotIn("<script>alert", page)
-        self.assertNotIn("<b>x</b>", page)
-        self.assertIn("&lt;b&gt;x&lt;/b&gt; &amp; y", page)
-        self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", page)
-
-    def test_the_packaged_copies_equal_what_the_code_renders(self):
-        for name, render in (("handbook.md", self.handbook.render_markdown), ("handbook.html", self.handbook.render_html)):
-            with self.subTest(name):
-                shipped = (PACKAGE / "docs" / name).read_text(encoding="utf-8")
-                self.assertEqual(shipped, render(), f"regenerate with: make -C workbench handbook ({name} is generated, do not edit it)")
-
-    def test_handbook_is_a_runtime_file(self):
-        self.assertIn("handbook.py", core.RUNTIME_FILES)
-        self.assertIn("handbook.py", core.runtime_sources({"schema_version": 3, "modules": {}}))
 
 
 class Orientation(ProjectCase):
@@ -146,35 +35,23 @@ class Orientation(ProjectCase):
 
     # --- make guide ----------------------------------------------------------------------------------------
 
-    def test_the_front_page_shows_the_project_and_the_way_to_every_topic(self):
+    def test_the_manual_shows_the_project_and_the_everyday_loop(self):
         self.paper()
         text = self.command("guide").stdout
-        self.assertIn("Your project", text)
-        self.assertRegex(text, r"paper \(default\).*missing")
-        for topic in ("loop", "states", "stale", "glossary", "trouble"):
-            self.assertIn(f"TOPIC={topic}", text)
-        self.assertIn("make guide-html", text)
-
-    def test_a_topic_prints_alone_and_all_prints_everything(self):
-        self.paper()
-        loop = self.command("guide", "--topic", "loop").stdout
-        self.assertIn("make status", loop)
-        self.assertNotIn("Glossary", loop)
-        everything = self.command("guide", "--topic", "all").stdout
-        for title in ("Glossary", "What lives where", "The everyday loop"):
-            self.assertIn(title, everything)
-
-    def test_an_unknown_topic_says_which_exist(self):
-        self.paper()
-        result = self.command("guide", "--topic", "nonsense", expected=1)
-        self.assertIn("ERROR:", result.stderr)
-        self.assertRegex(result.stderr, r"Hint:.*loop")
+        self.assertIn("manual for", text)
+        self.assertRegex(text, r"Documents: paper \(default\) is missing")
+        for command in ("make status", "make validation-plan", "make validate", "make check", "make build DOC=NAME", "make lint-baseline DOC=NAME"):
+            self.assertIn(command, text)
+        for state in ("current", "stale", "failed", "running", "missing"):
+            self.assertRegex(text, rf"(?m)^  {state}\s")
+        self.assertIn("INTERNAL ERROR", text)
+        self.assertIn("AGENTS.md", text)
+        self.assertEqual(self.command("guide").stdout, text)  # the same every time
 
     def test_the_guide_reads_and_writes_nothing(self):
         self.paper()
         before = self.snapshot()
         self.command("guide")
-        self.command("guide", "--topic", "all")
         self.assertEqual(self.snapshot(), before)
 
     def test_the_guide_works_when_the_configuration_is_broken(self):
@@ -184,55 +61,41 @@ class Orientation(ProjectCase):
         self.assertIn("Configuration problem", result.stdout)
         self.assertIn("make status", result.stdout)
 
-    def test_a_terminal_that_cannot_show_box_drawing_gets_plain_characters(self):
-        self.paper()
-        result = self.command("guide", "--topic", "map", env=fixture_env(PYTHONIOENCODING="ascii"))
-        self.assertTrue(result.stdout.isascii())
-        self.assertIn("+--", result.stdout)
-        self.assertEqual(self.command("guide", "--topic", "map").stdout.count("\n"), result.stdout.count("\n"))
-
-    def test_how_tos_name_the_commands_this_makefile_really_has(self):
+    def test_the_manual_names_the_commands_this_makefile_really_has(self):
         self.paper("build:\n\t@echo mine\n\nguide:\n\t@echo mine\n")
-        text = self.command("guide", "--topic", "pdf").stdout
-        self.assertIn("make latex-ai-build", text)
+        text = self.command("guide").stdout
+        self.assertIn("make latex-ai-build DOC=NAME", text)
         self.assertNotRegex(text, r"make build\b")
+        self.assertRegex(text, r"Names: your Makefile keeps its own target for `(guide`, `build|build`, `guide)`")
         self.assertIn("make latex-ai-guide", self.command("help").stdout)
 
-    # --- make guide-html -----------------------------------------------------------------------------------
-
-    def test_the_html_guide_is_one_ignored_file_that_knows_the_project(self):
+    def test_every_command_the_manual_names_exists(self):
         self.paper()
-        before = self.snapshot()
-        result = self.command("guide-html")
-        after = self.snapshot()
-        self.assertEqual(sorted(set(after) - set(before)), [".latex-ai/artifacts/guide.html"])
-        self.assertEqual({name for name in before if before[name] != after.get(name)}, set())
-        self.assertIn(".latex-ai/artifacts/guide.html", result.stdout)
-        page = (self.project / ".latex-ai/artifacts/guide.html").read_text(encoding="utf-8")
-        parser = Anchors()
-        parser.feed(page)
-        self.assertEqual((parser.external, sorted(set(parser.links) - parser.ids)), ([], []))
-        self.assertIn("paper", page)
-        self.assertIn("missing", page)
-        ignored = (self.project / ".gitignore").read_text()
-        self.assertIn(".latex-ai/artifacts/", ignored)
+        names = {command.short for command in guide.COMMANDS} | {command.reserved for command in guide.COMMANDS if command.reserved}
+        for name in re.findall(r"make ([a-z][a-z-]*)", self.command("guide").stdout):
+            if name not in {"sure"}:
+                self.assertIn(name, names, name)
+
+    def test_a_project_without_latex_gets_a_manual_without_documents(self):
+        self.install("init", "--profile", "core")
+        text = self.command("guide").stdout
+        self.assertIn("Modules: none (core only)", text)
+        self.assertNotIn("make build", text)
+        self.assertNotIn("What a document's state means", text)
 
     # --- through Make --------------------------------------------------------------------------------------
 
     @unittest.skipUnless(MAKE, "GNU Make required")
-    def test_make_passes_the_topic_and_writes_the_page(self):
+    def test_make_prints_the_manual(self):
         self.paper()
-        self.assertIn("The everyday loop", self.run_command("make", "guide", "TOPIC=loop").stdout)
-        self.run_command("make", "guide-html")
-        self.assertTrue((self.project / ".latex-ai/artifacts/guide.html").is_file())
-        self.assertIn("The everyday loop", self.run_command("make", "latex-ai-guide", "TOPIC=loop").stdout)
-        self.assertIn("The everyday loop", self.run_command("make", "guide", env=fixture_env(TOPIC="loop")).stdout)  # as DOC and TASK
+        self.assertIn("The everyday loop", self.run_command("make", "guide").stdout)
+        self.assertIn("The everyday loop", self.run_command("make", "latex-ai-guide").stdout)
 
     @unittest.skipUnless(MAKE, "GNU Make required")
     def test_a_project_target_named_guide_is_kept(self):
         self.paper("guide:\n\t@echo mine\n")
         self.assertEqual(self.run_command("make", "guide").stdout.strip(), "mine")
-        self.assertIn("The everyday loop", self.run_command("make", "latex-ai-guide", "TOPIC=loop").stdout)
+        self.assertIn("The everyday loop", self.run_command("make", "latex-ai-guide").stdout)
 
     # --- help ----------------------------------------------------------------------------------------------
 
@@ -244,7 +107,7 @@ class Orientation(ProjectCase):
         self.assertEqual(headings, list(dict.fromkeys(headings)), headings)
         self.assertRegex(text, r"(?m)^Start here: .*status.*guide")
         self.assertRegex(text, r"(?m)^\s+make guide\s")
-        self.assertRegex(text, r"(?m)^\s+make guide-html\s")
+        self.assertNotIn("guide-html", text)
         self.assertIn("make guide", text.splitlines()[-1])
 
     # --- status gives reasons ------------------------------------------------------------------------------

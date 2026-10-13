@@ -20,7 +20,6 @@ sys.dont_write_bytecode = True
 import commands
 import diagnostics
 import guide
-import handbook
 import processes
 from core import CONFIG, GENERATED_TREES, VERSION, MODULES, RUNTIME_FILES, WorkbenchError, atomic_write, damaged_text, git_read_env, input_identity, operation_lock, line_buffered, local_path, run, has_module, module_config, path_name, tracked_name, effective_config, module_names, validation_actions, validation_argv, VALIDATION_ACTIONS, CAPTURE_COMMANDS, make_has_extra_prereqs, ADOPTED_MAKE, read_tex
 from schema import document_settings, load_config, required_tools, resolve, specifications
@@ -507,7 +506,7 @@ def orientation_config(project):
 
 
 def explain(project, args):
-    """guide and guide-html: the handbook, with this project's own documents and command names in it."""
+    """guide: the short manual, with this project's own documents and command names in it."""
     config, problem = orientation_config(project)
     rows = None
     if config is not None and has_module(config, "latex"):
@@ -516,15 +515,7 @@ def explain(project, args):
             rows = report(project, config)
         except EXPECTED:
             pass  # status reports a configuration that cannot be read; the guide still explains
-    shown = handbook.context(project, config, problem, rows)
-    if args.action == "guide":
-        args.result = {"topic": args.topic or "overview", "topics": handbook.topic_ids()}
-        print(handbook.fit_terminal(handbook.render_text(args.topic or None, shown)), end="")
-        return 0
-    path = local_path(project, GUIDE_PAGE)
-    atomic_write(path, handbook.render_html(shown))
-    args.result = {"page": GUIDE_PAGE}
-    print(f"Wrote {GUIDE_PAGE}\nOpen it in a browser: {path.as_uri()}")
+    print(guide.manual_text(project, config, problem, rows))
     return 0
 
 
@@ -554,7 +545,6 @@ def orient(project, args):
     return 0
 
 
-GUIDE_PAGE = ".latex-ai/artifacts/guide.html"
 ACTIONS = commands.NAMES  # every action, from the registry
 
 
@@ -565,7 +555,6 @@ def main():
     parser.add_argument("--build-owner", type=int, help=argparse.SUPPRESS)
     parser.add_argument("--shell", help=argparse.SUPPRESS)
     parser.add_argument("--shell-arguments", nargs=argparse.REMAINDER, default=[], help=argparse.SUPPRESS)
-    parser.add_argument("--topic", default="", help="guide: show one part of the guide (default: the front page)")
     parser.add_argument("--note", default="", help="issue: what you observed and what you expected")
     parser.add_argument("--command", dest="failed_command", default="", help="issue: the command that misbehaved")
     parser.add_argument("--project", type=Path, default=Path.cwd(), help="Project root (default: current directory); an installed runtime belongs to its own project")
@@ -631,8 +620,6 @@ do_status = do_help
 def do_guide(project, config, persisted, args):
     return explain(project, args)
 
-
-do_guide_html = do_guide
 
 
 def selected_checks(project, config, args):

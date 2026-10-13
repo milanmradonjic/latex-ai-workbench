@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "version": "4.1.0",
+  "version": "4.2.0",
   "files": {
     "AGENTS.md": {
       "strategy": "full",
@@ -14,8 +14,8 @@
     },
     "Makefile": {
       "strategy": "full",
-      "installed_sha256": "4b94f660de25aa30c3a1626db013d89631dcf95d482cfd22f11393690892089b",
-      "upstream": "# The project configuration is .latex-ai.json. Keep validation in one place.\nPYTHON ?= python3\n.DEFAULT_GOAL := build\n.PHONY: build lint check\nbuild: latex-ai-build\nlint:\n\t@$(PYTHON) .latex-ai/workbench.py lint\ncheck:\n\t@$(PYTHON) .latex-ai/workbench.py check\nexport ISSUE_NOTE ISSUE_COMMAND\nexport DOC TOPIC\n.PHONY: latex-ai-validate\nlatex-ai-validate:\n\t@$(PYTHON) .latex-ai/workbench.py validate\n.PHONY: validate\nvalidate: latex-ai-validate\n.PHONY: latex-ai-plan\nlatex-ai-plan:\n\t@$(PYTHON) .latex-ai/workbench.py plan\n.PHONY: validation-plan\nvalidation-plan: latex-ai-plan\n.PHONY: latex-ai-status\nlatex-ai-status:\n\t@$(PYTHON) .latex-ai/workbench.py status\n.PHONY: status\nstatus: latex-ai-status\n.PHONY: latex-ai-doctor\nlatex-ai-doctor:\n\t@$(PYTHON) .latex-ai/workbench.py doctor\n.PHONY: doctor\ndoctor: latex-ai-doctor\n.PHONY: latex-ai-help\nlatex-ai-help:\n\t@$(PYTHON) .latex-ai/workbench.py help\n.PHONY: help\nhelp: latex-ai-help\n.PHONY: latex-ai-guide\nlatex-ai-guide:\n\t@$(PYTHON) .latex-ai/workbench.py guide --topic \"$$TOPIC\"\n.PHONY: guide\nguide: latex-ai-guide\n.PHONY: latex-ai-guide-html\nlatex-ai-guide-html:\n\t@$(PYTHON) .latex-ai/workbench.py guide-html\n.PHONY: guide-html\nguide-html: latex-ai-guide-html\n.PHONY: latex-ai-build\nlatex-ai-build:\n\t@$(PYTHON) .latex-ai/workbench.py build --document \"$$DOC\"\n.PHONY: latex-ai-lint\nlatex-ai-lint:\n\t@$(PYTHON) .latex-ai/workbench.py lint --document \"$$DOC\"\n.PHONY: document-lint\ndocument-lint: latex-ai-lint\n.PHONY: latex-ai-documents\nlatex-ai-documents:\n\t@$(PYTHON) .latex-ai/workbench.py documents\n.PHONY: documents\ndocuments: latex-ai-documents\n.PHONY: latex-ai-document-check\nlatex-ai-document-check:\n\t@$(PYTHON) .latex-ai/workbench.py document-check --document \"$$DOC\"\n.PHONY: document-check\ndocument-check: latex-ai-document-check\n.PHONY: latex-ai-lint-baseline\nlatex-ai-lint-baseline:\n\t@$(PYTHON) .latex-ai/workbench.py lint-baseline --document \"$$DOC\"\n.PHONY: lint-baseline\nlint-baseline: latex-ai-lint-baseline\n.PHONY: latex-ai-bib-check\nlatex-ai-bib-check:\n\t@$(PYTHON) .latex-ai/workbench.py bib-check --document \"$$DOC\"\n.PHONY: bib-check\nbib-check: latex-ai-bib-check\n.PHONY: latex-ai-pdf-artifact\nlatex-ai-pdf-artifact:\n\t@$(PYTHON) .latex-ai/workbench.py artifact --document \"$$DOC\"\n.PHONY: pdf-artifact\npdf-artifact: latex-ai-pdf-artifact\n.PHONY: latex-ai-clean\nlatex-ai-clean:\n\t@$(PYTHON) .latex-ai/workbench.py clean --document \"$$DOC\"\n.PHONY: clean\nclean: latex-ai-clean\n.PHONY: latex-ai-modules\nlatex-ai-modules:\n\t@$(PYTHON) .latex-ai/workbench.py modules\n.PHONY: modules\nmodules: latex-ai-modules\n.PHONY: latex-ai-issue\nlatex-ai-issue:\n\t@$(PYTHON) .latex-ai/workbench.py issue --note \"$$ISSUE_NOTE\" --command \"$$ISSUE_COMMAND\"\n.PHONY: issue\nissue: latex-ai-issue\n"
+      "installed_sha256": "894bf31562e30d9f24b6d9af7f251222495b8e6e018c6216970fc6c20613c360",
+      "upstream": "# The project configuration is .latex-ai.json. Keep validation in one place.\nPYTHON ?= python3\n.DEFAULT_GOAL := build\n.PHONY: build lint check\nbuild: latex-ai-build\nlint:\n\t@$(PYTHON) .latex-ai/workbench.py lint\ncheck:\n\t@$(PYTHON) .latex-ai/workbench.py check\nexport ISSUE_NOTE ISSUE_COMMAND\nexport DOC\n.PHONY: latex-ai-validate\nlatex-ai-validate:\n\t@$(PYTHON) .latex-ai/workbench.py validate\n.PHONY: validate\nvalidate: latex-ai-validate\n.PHONY: latex-ai-plan\nlatex-ai-plan:\n\t@$(PYTHON) .latex-ai/workbench.py plan\n.PHONY: validation-plan\nvalidation-plan: latex-ai-plan\n.PHONY: latex-ai-status\nlatex-ai-status:\n\t@$(PYTHON) .latex-ai/workbench.py status\n.PHONY: status\nstatus: latex-ai-status\n.PHONY: latex-ai-doctor\nlatex-ai-doctor:\n\t@$(PYTHON) .latex-ai/workbench.py doctor\n.PHONY: doctor\ndoctor: latex-ai-doctor\n.PHONY: latex-ai-help\nlatex-ai-help:\n\t@$(PYTHON) .latex-ai/workbench.py help\n.PHONY: help\nhelp: latex-ai-help\n.PHONY: latex-ai-guide\nlatex-ai-guide:\n\t@$(PYTHON) .latex-ai/workbench.py guide\n.PHONY: guide\nguide: latex-ai-guide\n.PHONY: latex-ai-build\nlatex-ai-build:\n\t@$(PYTHON) .latex-ai/workbench.py build --document \"$$DOC\"\n.PHONY: latex-ai-lint\nlatex-ai-lint:\n\t@$(PYTHON) .latex-ai/workbench.py lint --document \"$$DOC\"\n.PHONY: document-lint\ndocument-lint: latex-ai-lint\n.PHONY: latex-ai-documents\nlatex-ai-documents:\n\t@$(PYTHON) .latex-ai/workbench.py documents\n.PHONY: documents\ndocuments: latex-ai-documents\n.PHONY: latex-ai-document-check\nlatex-ai-document-check:\n\t@$(PYTHON) .latex-ai/workbench.py document-check --document \"$$DOC\"\n.PHONY: document-check\ndocument-check: latex-ai-document-check\n.PHONY: latex-ai-lint-baseline\nlatex-ai-lint-baseline:\n\t@$(PYTHON) .latex-ai/workbench.py lint-baseline --document \"$$DOC\"\n.PHONY: lint-baseline\nlint-baseline: latex-ai-lint-baseline\n.PHONY: latex-ai-bib-check\nlatex-ai-bib-check:\n\t@$(PYTHON) .latex-ai/workbench.py bib-check --document \"$$DOC\"\n.PHONY: bib-check\nbib-check: latex-ai-bib-check\n.PHONY: latex-ai-pdf-artifact\nlatex-ai-pdf-artifact:\n\t@$(PYTHON) .latex-ai/workbench.py artifact --document \"$$DOC\"\n.PHONY: pdf-artifact\npdf-artifact: latex-ai-pdf-artifact\n.PHONY: latex-ai-clean\nlatex-ai-clean:\n\t@$(PYTHON) .latex-ai/workbench.py clean --document \"$$DOC\"\n.PHONY: clean\nclean: latex-ai-clean\n.PHONY: latex-ai-modules\nlatex-ai-modules:\n\t@$(PYTHON) .latex-ai/workbench.py modules\n.PHONY: modules\nmodules: latex-ai-modules\n.PHONY: latex-ai-issue\nlatex-ai-issue:\n\t@$(PYTHON) .latex-ai/workbench.py issue --note \"$$ISSUE_NOTE\" --command \"$$ISSUE_COMMAND\"\n.PHONY: issue\nissue: latex-ai-issue\n"
     },
     ".gitignore": {
       "strategy": "full",
@@ -42,11 +42,11 @@
     },
     ".latex-ai/workbench.py": {
       "strategy": "full",
-      "installed_sha256": "1ac5e35e0e6818b93b237ad144ccbced41e36a90cd67e8eaf24acd4a8497b8f6"
+      "installed_sha256": "6105d8d61e5760a64fbc12435256b4ee08a3095e133158f5f777a3d5bcadeae9"
     },
     ".latex-ai/core.py": {
       "strategy": "full",
-      "installed_sha256": "bfa5af1c5d4fc5e5bf146d28533eadd81be6a029d0cb981b83a9d18f36b1016d"
+      "installed_sha256": "58ecb3fede1e420d1bc6ff4aabdf27d2758616c58cc97209c547e87446802b82"
     },
     ".latex-ai/latex.py": {
       "strategy": "full",
@@ -58,7 +58,7 @@
     },
     ".latex-ai/guide.py": {
       "strategy": "full",
-      "installed_sha256": "59bb800439176c218954109249e309e14618af61cbd3a5a7557a6a453a29293e"
+      "installed_sha256": "6090c543b880194df1de5b61498709f5427a569fefac378d3539725bf069c36e"
     },
     ".latex-ai/documents.py": {
       "strategy": "full",
@@ -80,13 +80,9 @@
       "strategy": "full",
       "installed_sha256": "c94e5a214cde04e6e66c212ad4010ca41faf5011f51c39db1c4541c9081705e2"
     },
-    ".latex-ai/handbook.py": {
-      "strategy": "full",
-      "installed_sha256": "0b77c395ff81620214da588f94cf174172db2234b01b4ccb81fb88e5917e1ffb"
-    },
     ".latex-ai/commands.py": {
       "strategy": "full",
-      "installed_sha256": "9cb439c5fc7bafb7f75f3a56ca8f04d3bb9697652ed9df4c82e7b8e6aed01faa"
+      "installed_sha256": "5cdf7a65cb3be5abd0fdb52b671d8f1fb4fe515f3437d67cd1bd0ac920428cc7"
     },
     ".latex-ai/schema.py": {
       "strategy": "full",
