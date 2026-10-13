@@ -33,7 +33,7 @@ class ReviewFixes(unittest.TestCase):
         return subprocess.run([sys.executable, "-B", str(bootstrap.PACKAGE / "latex-ai-init"),
                                "init", str(self.project), *arguments], env=env, capture_output=True, text=True)
 
-    def test_installation_and_audit_without_git(self):
+    def test_installation_and_diff_without_git(self):
         tools = self.project / "tools"; tools.mkdir()
         for name in ("make", "python3"):
             (tools / name).symlink_to(shutil.which(name))
@@ -41,7 +41,7 @@ class ReviewFixes(unittest.TestCase):
         env = {**{k: v for k, v in os.environ.items() if k != "LATEX_AI_BASE"}, "PATH": str(tools)}
         result = self.install("--profile", "core", env=env)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        result = subprocess.run([sys.executable, str(bootstrap.PACKAGE / "latex-ai-init"), "audit", str(self.project)],
+        result = subprocess.run([sys.executable, str(bootstrap.PACKAGE / "latex-ai-init"), "diff", str(self.project)],
                                 env=env, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         result = subprocess.run([sys.executable, str(self.project / ".latex-ai/workbench.py"), "validate", "--project", str(self.project)],

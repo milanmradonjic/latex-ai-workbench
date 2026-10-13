@@ -25,7 +25,7 @@ Then apply it by running the same command without `--dry-run`.
 The profiles are `core` and `writing`; an explicit
 `--modules` list also works. A LaTeX project needs its main `.tex` file to exist already: a single
 one is detected, otherwise pass `--root`. Without a profile, a paper gets the manuscript checks
-(and bibliography checks when it has one), plus VS Code settings; `--skip-editor` leaves them out. A module can be turned on later. A paper
+(and bibliography checks when it has one), plus VS Code settings; `--skip-editor` leaves them out. A module is turned on later by adding it to `modules` in `.latex-ai.json` ([modules](modules.md)). A paper
 with its own Makefile also needs the command that builds it, for example
 `--build-command '["make", "pdf"]'`; the installer says so, and reads the TeX engine from your
 build line when it names one.
@@ -34,8 +34,7 @@ The installer does not overwrite your manuscript or other project files, backs u
 manages before replacing them, never touches Git, and ends with a summary and the commands to try
 next. An `ERROR:` names an ordinary failure; common setup errors also include a
 `Hint:` with a recovery action. In the Makefile, `AGENTS.md`
-and `.gitignore` it creates, anything you add above or below its text is yours and survives
-upgrades. More options are in [installing](installing.md).
+and `.gitignore` it creates, anything you add above or below its text is yours. More options are in [installing](installing.md).
 
 `latex-ai-init` is a file in the workbench package, not a command on your PATH: wherever this
 guide or a hint shows it, run it as `python3 /path/to/workbench/latex-ai-init`.
@@ -95,10 +94,11 @@ See [daily use](daily-use.md).
   report it writes (nothing is sent anywhere). See [agents](agents.md#suspected-workbench-defects).
 - `make help` and `make status` still work when the configuration file is broken.
 
-## Upgrading
+## Updating
 
 ```sh
-python3 /path/to/new-workbench/latex-ai-init upgrade /path/to/project --dry-run --diff
+python3 /path/to/new-workbench/latex-ai-init diff /path/to/project --diff
+python3 /path/to/new-workbench/latex-ai-init runtime /path/to/project
 ```
 
-Review the plan, then run the same command without `--dry-run`. See [upgrading](upgrading.md).
+Read the difference, then refresh the runtime files. An agent can follow the whole recipe: [updating](upgrading.md).

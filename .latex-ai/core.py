@@ -14,7 +14,7 @@ import tempfile
 import time
 import processes
 
-VERSION = "4.2.0"
+VERSION = "4.3.0"
 CONFIG = ".latex-ai.json"
 # Trees that are never project sources: version control, workbench state, environments, caches and installed packages. Every
 # walk and every check of a declared path agrees on them; the installer adds the folders it alone leaves out.
@@ -362,15 +362,14 @@ def module_names(config, group=None):
 # one as a build/configuration change. runtime_sources (below) is the subset a given project receives.
 RUNTIME_FILES = ("runtime.py", "commands.py", "schema.py", "core.py", "latex.py", "documents.py", "diagnostics.py",
                  "guide.py", "make_graph.py", "processes.py", "output_transaction.py", "recipe-shell.sh",
-                 "bootstrap.py", "adapters.py", "installation.py", "latex-ai-init")
+                 "bootstrap.py", "adapters.py", "latex-ai-init")
 
 
 def runtime_sources(config):
     return {"runtime.py": "workbench.py", "commands.py": "commands.py", "schema.py": "schema.py", "core.py": "core.py", "diagnostics.py": "diagnostics.py", "guide.py": "guide.py",
             "make_graph.py": "make_graph.py", "processes.py": "processes.py",
             **{MODULES[name]["runtime"]: MODULES[name]["runtime"] for name in module_names(config)},
-            **({"documents.py": "documents.py"} if has_module(config, "latex") or
-               "latex" in config.get("disabled_modules", {}) else {}),
+            **({"documents.py": "documents.py"} if has_module(config, "latex") else {}),
             **({"output_transaction.py": "output_transaction.py", "recipe-shell.sh": "recipe-shell.sh"}
                if has_module(config, "latex") else {})}
 

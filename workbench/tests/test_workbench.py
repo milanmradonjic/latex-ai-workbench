@@ -47,26 +47,15 @@ class WorkbenchTests(unittest.TestCase):
         self.assertEqual(self.cli("init"), 0)
 
 
-    def test_dry_run_and_audit_never_write(self):
+    def test_dry_run_never_writes(self):
         before = self.snapshot()
         self.assertEqual(self.cli("init", "--dry-run"), 0)
-        self.assertEqual(self.cli("audit"), 1)
         self.assertEqual(before, self.snapshot())
 
-    def test_init_upgrade_are_idempotent(self):
+    def test_a_second_init_is_refused_and_writes_nothing(self):
         self.init()
         before = self.snapshot()
-        self.assertEqual(self.cli("init"), 0)
-        self.assertEqual(self.cli("upgrade"), 0)
-        self.assertEqual(self.cli("audit"), 0)
-        self.assertEqual(before, self.snapshot())
-
-    def test_repeating_explicit_options_is_idempotent(self):
-        self.assertEqual(self.cli("init", "--root", "paper.tex", "--engine", "pdflatex"), 0)
-        before = self.snapshot()
-        self.assertEqual(self.cli("init", "--root", "paper.tex", "--engine", "pdflatex"), 0)
-        self.assertEqual(before, self.snapshot())
-        self.assertEqual(self.cli("init", "--engine", "xelatex"), 2)
+        self.assertEqual(self.cli("init"), 2)
         self.assertEqual(before, self.snapshot())
 
     def test_ambiguous_root_refuses_all_writes(self):
@@ -86,25 +75,6 @@ class WorkbenchTests(unittest.TestCase):
         self.assertTrue((self.project / "Makefile").read_text().startswith(make))
         self.assertEqual(path.read_text(), "name: custom\n")
         self.assertTrue((self.project / "AGENTS.md").read_text().startswith("Local semantic policy."))
-        self.assertEqual(self.cli("upgrade"), 0)
-        self.assertEqual(self.cli("audit"), 0)
-
-    def test_existing_blocks_idempotent(self):
-        (self.project / "Makefile").write_text("build:\n\tlatexmk -pdf paper.tex\n")
-        (self.project / "AGENTS.md").write_text("Local policy.\n")
-        self.assertEqual(self.cli("init", "--engine", "pdflatex"), 0)
-        before = self.snapshot()
-        self.assertEqual(self.cli("upgrade"), 0)
-        self.assertEqual(before, self.snapshot())
-
-    def test_removed_managed_block_refuses_upgrade(self):
-        policy = "Local policy.\n"
-        (self.project / "AGENTS.md").write_text(policy)
-        self.init()
-        (self.project / "AGENTS.md").write_text(policy)
-        before = self.snapshot()
-        self.assertEqual(self.cli("upgrade"), 2)
-        self.assertEqual(before, self.snapshot())
 
     def test_active_gnumakefile_adapted_without_shadow_file(self):
         make = "build:\n\tlatexmk -pdf paper.tex\n"
@@ -113,55 +83,17 @@ class WorkbenchTests(unittest.TestCase):
         self.assertFalse((self.project / "Makefile").exists())
         self.assertIn("latex-ai-integrity", (self.project / "GNUmakefile").read_text())
         self.assertTrue((self.project / "GNUmakefile").read_text().startswith(make))
-        before = self.snapshot()
-        self.assertEqual(self.cli("upgrade"), 0)
-        self.assertEqual(before, self.snapshot())
-
-    def test_new_gnumakefile_shadowing_install_refuses_upgrade(self):
-        self.init()
-        (self.project / "GNUmakefile").write_text("custom:\n\ttrue\n")
-        before = self.snapshot()
-        self.assertEqual(self.cli("upgrade"), 2)
-        self.assertEqual(before, self.snapshot())
 
     def test_lowercase_makefile_retains_its_name(self):
         (self.project / "makefile").write_text("build:\n\tlatexmk -pdf paper.tex\n")
         self.assertEqual(self.cli("init", "--engine", "pdflatex"), 0)
         self.assertIn("makefile", {p.name for p in self.project.iterdir()})
         self.assertNotIn("Makefile", {p.name for p in self.project.iterdir()})
-        self.assertEqual(self.cli("upgrade"), 0)
 
     def test_commented_documentclass_is_not_a_root(self):
         (self.project / "chapter.tex").write_text("% \\documentclass{article}\nA chapter.\n")
         self.init()
         self.assertEqual(rt.document_settings(rt.load_config(self.project))["root"], "paper.tex")
-
-    def test_release_upgrade_preserves_editor_customization(self):
-        self.init()
-        path = self.project / ".vscode/tasks.json"
-        local = json.loads(path.read_text())
-        local["tasks"].append({"label": "Local", "command": "local"})
-        path.write_text(json.dumps(local))
-        major, minor, bugfix = rt.VERSION.split(".")
-        newer = f"{major}.{minor}.{int(bugfix) + 1}"  # a later release than the installed one
-        with tempfile.TemporaryDirectory(prefix="latex-ai-release-") as directory:
-            package = Path(directory)
-            shutil.copytree(boot.PACKAGE / "templates", package / "templates")
-            for name in boot.runtime_sources(rt.load_config(self.project)):
-                (package / name).write_text((boot.PACKAGE / name).read_text().replace(f'VERSION = "{rt.VERSION}"', f'VERSION = "{newer}"'))
-            original = boot.desired_files
-            def next_release(config, project=None):
-                files = original(config, project)
-                new = json.loads(files[".vscode/tasks.json"])
-                new["tasks"].append({"label": "New release task", "command": "make", "args": ["doctor"]})
-                files[".vscode/tasks.json"] = json.dumps(new)
-                return files
-            with patch.object(boot, "PACKAGE", package), patch.object(boot, "VERSION", newer), patch.object(boot, "desired_files", side_effect=next_release):
-                self.assertEqual(self.cli("upgrade"), 0)
-                self.assertEqual(self.cli("audit"), 0)
-            labels = [t["label"] for t in json.loads(path.read_text())["tasks"]]
-            self.assertIn("Local", labels)
-            self.assertIn("New release task", labels)
 
     def test_backup_symlink_escape_refused(self):
         self.init()
@@ -181,7 +113,6 @@ class WorkbenchTests(unittest.TestCase):
         self.assertEqual(config["latex-workshop.latex.autoBuild.run"], "never")
         config["editor.rulers"] = [80]
         path.write_text(json.dumps(config))
-        self.assertEqual(self.cli("upgrade"), 0)
         self.assertEqual(json.loads(path.read_text())["editor.rulers"], [80])
 
     def test_conflicting_editor_item_refuses_all_writes(self):
@@ -202,13 +133,18 @@ class WorkbenchTests(unittest.TestCase):
         self.assertEqual(self.cli("init", "--skip-editor"), 0)
         self.assertEqual(path.read_text(), content)
 
-    def test_modified_runtime_refuses_upgrade(self):
+    def test_modified_runtime_is_not_overwritten_without_force(self):
         self.init()
         path = self.project / ".latex-ai/workbench.py"
-        path.write_text(path.read_text() + "\n# user edit\n")
+        original = path.read_text()
+        path.write_text(original + "\n# user edit\n")
         before = self.snapshot()
-        self.assertEqual(self.cli("upgrade"), 2)
+        self.assertEqual(self.cli("runtime"), 2)
         self.assertEqual(before, self.snapshot())
+        self.assertEqual(self.cli("diff"), 1)  # and diff says so
+        self.assertEqual(self.cli("runtime", "--force"), 0)
+        self.assertEqual(path.read_text(), original)
+        self.assertEqual(self.cli("diff"), 0)
 
     def test_agent_guardrails_agree_and_cover_every_git_operation_the_policy_names(self):
         templates = boot.PACKAGE / "templates"
@@ -269,13 +205,13 @@ class WorkbenchTests(unittest.TestCase):
     def test_installer_separates_internal_defects_from_ordinary_errors(self):
         errors = io.StringIO()
         with patch.object(boot, "detect_config", side_effect=KeyError("missing")), contextlib.redirect_stderr(errors), contextlib.redirect_stdout(io.StringIO()):
-            status = boot.main(["audit", str(self.project)])
+            status = boot.main(["init", str(self.project)])
         self.assertEqual(status, 70)
         self.assertIn("INTERNAL ERROR: KeyError", errors.getvalue())
         for ordinary in (rt.WorkbenchError("conflict"), OSError("disk"), ValueError("json")):
             with self.subTest(ordinary=type(ordinary).__name__), patch.object(boot, "detect_config", side_effect=ordinary), \
                     contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
-                self.assertEqual(boot.main(["audit", str(self.project)]), 2)
+                self.assertEqual(boot.main(["init", str(self.project)]), 2)
 
     def test_policy_tells_agents_how_to_treat_a_suspected_workbench_defect(self):
         template = (boot.PACKAGE / "templates/AGENTS.md").read_text()
@@ -303,19 +239,6 @@ class WorkbenchTests(unittest.TestCase):
     def test_path_escape_refused(self):
         with self.assertRaises(rt.WorkbenchError):
             rt.local_path(self.project, "../outside.tex")
-
-    def test_upgrade_three_way_preserves_local_edits(self):
-        base = {"tasks": [{"label": "Build", "command": "make"}], "editor": {"tab": 4}}
-        local = {"tasks": [{"label": "Build", "command": "make"}, {"label": "Local", "command": "local"}], "editor": {"tab": 8}}
-        new = {"tasks": [{"label": "Build", "command": "make", "args": ["build"]}, {"label": "Check", "command": "make"}], "editor": {"tab": 4}}
-        result = boot.three_way(base, local, new)
-        self.assertEqual(result["editor"]["tab"], 8)
-        self.assertEqual([i["label"] for i in result["tasks"]], ["Build", "Local", "Check"])
-        self.assertEqual(result["tasks"][0]["args"], ["build"])
-
-    def test_upgrade_conflicting_scalar_refused(self):
-        with self.assertRaises(rt.WorkbenchError):
-            boot.three_way({"engine": "a"}, {"engine": "b"}, {"engine": "c"})
 
     def test_concurrent_edit_refuses_writes(self):
         path = self.project / "AGENTS.md"

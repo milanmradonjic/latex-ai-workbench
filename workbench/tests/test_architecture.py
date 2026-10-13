@@ -18,7 +18,6 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import adapters
 import bootstrap as boot
-import installation
 import core
 import schema
 import latex
@@ -71,50 +70,6 @@ class ArchitectureTests(unittest.TestCase):
             latex.build(p, schema.document_settings(config))
             self.assertFalse((p / ".latex-ai/artifacts/unverified/manuscript/main.pdf").exists())
 
-    def test_installation_recovers_after_process_death(self):
-        p = self.project
-        (p / "existing").write_text("before")
-        updates = [{"path": "existing", "before": "before", "after": "after"},
-                   {"path": "new", "before": None, "after": "new contents"}]
-        code = """import sys, json, os
-from pathlib import Path
-sys.path.insert(0, sys.argv[1])
-import bootstrap as boot
-import installation
-real = installation.atomic_write
-def crash(path, text):
-    real(path, text)
-    if path == Path(sys.argv[2]) / 'existing': os._exit(91)
-installation.atomic_write = crash
-boot.apply(Path(sys.argv[2]), json.loads(sys.argv[3]))
-"""
-        result = subprocess.run([sys.executable, "-B", "-c", code, str(boot.PACKAGE), str(p), json.dumps(updates)])
-        self.assertEqual(result.returncode, 91)
-        self.assertEqual((p / "existing").read_text(), "after")
-        self.assertTrue((p / ".latex-ai/transaction.json").exists())
-        with contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(boot.main(["recover", str(p)]), 0)
-        self.assertEqual((p / "existing").read_text(), "before")
-        self.assertFalse((p / "new").exists())
-        self.assertFalse((p / ".latex-ai/transaction.json").exists())
-
-    def test_recovery_preserves_edits_made_after_interruption(self):
-        p = self.project
-        (p / "existing").write_text("before")
-        real = installation.atomic_write
-        def crash(path, text):
-            real(path, text)
-            if path == p / "existing":
-                raise SystemExit(91)
-        # Simulate failure of both application and rollback, retaining the journal.
-        with patch.object(installation, "atomic_write", side_effect=crash):
-            with self.assertRaises(BaseException):
-                boot.apply(p, [{"path": "existing", "before": "before", "after": "after"}])
-        (p / "existing").write_text("user edit")
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            self.assertNotEqual(boot.main(["recover", str(p)]), 0)
-        self.assertEqual((p / "existing").read_text(), "user edit")
-
     def test_effective_config_keeps_persisted_schema_and_module_defaults(self):
         persisted = {'schema_version': 3, 'modules': {'latex': {'default_document': 'manuscript', 'documents': {'manuscript': {'root': 'main.tex', 'engine': 'pdflatex', 'output_dir': '.'}}}}}
         before = json.dumps(persisted)
@@ -130,48 +85,18 @@ boot.apply(Path(sys.argv[2]), json.loads(sys.argv[3]))
         config = {'schema_version': 3, 'modules': {'bibliography': {'files': ['./refs.bib']}}}
         self.assertTrue(rt.validation_plan(self.project, config, ["refs.bib"])["bibliography"])
 
-    def test_installer_lock_refuses_a_second_process(self):
-        code = """import sys
-from pathlib import Path
-sys.path.insert(0, sys.argv[1])
-import bootstrap
-try:
-    bootstrap.apply(Path(sys.argv[2]), [])
-except bootstrap.WorkbenchError as error:
-    print(error)
-    sys.exit(23)
-"""
-        with boot.installation_lock(self.project):
-            result = subprocess.run([sys.executable, "-B", "-c", code, str(boot.PACKAGE), str(self.project)], capture_output=True, text=True)
-        self.assertEqual(result.returncode, 23, result.stdout + result.stderr)
-        self.assertIn("lock installation", result.stdout)
-        # Nothing but the lock file that the holder itself created.
-        self.assertEqual([path.relative_to(self.project).as_posix() for path in self.project.rglob("*") if path.is_file()],
-                         [".latex-ai/artifacts/locks/installation.lock"])
-
-    def test_installation_manifest_is_written_last(self):
-        updates = [{"path": boot.STATE, "before": None, "after": "{}"},
-                   {"path": "runtime", "before": None, "after": "new runtime"}]
-        writes = []
-        real = installation.atomic_write
-        def record(path, text):
-            writes.append(path.relative_to(self.project).as_posix())
-            return real(path, text)
-        with patch.object(installation, "atomic_write", side_effect=record):
-            boot.apply(self.project, updates)
-        self.assertEqual(writes[-1], boot.STATE)
-
     def test_reference_matches_distribution(self):
         reference = boot.PACKAGE.parent
         if not (reference / boot.STATE).is_file():
             self.skipTest("standalone distribution has no installed reference")
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
-            result = boot.main(["audit", str(reference), "--json"])
-        report = json.loads(output.getvalue())
-        self.assertEqual(result, 0, report)
-        self.assertEqual(report["changes"], [])
-        self.assertEqual(report["conflicts"], [])
+            result = boot.main(["diff", str(reference)])
+        self.assertEqual(result, 0, output.getvalue())  # the runtime files are this release's
+        config = schema.load_config(reference)
+        wanted = boot.desired_files(config, reference)
+        for name in ("AGENTS.md", "CLAUDE.md", "Makefile"):  # the files the reference may add to, but must still contain
+            self.assertIn(wanted[name], (reference / name).read_text(encoding="utf-8"), name)
 
 
     @unittest.skipUnless(shutil.which("latexmk") and shutil.which("pdflatex"), "needs real latexmk/pdfLaTeX")

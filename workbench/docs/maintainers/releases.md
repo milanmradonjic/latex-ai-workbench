@@ -3,6 +3,37 @@
 Workbench 3 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 4.3.0 — the installer creates projects; it no longer audits, upgrades, configures or recovers
+
+The fourth step of [the minimal scope](minimal-scope.md).
+
+- **Removed:** the installer modes `upgrade`, `audit`, `configure` and `recover` and the options only they used (`--enable`, `--disable`,
+  `--document`, `--default-document`); `installation.py` (the installation transaction, its lock and interruption journal
+  `.latex-ai/transaction.json`, and the ownership checks); the three-way merge of JSON and text; the record of every managed file with the
+  installed and upstream text kept as merge baselines; and the configuration field `disabled_modules` (a module is on when `modules` has
+  it, off when it does not, and its settings are not kept).
+- **Added:** `latex-ai-init diff PROJECT [--diff]`, which says how a project differs from this release (runtime files that differ or are
+  missing, and policy, Makefile and editor files that differ from what a new project would get) and writes nothing, exit 1 when a runtime
+  file differs; and `latex-ai-init runtime PROJECT [--dry-run] [--force]`, which refreshes the vendored `.latex-ai/*.py` files and the record,
+  backs up what it replaces, and refuses a file that was edited locally unless `--force` is given. `diff` and `runtime` refuse the options
+  only `init` reads instead of ignoring them.
+- **`init`** writes the same files as before, byte for byte (see the verification), and now refuses a project that already has
+  `.latex-ai/installation.json`; a project's own `.latex-ai.json` is used as it is.
+- **The record** `.latex-ai/installation.json` holds the release and a digest of each runtime file, nothing else. A record written by 4.2
+  or earlier is still read, so a project installed by them is refreshed by `runtime` without a conflict. `status` and `issue` say "record"
+  where they said "manifest".
+- **Updating** is a recipe an agent follows, written in `docs/upgrading.md` (be able to undo; read these notes; `diff`; `runtime`; read and edit
+  the files that are the project's; `make doctor`, `make check`, `git diff`), not a command. The skill's installation reference follows it.
+- **A project that disabled a module** with `configure --disable` has `disabled_modules` in `.latex-ai.json`; this release refuses it by name,
+  with a hint (delete it, or copy its settings into `modules`). Nothing is written before that.
+- **Not removed:** the merging of `init` into a Makefile, policy and editor files a project already has (`make_adapter`, the Make adoption layer, goes in
+  the build-core step), and the build locks. The runtime files of earlier releases that no longer exist (for example `.latex-ai/handbook.py`) stay in
+  a project; `runtime` never deletes.
+- **Size:** `bootstrap.py` and `installation.py` were 803 lines, `bootstrap.py` alone is now 614; `diagnostics.py` 206 to 171. Tests: 363 before,
+  365 now: 25 new scope tests, 6 adapted, 23 gone with the machinery.
+
+See [the verification record](verification-4.3.0.md).
+
 ## 4.2.0 — the long generated handbook is replaced by a short manual
 
 The third step of [the minimal scope](minimal-scope.md).

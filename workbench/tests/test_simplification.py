@@ -37,7 +37,7 @@ class SimplificationTests(unittest.TestCase):
             (self.project / core.CONFIG).write_text(json.dumps(config))
             before = {p.name: p.read_bytes() for p in self.project.iterdir()}
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-                self.assertEqual(bootstrap.main(["upgrade", str(self.project)]), 2)
+                self.assertEqual(bootstrap.main(["init", str(self.project)]), 2)
             self.assertEqual(before, {p.name: p.read_bytes() for p in self.project.iterdir()})
 
     def test_project_commands_reject_document_selector_without_skipping_checks(self):

@@ -320,7 +320,7 @@ def required_tools(config):
     return list(dict.fromkeys(tools))
 
 
-def validate_latex(project, values, config, enabled=True, planned_sources=None):
+def validate_latex(project, values, config, planned_sources=None):
     if not isinstance(values, dict):
         raise WorkbenchError("The latex module configuration must be an object")
     unknown_keys(values, {"default_document", "defaults", "documents"}, "latex module")
@@ -377,14 +377,8 @@ def validate_latex(project, values, config, enabled=True, planned_sources=None):
             raise WorkbenchError(f"Document build overlaps an exported PDF: {target.name}")
         roots.add(identity)
         outputs.update(output_ids)
-        clean = view
-        if enabled:
-            validate_document_settings(project, clean, planned_sources)
-        else:
-            # Saved disabled roots may have been removed; validate structure without requiring a toolchain/root.
-            validate_document_settings(project, clean, {path_name(project, view["root"]): None})
-    if enabled:
-        validate_make_ownership(project, targets, values["default_document"])
+        validate_document_settings(project, view, planned_sources)
+    validate_make_ownership(project, targets, values["default_document"])
     return values
 
 
@@ -458,27 +452,24 @@ def validate_config(project, config, planned_sources=None):
     modules = config.get("modules")
     if not isinstance(modules, dict):
         raise WorkbenchError("modules must be an object")
-    disabled = config.get("disabled_modules", {})
-    if not isinstance(disabled, dict):
-        raise WorkbenchError("disabled_modules must be an object")
-    gone = [name for name in REMOVED_MODULES if name in modules or name in disabled]
+    gone = [name for name in REMOVED_MODULES if name in modules]
     if gone:
         raise WorkbenchError(f"Workbench 4 no longer has the module{'s' if len(gone) > 1 else ''}: {', '.join(gone)}",
-                             hint=f"remove {'them' if len(gone) > 1 else 'it'} from \"modules\" and \"disabled_modules\" in {CONFIG}; "
+                             hint=f"remove {'them' if len(gone) > 1 else 'it'} from \"modules\" in {CONFIG}; "
                                   "your notes, results and other files are not touched (docs/maintainers/minimal-scope.md says why)")
+    if "disabled_modules" in config:  # known only so that it is refused with a reason, not as an unknown key
+        raise WorkbenchError("Workbench 4.3 no longer saves the settings of a disabled module: disabled_modules is gone",
+                             hint=f"delete \"disabled_modules\" from {CONFIG}; to turn a saved module on again, copy its settings into \"modules\"")
     unknown_keys(modules, MODULES, "", noun="module")
-    unknown_keys(disabled, MODULES, "saved disabled", noun="module")
-    if set(disabled) & modules.keys():
-        raise WorkbenchError(f"Module is both enabled and saved as disabled: {', '.join(sorted(set(disabled) & modules.keys()))}")
-    for name, values in {**disabled, **modules}.items():
+    for name, values in modules.items():
         if name == "latex":
-            validate_latex(project, values, config, enabled=name in modules, planned_sources=planned_sources)
+            validate_latex(project, values, config, planned_sources=planned_sources)
             continue
         if not isinstance(values, dict):
             raise WorkbenchError(f"The {name} module configuration must be an object")
         unknown_keys(values, MODULES[name]["defaults"], f"{name} module")
         missing = set(MODULES[name]["requires"]) - modules.keys()
-        if name in modules and missing:
+        if missing:
             raise WorkbenchError(f"{name} requires enabled module(s): {', '.join(sorted(missing))}")
     adapters = config.get("integrations", {})
     if not isinstance(adapters, dict):

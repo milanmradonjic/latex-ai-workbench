@@ -9,7 +9,7 @@ Python and Make provide the core. Optional modules require their own tools.
 1. **Authored work:** TeX, notes, bibliography exports and data belong to the
    project. The installer preserves them.
 2. **Configuration:** `.latex-ai.json` declares enabled modules and named
-   documents. Profiles choose initial settings; upgrades do not apply profiles again.
+   documents. Profiles choose initial settings; nothing applies them again.
 3. **Execution:** Make is the canonical interface. Editor tasks and CI invoke
    those commands. Builds compile documents; planning never builds.
 4. **Evidence:** receipts describe what happened under declared
@@ -19,11 +19,11 @@ Python and Make provide the core. Optional modules require their own tools.
 
 | State | Location | Purpose |
 |---|---|---|
-| Installation ownership | `.latex-ai/installation.json` | Records what was installed (a digest for files installed whole, the text of merged and extendable files) and merge baselines; needed for safe updates. |
-| Operation locks | `.latex-ai/artifacts/locks/` | Empty lock files that serialize builds and installs for every user of the project. |
+| Installation record | `.latex-ai/installation.json` | The release and a digest of each runtime file, so that a local edit shows and `runtime` can tell it from an older release's file. |
+| Operation locks | `.latex-ai/artifacts/locks/` | Empty lock files that serialize builds for every user of the project. |
 | Document receipts | `.latex-ai/artifacts/documents/<id>/build-receipt.json` | Establish whether compiler outputs match current declared inputs and build identity. |
 
-The installation manifest is not a disposable cache. A PDF existing on disk is
+The installation record is not a disposable cache. A PDF existing on disk is
 not enough for verified export.
 
 Build status reports live owner

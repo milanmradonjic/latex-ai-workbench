@@ -1,32 +1,37 @@
-"""Safe setup, audit and upgrade planning. No Git mutations or network calls."""
+"""Create a workbench project, or refresh its runtime. No Git mutations or network calls.
+
+``init`` writes the files a new project needs and merges into the ones it already has, never overwriting authored text.
+``diff`` shows how a project differs from what ``init`` would write now. ``runtime`` refreshes the vendored runtime files.
+There is no upgrade, audit or recovery: a project is updated by following docs/upgrading.md, which an agent can do.
+"""
 import argparse
+import copy
 import difflib
 import hashlib
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 import posixpath
 import re
 import shlex
+import shutil
 import sys
 
 sys.dont_write_bytecode = True
-from core import CONFIG, GENERATED_TREES, VERSION, WorkbenchError, local_path, git_output, make_has_extra_prereqs, ADOPTED_MAKE, read_json, read_tex
-import make_graph
-from schema import document_settings, specifications, validate_config
-from latex import bibliography_check, source_tree, tex_without_comments
-from core import MODULES, PROFILES, has_module, line_buffered, module_config, integrations, effective_config, runtime_sources
-from diagnostics import EXTENDABLE, MANIFEST_SCHEMA, current_record, extends, file_record, is_installed, managed_text
-import copy
 import guide
-from guide import MAKEFILES, make_targets
+import make_graph
 from adapters import core_makefile, integration_text, make_adapter, merge_block, module_make_targets
-from installation import apply, installation_lock, pending_transaction, read, recover
+from core import (ADOPTED_MAKE, CONFIG, GENERATED_TREES, MODULES, PROFILES, VERSION, WorkbenchError, atomic_write, effective_config, git_output,
+                  has_module, integrations, line_buffered, local_path, make_has_extra_prereqs, module_config, read_json, read_tex, runtime_sources)
+from diagnostics import recorded_digests, sha256_text
+from guide import MAKEFILES, make_targets
+from latex import bibliography_check, source_tree, tex_without_comments
+from schema import document_settings, load_config, specifications, validate_config
 
 PACKAGE = Path(__file__).resolve().parent
-from installation import STATE
+STATE = ".latex-ai/installation.json"  # what init and runtime wrote: the version, and a digest of each runtime file
 EXCLUDED = GENERATED_TREES | {"workbench", "build", "out"}  # the installer also leaves out the distribution and build folders
-STRATEGIES = {"full", "block", "json", "seed"}
 COPIED = ((".latex-ai/", "workbench runtime"), (".claude/", "agent guardrails that prompt before Git changes"),
           (".codex/", "agent guardrails that prompt before Git changes"))
 
@@ -35,8 +40,47 @@ def encoded(value):
     return json.dumps(value, indent=2, ensure_ascii=False) + "\n"
 
 
-def digest(data):
-    return hashlib.sha256(data).hexdigest()
+def read(project, name):
+    path = local_path(project, name)
+    # A write destination must not be redirected even within the project.
+    cursor = project / name
+    while cursor != project:
+        if cursor.is_symlink():
+            raise WorkbenchError(f"Refusing symlink destination: {name}")
+        cursor = cursor.parent
+    if path.exists() and not path.is_file():
+        raise WorkbenchError(f"Expected a file: {name}")
+    return path.read_text(encoding="utf-8") if path.exists() else None
+
+
+def publish(project, name, text):
+    """Write installer text in the line endings the file already uses (an owner's CRLF file must not come back as LF)."""
+    path = project / name
+    if path.is_file():
+        data = path.read_bytes()
+        crlf = data.count(b"\r\n")
+        if crlf > data.count(b"\n") - crlf:
+            text = text.replace("\n", "\r\n")
+    atomic_write(path, text)
+
+
+def apply(project, updates):
+    """Write the planned files; the original of every file that is replaced is kept under .latex-ai/backups/."""
+    for update in updates:
+        if read(project, update["path"]) != update["before"]:
+            raise WorkbenchError(f"File changed after planning: {update['path']}; nothing applied")
+    backup = project / ".latex-ai" / "backups" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    for update in updates:
+        if update["before"] is not None:
+            read(project, str((backup / update["path"]).relative_to(project)))  # a backup must not be redirected by a symlink
+    for update in updates:
+        if update["before"] is not None:  # the original bytes, not their normalized reading
+            destination = backup / update["path"]
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(local_path(project, update["path"]), destination)
+    for update in updates:
+        publish(project, update["path"], update["after"])
+    return str(backup.relative_to(project)) if backup.exists() else None
 
 
 def git_snapshot(project):
@@ -81,58 +125,25 @@ def build_command_argument(text):
 
 
 def detect_config(project, inventory, args):
-    old = read(project, CONFIG)
-    if old is not None:
-        stored = read_json(project / CONFIG, CONFIG)
-        if isinstance(stored.get("integrations"), dict) and "ci" in stored["integrations"]:
-            del stored["integrations"]["ci"]  # workbench 4.1 generates no CI: the installer drops the setting, the runtime refuses it
-            args.dropped_ci = True
-        config = validate_config(project, stored)
+    """The configuration a new project starts from: its own `.latex-ai.json` if it has one, else a profile or module
+    list, else what the project's files say."""
+    if read(project, STATE) is not None:
+        raise WorkbenchError("This project already has the workbench installed",
+                             hint="`init` creates projects. To refresh its runtime files run `latex-ai-init runtime .`; "
+                                  "to see how it differs from what `init` would write now, `latex-ai-init diff .`; the rest is in docs/upgrading.md")
+    if read(project, CONFIG) is not None:
+        config = load_config(project)
         if args.profile is not None or args.modules is not None or args.editor:
-            raise WorkbenchError("Profiles/adapters select initial defaults only; edit installed configuration explicitly",
-                                 hint="this project is already installed: `upgrade` refreshes it, and `configure --enable NAME` or `--disable NAME` changes "
-                                      "its modules. --profile, --modules and --editor only choose the starting set of a new install")
-        if args.document or args.default_document:
-            if args.mode != "configure":
-                raise WorkbenchError("Document changes require configure mode")
-            if not has_module(config, "latex"):
-                raise WorkbenchError("Enable the latex module before adding a document")
-            values = config["modules"]["latex"]
-            if args.document:
-                fields = values["documents"].setdefault(args.document, {})
-                for key in ("root", "engine", "backend"):
-                    if getattr(args, key) is not None:
-                        fields[key] = getattr(args, key)
-                if args.build_command is not None:
-                    fields["build_command"] = build_command_argument(args.build_command)
-                if args.no_lint:
-                    fields["lint"] = {**fields.get("lint", {}), "enabled": False}
-            if args.default_document:
-                values["default_document"] = args.default_document
-            return validate_config(project, config)
+            raise WorkbenchError("The project has its own configuration; --profile, --modules and --editor only choose the starting set of a new project",
+                                 hint=f"run init again without them (a project that an interrupted init began is finished that way); to change what it chose, edit {CONFIG}")
         tex = document_settings(config)
         selections = [(args.root, tex.get("root")), (args.engine, tex.get("engine")),
                       (args.backend, tex.get("bibliography", {}).get("backend", "none")),
                       (build_command_argument(args.build_command) if args.build_command else None, tex.get("build_command"))]
         if any(chosen is not None and chosen != current for chosen, current in selections) or (
-            args.no_lint and tex.get("lint", {}).get("enabled", True)):
-            raise WorkbenchError("Project choices differ; edit .latex-ai.json explicitly instead of overriding installed configuration")
-        if args.mode == "configure":
-            saved = config.setdefault("disabled_modules", {})
-            for name in args.disable:
-                if name in config["modules"]:
-                    saved[name] = config["modules"].pop(name)
-            for name in args.enable:
-                default = ({"default_document": "manuscript", "documents": {"manuscript": {"root": args.root or "main.tex"}}}
-                           if name == "latex" else copy.deepcopy(MODULES[name]["defaults"]))
-                config["modules"].setdefault(name, saved.pop(name, default))
-            if not saved:
-                config.pop("disabled_modules", None)
-        return validate_config(project, config)
-    if args.mode == "configure":
-        raise WorkbenchError("Not installed; use init first")
-    if args.document or args.default_document:
-        raise WorkbenchError("Document configuration options require an installed project; use configure")
+                args.no_lint and tex.get("lint", {}).get("enabled", True)):
+            raise WorkbenchError(f"Project choices differ; edit {CONFIG} explicitly instead of overriding it with options")
+        return config
     if args.profile is not None or args.modules is not None:
         names = PROFILES[args.profile] if args.profile is not None else [n.strip() for n in args.modules.split(",") if n.strip()]
         if set(names) - MODULES.keys():
@@ -207,6 +218,7 @@ def detect_config(project, inventory, args):
         "integrations": {"editor": not args.skip_editor}})
 
 
+
 ENGINE_SIGNS = (("lualatex", r"lualatex|-pdflua(?![a-z])|-lualatex(?![a-z])"), ("xelatex", r"xelatex|-pdfxe(?![a-z])|-xelatex(?![a-z])"),
                 ("pdflatex", r"pdflatex|latexmk\b[^\n]*\s-pdf(?![a-z])"))
 
@@ -225,46 +237,6 @@ def build_engine(project, build_files):
                 if re.search(pattern, text):
                     found.setdefault(engine, name)
     return next(iter(found.items())) if len(found) == 1 else (None, None)
-
-
-def replay(args, verb, project):
-    """The command that applies what this run previewed: the same choices, under another mode."""
-    words = ["python3", str(PACKAGE / "latex-ai-init"), verb, str(project)]
-    for name in ("profile", "modules", "root", "engine", "backend", "build_command"):
-        if getattr(args, name) is not None:
-            words += ["--" + name.replace("_", "-"), getattr(args, name)]
-    words += ["--" + name.replace("_", "-") for name in ("editor", "no_lint", "skip_editor") if getattr(args, name)]
-    return shlex.join(words)
-
-
-def closing_lines(args, project, report, makefile):
-    """The plain-language end of the text output: what happened, and what to do next."""
-    files = [item for item in report["changes"] if item["path"] != STATE]
-    record_only = bool(report["changes"]) and not files  # the manifest follows edits to files it shares with the project
-    if report["conflicts"]:
-        return ["", "Nothing was changed. Resolve the CONFLICT lines above, then run this command again."]
-    if args.mode == "audit":
-        if not report["changes"]:
-            return ["", "Audit only: nothing was changed; the installation is current."]
-        command = replay(args, "upgrade" if (project / STATE).is_file() else "init", project)
-        if record_only:
-            return ["", f"Audit only: nothing was changed. Only the installation record ({STATE}) would be refreshed, to follow "
-                        f"your edits to files it shares with you (Makefile, policy, editor settings); apply with: {command}"]
-        return ["", f"Audit only: nothing was changed. {len(files)} file(s) would be added or updated; apply with: {command}"]
-    if args.dry_run:
-        return ["", "Dry run: nothing was changed. Run the same command without --dry-run to apply it (--diff shows the exact changes)."]
-    if not report["applied"] or not report["changes"]:
-        return []
-    if record_only:
-        return ["", f"Done: the installation record ({STATE}) now follows your edits to the files it shares with you; no other file was changed."]
-    created = sum(item["action"] == "create" for item in files)
-    lines = ["", f"Done: {created} file(s) added, {len(files) - created} updated. Files you already had were kept; "
-                 f"anything replaced is backed up under {report['backup'] or '.latex-ai/backups'}.", "", "Next:"]
-    steps = [(guide.usable_name(makefile, short, reserved), meaning) for short, reserved, meaning in (
-        ("doctor", "latex-ai-doctor", "confirm the required tools are installed"), ("help", "latex-ai-help", "see the commands this project has"),
-        ("status", "latex-ai-status", "see where the project stands and what to run first"), ("check", None, "run the full check"))]
-    width = max([len(name) for name, _ in steps if name] or [0])
-    return lines + [f"  make {name:<{width}}  # {meaning}" for name, meaning in steps if name]
 
 
 def initial_json_merge(current, desired):
@@ -290,40 +262,6 @@ def initial_json_merge(current, desired):
             result[key] = result[key] + additions
         # Ordinary editor preferences belong to the project; retain them.
     return result
-
-
-def three_way(base, local, new):
-    if local == base:
-        return new
-    if new == base or local == new:
-        return local
-    if all(isinstance(v, list) for v in (base, local, new)):
-        combined = base + local + new
-        identity = next((k for k in ("label", "name") if combined and all(isinstance(i, dict) and k in i for i in combined)), None)
-        if identity:
-            maps = [{i[identity]: i for i in seq} for seq in (base, local, new)]
-            if any(len(m) != len(seq) for m, seq in zip(maps, (base, local, new))):
-                raise WorkbenchError("Duplicate editor item identifiers")
-            merged = three_way(*maps)
-            order = list(dict.fromkeys(i[identity] for i in local + new))
-            return [merged[k] for k in order if k in merged]
-    if all(isinstance(v, dict) for v in (base, local, new)):
-        result = {}
-        absent = object()
-        for key in dict.fromkeys(list(local) + list(new) + list(base)):
-            b, l, n = base.get(key, absent), local.get(key, absent), new.get(key, absent)
-            if l == b:
-                value = n
-            elif n == b or l == n:
-                value = l
-            elif all(isinstance(v, dict) for v in (b, l, n)) or all(isinstance(v, list) for v in (b, l, n)):
-                value = three_way(b, l, n)
-            else:
-                raise WorkbenchError(f"Upgrade conflicts with local changes at {key}")
-            if value is not absent:
-                result[key] = value
-        return result
-    raise WorkbenchError("Upgrade conflicts with local changes")
 
 
 def compiled_pdf(tex, project=None):
@@ -368,10 +306,7 @@ def desired_files(config, project=None):
     adapter = integrations(config)
     if not has_module(config, "latex"):
         files["Makefile"] = core_makefile(config)
-    retained = config
-    if not has_module(config, "latex") and config.get("disabled_modules", {}).get("latex"):
-        retained = {**config, "modules": {**config["modules"], "latex": config["disabled_modules"]["latex"]}}
-    pdfs = ["/" + compiled_pdf(document.view, project).removeprefix("./") for document in specifications(retained)]
+    pdfs = ["/" + compiled_pdf(document.view, project).removeprefix("./") for document in specifications(config)]
     if pdfs:
         files[".gitignore"] = (PACKAGE / "templates/.gitignore").read_text() + "\n".join(pdfs) + "\n.latex-ai/backups/\n"
     files["Makefile"] += module_make_targets(config, make_graph.read(files["Makefile"]).targets)  # the short names the template already defines
@@ -403,109 +338,37 @@ def desired_files(config, project=None):
 
 
 def plan(project, config, args):
-    state_text = read(project, STATE)
-    damaged = WorkbenchError(f"Damaged installation record: {STATE}", hint="restore it from version control or from a backup under "
-                             ".latex-ai/backups/; it holds the baselines that make upgrades safe, so it is never guessed")
-    try:
-        state = json.loads(state_text) if state_text else {"schema_version": 1, "version": None, "files": {}}
-    except ValueError:
-        raise damaged
-    if not isinstance(state, dict):
-        raise damaged
-    if state.get("schema_version") not in (1, MANIFEST_SCHEMA):
-        raise WorkbenchError("Unsupported installation manifest schema")
-    if args.mode == "upgrade" and not state_text:
-        raise WorkbenchError("Not installed; use init first")
-    oldfiles = state.get("files")
-    if not isinstance(oldfiles, dict) or any(not isinstance(record, dict) or record.get("strategy") not in STRATEGIES for record in oldfiles.values()):
-        raise damaged
-    try:
-        newer = bool(state.get("version")) and tuple(map(int, state["version"].split("."))) > tuple(map(int, VERSION.split(".")))
-    except (AttributeError, ValueError):
-        raise damaged
-    if newer:
-        raise WorkbenchError("Refusing downgrade from a newer workbench installation")
+    """What `init` would write: (updates, conflicts, notes). Existing files are merged into, never overwritten."""
     wanted = desired_files(config, project)
-    # Use actual directory names: on macOS, exists("makefile") can also match
-    # "Makefile", which must retain its registered spelling for upgrades.
+    # Use actual directory names: on macOS, exists("makefile") can also match "Makefile".
     project_names = {path.name for path in project.iterdir()}
     active_makefile = next((name for name in MAKEFILES if name in project_names), "Makefile")
     if active_makefile not in project_names and any((project / name).exists() for name in MAKEFILES):
         raise WorkbenchError("Unsupported Makefile filename casing; reconcile explicitly before setup")
-    managed_makefiles = [name for name in MAKEFILES if name in oldfiles]
-    if managed_makefiles and managed_makefiles != [active_makefile]:
-        raise WorkbenchError(f"Active {active_makefile} differs from managed {managed_makefiles}; reconcile Makefile selection explicitly")
     if active_makefile != "Makefile":
         wanted[active_makefile] = wanted.pop("Makefile")
     if args.skip_editor:
         wanted = {p: t for p, t in wanted.items() if not p.startswith(".vscode/")}
-    updates, conflicts, notes, records, local = [], [], [], dict(oldfiles), []  # local: edits that block, for --diff
+    updates, conflicts, notes = [], [], []
     if has_module(config, "latex") and integrations(config)["editor"] and not args.skip_editor:
         reason = viewer_out_dir([target.view for target in specifications(config)])[1]
         if reason:
             notes.append(reason)
-    config_before = read(project, CONFIG)
-    if getattr(args, "dropped_ci", False):
-        notes.append(f"removed integrations.ci from {CONFIG}: the workbench no longer generates CI workflows")
-    if config_before is None or args.mode == "configure" or getattr(args, "dropped_ci", False):
-        if config_before is None or json.loads(config_before) != config:
-            updates.append({"path": CONFIG, "before": config_before, "after": encoded(config)})
-    if not has_module(config, "latex") and ".vscode/settings.json" in oldfiles:
-        wanted[".vscode/settings.json"] = encoded({"latex-workshop.latex.autoBuild.run": "never"})
+    if read(project, CONFIG) is None:  # a configuration the project wrote itself is kept as it is
+        updates.append({"path": CONFIG, "before": None, "after": encoded(config)})
     for name, upstream in wanted.items():
         try:
             if name.startswith(".vscode/"):
                 upstream = encoded(json.loads(upstream))
             current = read(project, name)
-            record = oldfiles.get(name)
-            strategy = record["strategy"] if record else "full"
-            if strategy == "seed" and (current is not None or record):
-                # A seeded file belongs to the project after creation:
-                # never overwritten, and never recreated if the project deleted them.
-                if current is None:
-                    notes.append(f"Project-owned {name} was deleted locally; not recreated")
-                records[name] = file_record(name, "seed", current, upstream)
-                continue
-            if not record and name.startswith(".vscode/"):
-                strategy = "json"
             proposed = upstream
             if current is None:
-                if record:
-                    raise WorkbenchError("Previously installed file was deleted locally; reconcile explicitly")
-            elif record:
-                base = record.get("installed")
-                if strategy == "block":
-                    content = make_adapter(current, config, project) if name in MAKEFILES else integration_text(name, upstream)
-                    proposed = merge_block(current, content, base)
-                    upstream = content
-                elif strategy == "json":
-                    proposed = encoded(three_way(json.loads(record.get("upstream", base)), json.loads(current), json.loads(upstream)))
-                elif current == upstream:
-                    proposed = current
-                elif extends(name, record, current):
-                    # The installed text is intact: what the project wrote above or below it stays where it is.
-                    proposed = current.replace(managed_text(record), upstream, 1)
-                elif not is_installed(record, current):
-                    # A digest-only record cannot show what was installed: show the change against this release's text.
-                    shown = managed_text(record)
-                    local.append({"path": name, "before": upstream if shown is None else shown, "after": current,
-                                  "label": f"workbench {VERSION}" if shown is None else "as installed"})
-                    raise WorkbenchError(
-                        "Locally modified managed file: your copy differs inside the text the workbench installed. Lines added above or below that text are "
-                        "kept on upgrade, a change inside it is not merged; undo it or move it outside, then run this again (--diff shows the change)"
-                        if name in EXTENDABLE else
-                        "Locally modified managed file: this file is installed whole and is not meant to be edited; restore it from version control, "
-                        "then run this again (--diff shows the change)")
+                pass
             elif name in MAKEFILES:
-                strategy = "block"
-                upstream = make_adapter(current, config, project)
-                proposed = merge_block(current, upstream)
+                proposed = merge_block(current, make_adapter(current, config, project))
             elif name in {"AGENTS.md", "CLAUDE.md", ".gitignore"}:
-                strategy = "block"
-                upstream = integration_text(name, upstream)
-                proposed = merge_block(current, upstream)
+                proposed = merge_block(current, integration_text(name, upstream))
             elif name.startswith(".vscode/"):
-                strategy = "json"
                 try:
                     proposed = encoded(initial_json_merge(json.loads(current), json.loads(upstream)))
                 except json.JSONDecodeError:
@@ -517,72 +380,163 @@ def plan(project, config, args):
                 raise WorkbenchError("Unmanaged runtime file already exists")
             if current != proposed:
                 updates.append({"path": name, "before": current, "after": proposed})
-            records[name] = file_record(name, strategy, proposed, upstream)
         except (WorkbenchError, ValueError, KeyError) as error:
             conflicts.append(f"{name}: {error}")
-    # Keep custom policy and ignore blocks stable on subsequent upgrades.
-    for name, record in list(records.items()):
-        if name not in wanted and name.startswith(".github/workflows/"):
-            del records[name]  # a workflow an earlier release wrote: the project's own file from now on
-            notes.append(f"{name} was written by an earlier release; the workbench no longer generates or tracks it, and it stays as your file")
-        elif name not in wanted:
-            notes.append(f"Previously managed {name} retained; no automatic deletion")
-    manifest = encoded({"schema_version": MANIFEST_SCHEMA, "version": VERSION,
-                        "files": {name: current_record(name, record) for name, record in records.items()}})
-    if manifest != state_text and not conflicts:
-        updates.append({"path": STATE, "before": state_text, "after": manifest})
-    return updates, conflicts, notes, local
+    if not conflicts:
+        updates.append({"path": STATE, "before": read(project, STATE), "after": state_text({n: t for n, t in wanted.items() if n.startswith(".latex-ai/")})})
+    return updates, conflicts, notes
+
+
+def state_text(runtime):
+    """The record init and runtime leave: the version, and a digest of every runtime file, so that a local edit shows."""
+    return encoded({"schema_version": 3, "version": VERSION, "files": {name: sha256_text(text) for name, text in sorted(runtime.items())}})
+
+
+def closing_lines(args, report, makefile):
+    """The plain-language end of the text output: what happened, and what to do next."""
+    if report["conflicts"]:
+        return ["", "Nothing was changed. Resolve the CONFLICT lines above, then run this command again."]
+    if args.dry_run:
+        return ["", "Dry run: nothing was changed. Run the same command without --dry-run to apply it (--diff shows the exact changes)."]
+    if not report["applied"] or not report["changes"]:
+        return []
+    files = [item for item in report["changes"] if item["path"] != STATE]
+    created = sum(item["action"] == "create" for item in files)
+    lines = ["", f"Done: {created} file(s) added, {len(files) - created} updated. Files you already had were kept; "
+                 f"anything replaced is backed up under {report['backup'] or '.latex-ai/backups'}.", "", "Next:"]
+    steps = [(guide.usable_name(makefile, short, reserved), meaning) for short, reserved, meaning in (
+        ("doctor", "latex-ai-doctor", "confirm the required tools are installed"), ("help", "latex-ai-help", "see the commands this project has"),
+        ("status", "latex-ai-status", "see where the project stands and what to run first"), ("check", None, "run the full check"))]
+    width = max([len(name) for name, _ in steps if name] or [0])
+    return lines + [f"  make {name:<{width}}  # {meaning}" for name, meaning in steps if name]
+
+
+def show(updates, local=()):
+    for update in updates:
+        if update["path"] == STATE:
+            continue
+        copied = next((kind for prefix, kind in COPIED if update["path"].startswith(prefix)), None)
+        if update["before"] is None and copied:
+            # The package's own code and rule lists, copied unchanged: thousands of lines nobody reviews in a preview.
+            print(f"new file: {update['path']} ({len(update['after'].splitlines())} lines of {copied}, copied unchanged from the package)")
+            continue
+        print("".join(difflib.unified_diff((update["before"] or "").splitlines(True), update["after"].splitlines(True),
+                                        fromfile=update["path"], tofile=update["path"])), end="")
+
+
+def runtime_differences(project, config):
+    """(name, wanted text, current text or None) for each runtime file the package would write that differs."""
+    return [(name, text, read(project, name)) for name, text in desired_files(config, project).items()
+            if name.startswith(".latex-ai/") and read(project, name) != text]
+
+
+def do_diff(project, args):
+    """Read-only: how the project differs from what `init` would write now. Exit status 1 when a runtime file differs."""
+    config = load_config(project)
+    wanted = desired_files(config, project)
+    differing = runtime_differences(project, config)
+    for name, text, current in differing:
+        print(f"RUNTIME {'missing' if current is None else 'differs'}: {name}")
+    others = [(name, text, read(project, name)) for name, text in wanted.items() if not name.startswith(".latex-ai/")]
+    for name, text, current in others:
+        if current is None:
+            print(f"MISSING: {name}")
+        elif current != text:
+            print(f"DIFFERS (a file you may have added to; read, do not overwrite): {name}")
+            if args.diff:
+                print("".join(difflib.unified_diff(current.splitlines(True), text.splitlines(True), fromfile=name + " (project)", tofile=name + " (template)")), end="")
+    if args.diff:
+        for name, text, current in differing:
+            print("".join(difflib.unified_diff((current or "").splitlines(True), text.splitlines(True), fromfile=name + " (project)", tofile=name + " (this release)")), end="")
+    print(f"Project runtime {recorded_version(project) or 'unrecorded'}; this release {VERSION}; "
+          + ("runtime files are identical." if not differing else f"{len(differing)} runtime file(s) differ."))
+    return 1 if differing else 0
+
+
+def recorded_version(project):
+    try:
+        return json.loads((project / STATE).read_text(encoding="utf-8")).get("version")
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def do_runtime(project, args):
+    """Refresh the vendored runtime files, and the record of them. A file the project edited is never overwritten without --force."""
+    config = load_config(project)
+    recorded = recorded_digests(project) or {}
+    updates, conflicts = [], []
+    wanted = {name: text for name, text in desired_files(config, project).items() if name.startswith(".latex-ai/")}
+    for name, text in wanted.items():
+        current = read(project, name)
+        if current == text:
+            continue
+        if current is not None and not args.force and recorded.get(name) != sha256_text(current):
+            conflicts.append(f"{name}: modified locally (or not written by the workbench); restore it from version control, or pass --force to replace it")
+        updates.append({"path": name, "before": current, "after": text})
+    state_before = read(project, STATE)
+    state_after = state_text(wanted)
+    if state_after != state_before:
+        updates.append({"path": STATE, "before": state_before, "after": state_after})
+    for update in updates:
+        if update["path"] != STATE:
+            print(f"{'CREATE' if update['before'] is None else 'UPDATE'}: {update['path']}")
+    for conflict in conflicts:
+        print("CONFLICT: " + conflict)
+    if conflicts:
+        print("Nothing was changed.")
+        return 2
+    if args.dry_run or not updates:
+        print("Already current; no changes" if not updates else "Dry run: nothing was changed.")
+        return 0
+    backup = apply(project, updates)
+    print(f"Runtime refreshed to {VERSION}." + (f" Replaced files are backed up under {backup}." if backup else ""))
+    return 0
+
+
+def init_only_flags(args):
+    """The options only `init` reads that were given, so that `diff` and `runtime` refuse them rather than ignore them."""
+    return ["--" + name.replace("_", "-") for name in ("profile", "modules", "editor", "root", "engine", "backend", "build_command", "no_lint", "skip_editor", "json")
+            if getattr(args, name) not in (None, False)]
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="LaTeX AI Workbench: inspect first, preserve local files, never mutate Git")
-    parser.add_argument("mode", nargs="?", choices=["audit", "init", "upgrade", "configure", "recover"], default="audit")
+    parser = argparse.ArgumentParser(description="LaTeX AI Workbench: create a project, preserve local files, never mutate Git")
+    parser.add_argument("mode", choices=["init", "diff", "runtime"], help="init: create a project; diff: how a project differs from this release; runtime: refresh its runtime files")
     parser.add_argument("project", nargs="?", type=Path, default=Path.cwd())
     selection = parser.add_mutually_exclusive_group()
     selection.add_argument("--profile", choices=sorted(PROFILES))
     selection.add_argument("--modules", help="Exact comma-separated initial module selection; empty selects core only")
     parser.add_argument("--editor", action="store_true", help="Opt into project-local editor adapter for a new modular project")
-    parser.add_argument("--document", help="configure: add or update a named LaTeX document")
-    parser.add_argument("--default-document", help="configure: select the default named document")
-    parser.add_argument("--enable", action="append", choices=sorted(MODULES), default=[])
-    parser.add_argument("--disable", action="append", choices=sorted(MODULES), default=[])
     parser.add_argument("--root")
     parser.add_argument("--engine", choices=["pdflatex", "lualatex", "xelatex"])
     parser.add_argument("--backend", choices=["none", "bibtex", "biber"])
     parser.add_argument("--build-command", help="JSON argv for an existing build, e.g. '[\"make\",\"pdf\"]'")
-    parser.add_argument("--no-lint", action="store_true", help="Disable lint for the selected document; other documents inherit their shared defaults")
+    parser.add_argument("--no-lint", action="store_true", help="Disable lint for the document")
     parser.add_argument("--skip-editor", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--diff", action="store_true")
+    parser.add_argument("--force", action="store_true", help="runtime: replace runtime files even where they were edited locally")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_intermixed_args(argv)
     line_buffered()
     try:
-        if (args.document or args.default_document) and (args.enable or args.disable):
-            raise WorkbenchError("Configure documents and module choices in separate reviewed operations")
-        if (args.enable or args.disable) and args.mode != "configure":
-            raise WorkbenchError("--enable/--disable require configure mode")
-        if set(args.enable) & set(args.disable):
-            raise WorkbenchError("Cannot enable and disable the same module")
         project = args.project.resolve()
         if not project.is_dir():
             raise WorkbenchError(f"Project directory does not exist: {project}",
                                  hint="name the project's folder, not a file inside it" if project.is_file() else f"create it first: mkdir -p {shlex.quote(str(project))}")
-        if args.mode == "recover":
-            if args.dry_run:
-                raise WorkbenchError("Recovery is explicit; inspect .latex-ai/transaction.json before running it")
-            with installation_lock(project):
-                restored = recover(project)
-            print("Previous installation restored" if restored else "No unfinished installation transaction")
-            return 0
-        pending_transaction(project)
+        if args.mode != "init":
+            refused = init_only_flags(args) + (["--force"] if args.force and args.mode != "runtime" else [])
+            if refused:
+                raise WorkbenchError(f"`{args.mode}` does not take {', '.join(refused)}",
+                                     hint="`diff` takes --diff; `runtime` takes --dry-run and --force; the rest belong to `init`")
+            return do_diff(project, args) if args.mode == "diff" else do_runtime(project, args)
         inventory = discover(project)
         git = git_snapshot(project)
         config = detect_config(project, inventory, args)
-        updates, conflicts, notes, local = plan(project, config, args)
+        updates, conflicts, notes = plan(project, config, args)
         if inventory.get("engine_source"):
             notes.append(f"engine {document_settings(config)['engine']} read from {inventory['engine_source']}; pass --engine to choose another")
-        if args.mode != "upgrade" and args.profile is None and args.modules is None:
+        if args.profile is None and args.modules is None:
             # The default for a paper is the fullest: say what comes with it besides the checks, and how to decline.
             created = [update["path"] for update in updates if update["before"] is None]
             if any(path.startswith(".vscode/") for path in created):
@@ -606,13 +560,12 @@ def main(argv=None):
         if git["better_bibtex_auto_push"] and git["better_bibtex_auto_push"].lower() in {"true", "yes", "1", "on"}:
             conflicts.append("Better BibTeX automatic Git push is enabled; manual Git approval policy is not satisfied")
         backup = None
-        if not conflicts and args.mode != "audit" and not args.dry_run:
+        if not conflicts and not args.dry_run:
             backup = apply(project, updates)
-        tex = document_settings(config, args.document) if has_module(config, "latex") else None
+        tex = document_settings(config) if has_module(config, "latex") else None
         report = {"version": VERSION, "project": str(project), "git": git, "inventory": inventory, "config": config, "document": tex,
                   "changes": [{"path": u["path"], "action": "create" if u["before"] is None else "update"} for u in updates],
-                  "conflicts": conflicts, "notes": notes, "backup": backup,
-                  "applied": not conflicts and args.mode != "audit" and not args.dry_run}
+                  "conflicts": conflicts, "notes": notes, "backup": backup, "applied": not conflicts and not args.dry_run}
         if args.json:
             print(encoded(report), end="")
         else:
@@ -622,8 +575,6 @@ def main(argv=None):
             if tex:
                 print(f"Document {tex['name']}: root {tex['root']}; engine: {tex['engine']}; bibliography: {tex['bibliography']['backend']}; "
                       f"output: {tex['output_dir']}; lint: {'enabled' if tex['lint']['enabled'] else 'disabled'}")
-                if args.mode == "configure":
-                    print("NOTE: Other documents inherit shared defaults; --no-lint applies only to this document")
             for item in report["changes"]:
                 print(f"{item['action'].upper()}: {item['path']}")
             for note in notes:
@@ -634,23 +585,11 @@ def main(argv=None):
                 print("Backups: " + backup)
             print("No changes applied" if not report["applied"] else "Applied" if updates else "Already current; no changes")
         if args.diff:
-            for update in updates:
-                if update["path"] == STATE:
-                    continue
-                copied = next((kind for prefix, kind in COPIED if update["path"].startswith(prefix)), None)
-                if update["before"] is None and copied:
-                    # The package's own code and rule lists, copied unchanged: thousands of lines nobody reviews in a preview.
-                    print(f"new file: {update['path']} ({len(update['after'].splitlines())} lines of {copied}, copied unchanged from the package)")
-                    continue
-                print("".join(difflib.unified_diff((update["before"] or "").splitlines(True), update["after"].splitlines(True),
-                                                fromfile=update["path"], tofile=update["path"])), end="")
-            for change in local:
-                print("".join(difflib.unified_diff(change["before"].splitlines(True), change["after"].splitlines(True),
-                                                fromfile=f"{change['path']} ({change['label']})", tofile=change["path"] + " (yours)")), end="")
+            show(updates)
         if not args.json:  # last, so that the summary is what remains on screen after a long diff
-            for line in closing_lines(args, project, report, final_makefile):
+            for line in closing_lines(args, report, final_makefile):
                 print(line)
-        return 2 if conflicts else 1 if args.mode == "audit" and updates else 0
+        return 2 if conflicts else 0
     except Exception as error:
         if not isinstance(error, (WorkbenchError, OSError, ValueError)):
             # Nothing the project's files can cause: a defect in the installer itself.

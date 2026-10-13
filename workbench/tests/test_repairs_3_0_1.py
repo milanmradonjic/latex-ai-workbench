@@ -189,7 +189,7 @@ class Repairs(ProjectCase):
             with self.subTest(name):
                 self.assertTrue(installed[name].startswith(text.encode()), installed[name][:120])
                 self.assertIsNone(re.search(rb"(?<!\r)\n", installed[name]), "a bare LF was introduced")
-        self.install("upgrade", "--skip-editor")
+        self.install("runtime")
         self.assertEqual({name: (self.project / name).read_bytes() for name in authored}, installed)
 
     def test_installer_keeps_lf_files_lf(self):
@@ -202,7 +202,7 @@ class Repairs(ProjectCase):
 
     def test_every_installed_runtime_file_is_a_full_validation_trigger(self):
         everything = {"schema_version": 3, "modules": {name: {} for name in core.MODULES}}
-        shipped = set(core.runtime_sources(everything)) | {"bootstrap.py", "adapters.py", "installation.py", "latex-ai-init"}
+        shipped = set(core.runtime_sources(everything)) | {"bootstrap.py", "adapters.py", "latex-ai-init"}
         self.assertLessEqual(shipped, set(core.RUNTIME_FILES))
         self.configure()
         (self.project / "main.tex").write_text(SOURCE)

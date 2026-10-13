@@ -220,20 +220,6 @@ class DocumentTests(unittest.TestCase):
             with self.subTest(name=name), self.assertRaises(core.WorkbenchError):
                 schema.validate_config(self.project, config)
 
-
-    def test_add_document_then_disable_and_restore_retains_definitions(self):
-        self.configuration()
-        self.install("init")
-        self.install("configure", "--document", "extra", "--root", "notes/extra.tex", expected=2)
-        (self.project / "notes/extra.tex").write_text("\\documentclass{article}\n")
-        self.install("configure", "--document", "extra", "--root", "notes/extra.tex", "--engine", "xelatex")
-        config = schema.load_config(self.project)
-        self.assertEqual(schema.resolve(config, "extra").view["engine"], "xelatex")
-        self.install("configure", "--disable", "latex")
-        self.command("check")
-        self.install("configure", "--enable", "latex")
-        self.assertEqual(schema.resolve(schema.load_config(self.project), "extra").view["engine"], "xelatex")
-
     def test_inspection_leaves_receipts_and_sources_unchanged(self):
         self.configuration()
         self.install("init")
@@ -260,16 +246,6 @@ class DocumentTests(unittest.TestCase):
         self.install("init")
         result = self.command("build", "--document", "note", expected=1)
         self.assertIn("Missing declared document input", result.stderr)
-
-    def test_fresh_disabled_documents_vendor_their_config_validator(self):
-        config = self.configuration()
-        saved = config["modules"].pop("latex")
-        config["disabled_modules"] = {"latex": saved}
-        (self.project / core.CONFIG).write_text(json.dumps(config))
-        self.install("init")
-        self.assertTrue((self.project / ".latex-ai/documents.py").is_file())
-        self.assertFalse((self.project / ".latex-ai/latex.py").is_file())
-        self.command("check")
 
     def test_schema_three_no_tex_fallback_checks_bibliography(self):
         config = {"schema_version": 3, "modules": {"bibliography": {"files": ["refs.bib"]}}}
@@ -353,20 +329,6 @@ class DocumentTests(unittest.TestCase):
         (self.project / "Makefile").write_text(".PHONY: all paper note check\nall: check\npaper: main.tex\nnote: notes/main.tex\ncheck: paper\n")
         schema.validate_config(self.project, config)
 
-    def test_disabled_documents_do_not_require_operational_make_ownership(self):
-        config = self.configuration()
-        saved = config["modules"].pop("latex")
-        config["disabled_modules"] = {"latex": saved}
-        for name in ("paper", "note"):
-            saved["documents"][name]["build_command"] = ["make", name]
-        (self.project / "main.tex").unlink()
-        (self.project / "notes/main.tex").unlink()
-        schema.validate_config(self.project, config)
-        (self.project / core.CONFIG).write_text(json.dumps(config))
-        self.install("init")
-        self.command("check")
-        self.assertEqual(schema.load_config(self.project)["disabled_modules"]["latex"], saved)
-
     def test_full_adopted_check_ignores_document_selector_without_duplicate_build(self):
         config = self.configuration()
         config["modules"]["latex"]["documents"]["paper"].update({"build_command": ["make", "pdf"], "output_dir": "paper-out"})
@@ -388,8 +350,7 @@ class DocumentTests(unittest.TestCase):
         (self.project / "alias/paper.tex").symlink_to(self.project / "src/main.tex")
         self.install("init", "--root", "alias/paper.tex", "--no-lint", "--skip-editor")
         original = latex.output_paths(self.project, schema.document_settings(schema.load_config(self.project)))[2]
-        self.install("configure")
-        self.assertEqual(latex.output_paths(self.project, schema.document_settings(schema.load_config(self.project)))[2], original)
+        self.assertIn("/.latex-ai/artifacts/documents/manuscript/build/", str(original).replace("\\", "/"))
         self.assertIn("/.latex-ai/artifacts/documents/manuscript/build/main.pdf", (self.project / ".gitignore").read_text())
 
     def test_selected_validation_reports_all_failing_documents(self):

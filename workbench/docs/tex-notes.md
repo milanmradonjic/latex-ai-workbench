@@ -17,11 +17,15 @@ Write the derivation here.
 \end{document}
 ```
 
-Register it, then build and export it explicitly:
+Register it by adding it under `modules.latex.documents` in `.latex-ai.json`:
+
+```json
+"derivation": {"root": "notes/derivation.tex"}
+```
+
+Then build and export it explicitly:
 
 ```sh
-python3 /path/to/workbench/latex-ai-init configure . --document derivation --root notes/derivation.tex --dry-run --diff
-python3 /path/to/workbench/latex-ai-init configure . --document derivation --root notes/derivation.tex
 make latex-ai-document-check DOC=derivation
 make latex-ai-pdf-artifact DOC=derivation
 ```
@@ -39,15 +43,15 @@ documents that are not current and the command for each. An exported PDF is a
 copy made by `make latex-ai-pdf-artifact`; rebuilding does not update it.
 `make check` checks all documents and enabled shared modules. Build, lint and export without
 `DOC` select the configured default. Select a different default with
-`configure . --default-document derivation`. Cleanup targets one document and
+`default_document` in `.latex-ai.json`. Cleanup targets one document and
 invalidates its receipt; custom builds keep their own cleanup convention.
 
 ## Adopt an existing paper
 
 Every paper is a named document from initial setup. Preview installation on the
 existing project, specifying its engine or raw build target where detection
-requires clarification. To add a note, create its root and use `configure
---document ID --root PATH`; no schema migration is needed. Custom build output
+requires clarification. To add a note, create its root and add it under `documents` in
+`.latex-ai.json`; no schema migration is needed. Custom build output
 locations must agree with `output_dir`. Existing Make recipes and authored
 sources are preserved; the adapter boundaries below still apply.
 
@@ -109,8 +113,7 @@ are registered; an explicit adapter is required.
 
 Editor setup creates named Make tasks and recipes. Automatic builds on
 save are disabled in the generated settings so a note save cannot build the
-wrong default document. Existing user settings are preserved by the normal
-three-way merge. Open the exported PDF for the selected document; no single
+wrong default document. Existing user settings are preserved when `init` merges them. Open the exported PDF for the selected document; no single
 global compiler output directory is imposed on mixed layouts.
 
 Source bibliography and

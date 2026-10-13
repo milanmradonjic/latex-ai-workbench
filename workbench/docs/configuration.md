@@ -3,7 +3,8 @@
 Workbench 3 supports **configuration schema 3 only**, for projects with or without
 TeX. `.latex-ai.json` is project-owned UTF-8 JSON. Unknown fields and older schemas
 fail clearly; there is no automatic migration. After deliberate configuration
-changes, preview `upgrade --dry-run --diff` to refresh generated integrations.
+changes, `latex-ai-init diff . --diff` shows what the generated Makefile and editor files would now contain; an agent
+applies what is wanted by hand ([updating](upgrading.md)).
 
 ## One paper, or several documents
 
@@ -123,7 +124,7 @@ rule styles can require manual adaptation; installation refuses unsafe merges.
 Simple adopted phased builds require GNU Make 4.3+ and POSIX.
 
 Editor setup creates named Make tasks/recipes, disables automatic builds on
-save, and prevents magic comments from bypassing Make. Existing JSON settings use three-way merges;
+save, and prevents magic comments from bypassing Make. `init` merges into existing JSON settings by key;
 JSONC requires `--skip-editor` and deliberate manual integration.
 
 LaTeX Workshop finds a document's PDF through `latex-workshop.latex.outDir`: one setting whose placeholders expand
@@ -136,4 +137,4 @@ file. Give those documents the same `output_dir` to let **View PDF** find them; 
 document name, so several documents with no `output_dir` are in this case.
 
 See [TeX notes](tex-notes.md), [validation](validation.md), and
-[upgrades](upgrading.md) for workflows and state preservation.
+[updating](upgrading.md) for the update recipe.

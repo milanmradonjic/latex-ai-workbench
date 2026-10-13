@@ -18,7 +18,7 @@ class DocumentSelectorWithoutLatex(ProjectCase):
         shown = result.stdout + result.stderr
         self.assertNotIn("INTERNAL ERROR", shown)
         self.assertIn("Module is disabled: latex", result.stderr)
-        self.assertIn("--enable latex", result.stderr, "the error must say how to turn LaTeX on")
+        self.assertIn('"modules" in .latex-ai.json', result.stderr, "the error must say how to turn LaTeX on")
 
     def test_a_project_created_without_latex_refuses_the_selector_and_says_how_to_enable_it(self):
         (self.project / "README.md").write_text("notes\n")
@@ -30,7 +30,7 @@ class DocumentSelectorWithoutLatex(ProjectCase):
     def test_a_project_that_disabled_latex_refuses_it_the_same_way(self):
         (self.project / "main.tex").write_text(TEX)
         self.install("init", "--profile", "writing", "--root", "main.tex", "--engine", "pdflatex", "--no-lint", "--skip-editor")
-        self.install("configure", "--disable", "latex")
+        self.edit_config(lambda data: data["modules"].pop("latex"))
         for action in ("check", "bib-check", "build"):
             with self.subTest(action=action):
                 self.refused(action, "--document", "manuscript")

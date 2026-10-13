@@ -29,4 +29,4 @@ python3 .latex-ai/workbench.py plan --files notes/shared.tex --json
 
 Build receipts and PDFs are independent under
 `.latex-ai/artifacts/documents/<id>/`. Source notes stay editable and are
-preserved on upgrade. See the [TeX notes guide](../../docs/tex-notes.md).
+never touched by the workbench. See the [TeX notes guide](../../docs/tex-notes.md).

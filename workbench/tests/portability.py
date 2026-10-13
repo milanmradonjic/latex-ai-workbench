@@ -86,8 +86,8 @@ def main():
     run("pdflatex-artifact", pdf, ["make", "pdf-artifact"])
     if not (pdf / ".latex-ai/artifacts/documents/manuscript/document.pdf").is_file():
         raise RuntimeError("Missing collected PDF")
-    run("pdflatex-audit", pdf, [sys.executable, str(CLI), "audit", str(pdf)])
-    run("pdflatex-upgrade", pdf, [sys.executable, str(CLI), "upgrade", str(pdf)])
+    run("pdflatex-diff", pdf, [sys.executable, str(CLI), "diff", str(pdf)])
+    run("pdflatex-runtime", pdf, [sys.executable, str(CLI), "runtime", str(pdf)])
     # No Git initialization is needed to prove docs-only runtime selection.
     (pdf / "README.md").write_text("Synthetic [manuscript](paper.tex) notes.\n")
     runtime = pdf / ".latex-ai/workbench.py"
@@ -130,7 +130,7 @@ def main():
     init("xelatex", nested, "--engine", "xelatex")
     config(nested, lambda c: c["modules"]["latex"]["documents"]["manuscript"].update(output_dir="build"))
     run("xelatex-check", nested, ["make", "check"])
-    run("xelatex-upgrade", nested, [sys.executable, str(CLI), "upgrade", str(nested)])
+    run("xelatex-runtime", nested, [sys.executable, str(CLI), "runtime", str(nested)])
     run("xelatex-artifact", nested, ["make", "pdf-artifact"])
 
     custom_make = "pdf:\n\tlatexmk -pdf -interaction=nonstopmode -halt-on-error paper.tex\n"
@@ -141,8 +141,8 @@ def main():
     if not (custom / "Makefile").read_text().startswith(custom_make):
         raise RuntimeError("Existing Makefile overwritten")
     run("existing-check", custom, ["make", "-j2", "check"])
-    run("existing-upgrade", custom, [sys.executable, str(CLI), "upgrade", str(custom)])
-    run("existing-audit", custom, [sys.executable, str(CLI), "audit", str(custom)])
+    run("existing-runtime", custom, [sys.executable, str(CLI), "runtime", str(custom)])
+    run("existing-diff", custom, [sys.executable, str(CLI), "diff", str(custom)])
 
     gnumake = "build:\n\tlatexmk -pdf -interaction=nonstopmode -halt-on-error paper.tex\n"
     gnu = create("existing-gnumakefile", {"paper.tex": PLAIN, "GNUmakefile": gnumake})
@@ -150,8 +150,8 @@ def main():
     if "Makefile" in {p.name for p in gnu.iterdir()} or not (gnu / "GNUmakefile").read_text().startswith(gnumake):
         raise RuntimeError("Active GNUmakefile was not preserved")
     run("gnumakefile-check", gnu, ["make", "check"])
-    run("gnumakefile-upgrade", gnu, [sys.executable, str(CLI), "upgrade", str(gnu)])
-    run("gnumakefile-audit", gnu, [sys.executable, str(CLI), "audit", str(gnu)])
+    run("gnumakefile-runtime", gnu, [sys.executable, str(CLI), "runtime", str(gnu)])
+    run("gnumakefile-diff", gnu, [sys.executable, str(CLI), "diff", str(gnu)])
 
     # Compiler-dependent failure checks bypass lint intentionally to prove
     # unresolved citations/references fail after a successful PDF build.
@@ -177,13 +177,13 @@ def main():
     init("notes-only", notebook, "--profile", "core")
     run("notes-only-doctor", notebook, ["make", "doctor"])
     run("notes-only-check", notebook, ["make", "check"])
-    run("notes-only-audit", notebook, [sys.executable, str(CLI), "audit", str(notebook)])
+    run("notes-only-diff", notebook, [sys.executable, str(CLI), "diff", str(notebook)])
     if (notebook / ".latex-ai/latex.py").exists() or (notebook / ".vscode").exists():
         raise RuntimeError("Notes-only project acquired a LaTeX/editor module")
 
-    run("mixed-upgrade", bad, [sys.executable, str(CLI), "upgrade", str(bad)])
+    run("mixed-runtime", bad, [sys.executable, str(CLI), "runtime", str(bad)])
     run("mixed-check", bad, ["make", "check"])
-    run("mixed-audit", bad, [sys.executable, str(CLI), "audit", str(bad)])
+    run("mixed-diff", bad, [sys.executable, str(CLI), "diff", str(bad)])
 
     # Named documents cover independent engines, receipts and exports with the
     # real lint policy. No format conversion is involved.
@@ -194,8 +194,7 @@ def main():
                                 "notes/session-state.tex": "\\section*{Current question}\n"})
         init(name, project, "--profile", "writing", "--root", "main.tex", "--engine", engine)
         for document, root in (("notebook", "notes/notebook.tex"), ("derivation", "notes/derivation.tex")):
-            run(name + "-register-" + document, project, [sys.executable, str(CLI), "configure", str(project),
-                                                          "--document", document, "--root", root, "--engine", engine])
+            config(project, lambda c, document=document, root=root: c["modules"]["latex"]["documents"].update({document: {"root": root, "engine": engine}}))
         run(name + "-check", project, ["make", "-j4", "check"])
         for target in ("notebook", "derivation"):
             run(name + "-export-" + target, project, ["make", "latex-ai-pdf-artifact", "DOC=" + target])
@@ -210,7 +209,7 @@ def main():
         if (receipts / "derivation/build-receipt.json").read_bytes() != derivation_receipt:
             raise RuntimeError("Fragment validation rebuilt an unrelated document")
         run(name + "-incremental-check", project, ["make", "-j4", "check"])
-        run(name + "-audit", project, [sys.executable, str(CLI), "audit", str(project)])
+        run(name + "-diff", project, [sys.executable, str(CLI), "diff", str(project)])
 
     mixed_notes = create("mixed-tex-notes", {})
     shutil.copytree(PACKAGE / "examples/tex-notes", mixed_notes, dirs_exist_ok=True)
@@ -221,7 +220,7 @@ def main():
         raise RuntimeError("Mixed notes example failed to export its named PDF")
     run("mixed-tex-notes-fragment-validation", mixed_notes,
         [sys.executable, ".latex-ai/workbench.py", "validate", "--files", "notes/state.tex"])
-    run("mixed-tex-notes-audit", mixed_notes, [sys.executable, str(CLI), "audit", str(mixed_notes)])
+    run("mixed-tex-notes-diff", mixed_notes, [sys.executable, str(CLI), "diff", str(mixed_notes)])
     report = {"project_directory": str(base), "results": results, "all_passed": all(r["passed"] for r in results)}
     (base / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print("Synthetic projects and logs: " + str(base))

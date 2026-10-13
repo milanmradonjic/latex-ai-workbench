@@ -96,16 +96,6 @@ class DocumentLifecycleTests(unittest.TestCase):
     def write_config(self, config):
         (self.project / core.CONFIG).write_text(json.dumps(config))
 
-    # Adopted builds remain incremental under ordinary supported-model updates.
-    def test_adopted_build_stays_incremental_after_upgrade(self):
-        self.adopted_paper()
-        self.make("check")
-        self.install("upgrade")
-        self.make("check")
-        self.make("check")
-        self.assertEqual(self.states(), {"manuscript": "current"})
-        self.make("latex-ai-pdf-artifact")
-
     def compiles(self):
         return int((self.project / "compile-count").read_text())
 
@@ -134,7 +124,6 @@ class DocumentLifecycleTests(unittest.TestCase):
     def test_failed_named_build_regenerates_instead_of_reviving_a_receipt(self):
         self.adopted_paper()
         self.make("check")
-        self.install("upgrade")
         source = self.project / "main.tex"
         source.write_text(SOURCE.replace("A note.", "BROKEN"))
         self.make("check", expected=2)
@@ -287,7 +276,9 @@ class DocumentLifecycleTests(unittest.TestCase):
         self.install("init", "--engine", "pdflatex", "--no-lint", "--skip-editor")
         (self.project / "notes").mkdir()
         (self.project / "notes/derivation.tex").write_text("\\documentclass{article}\n\\begin{document}\n\\undefinedfixturemacro\n\\end{document}\n")
-        self.install("configure", "--document", "derivation", "--root", "notes/derivation.tex", "--no-lint")
+        config = json.loads((self.project / core.CONFIG).read_text())
+        config["modules"]["latex"]["documents"]["derivation"] = {"root": "notes/derivation.tex", "lint": {"enabled": False}}
+        self.write_config(config)
         result = self.command("document-check", "--document", "derivation", expected=1)
         self.assertIn("derivation.tex:3: Undefined control sequence", result.stderr)
         self.assertIn("Hint:", result.stderr)
