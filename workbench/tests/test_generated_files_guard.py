@@ -16,7 +16,6 @@ from pathlib import Path
 
 PACKAGE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE))
-import adapters
 import bootstrap
 import core
 
@@ -26,13 +25,11 @@ GUARDED = {"Makefile": "Makefile", ".vscode/settings.json": "vscode-settings.jso
            ".vscode/tasks.json": "vscode-tasks.json"}  # generated path -> stored name
 
 
-def profile(name, editor=True, build_command=None):
-    """The configuration `init --profile NAME` starts from (bootstrap.detect_config), with an optional build command."""
+def profile(name, editor=True):
+    """The configuration `init --profile NAME` starts from (bootstrap.detect_config)."""
     modules = core.PROFILES[name]
     config = {"schema_version": 3, "modules": {n: copy.deepcopy(core.MODULES[n]["defaults"]) for n in modules},
               "integrations": {"editor": editor}}
-    if build_command:
-        config["modules"]["latex"]["documents"]["manuscript"].update(build_command=build_command, output_dir=".")
     return config
 
 
@@ -45,40 +42,25 @@ MULTI_DOCUMENT = {
     "integrations": {"editor": True},
 }
 
-# A project's own Makefile that the installer adopts: the managed block is merged into it, never written whole.
-PHASED = ".PHONY: pdf\npdf:\n\t@echo project pdf rule\n"
-CHECK_REACHES_GOAL = ".PHONY: pdf check\npdf:\n\t@echo project pdf rule\ncheck: pdf\n\t@echo project check\n"
-OWN_SHORT_NAMES = "".join(f"{name}:\n\t@echo project {name}\n" for name in ("pdf", "doctor", "status", "help", "validate", "clean"))
-OTHER_BUILD = "all:\n\t@echo project build\n"
-OWN_CHECK = "check:\n\t@echo project check\n"
-
-# name -> (configuration, the project's existing Makefile, or None for a fresh install)
+# name -> configuration
 FIXTURES = {
-    **{f"profile-{name}": (profile(name), None) for name in core.PROFILES},
-    "profile-writing-no-editor": (profile("writing", editor=False), None),
-    "multi-document": (MULTI_DOCUMENT, None),
-    "adopted-make-goal": (profile("writing", build_command=["make", "pdf"]), PHASED),
-    "adopted-make-goal-reached-by-check": (profile("writing", build_command=["make", "pdf"]), CHECK_REACHES_GOAL),
-    "adopted-make-own-short-names": (profile("writing", build_command=["make", "pdf"]), OWN_SHORT_NAMES),
-    "adopted-other-build-command": (profile("writing", build_command=["python3", "build.py"]), OTHER_BUILD),
-    "adopted-no-tex": (profile("core"), OWN_CHECK),
+    **{f"profile-{name}": profile(name) for name in core.PROFILES},
+    "profile-writing-no-editor": profile("writing", editor=False),
+    "multi-document": MULTI_DOCUMENT,
 }
 
 
-def render(config, makefile=None):
+def render(config):
     """What the installer would carry into a project for this configuration, keyed by the stored file name."""
-    files = {name: text for name, text in bootstrap.desired_files(config).items() if name in GUARDED}
-    if makefile is not None:
-        files["Makefile"] = adapters.make_adapter(makefile, config)  # the block merged into the project's Makefile
-    return {GUARDED[name]: text for name, text in files.items()}
+    return {GUARDED[name]: text for name, text in bootstrap.desired_files(config).items() if name in GUARDED}
 
 
 def generate():
     """Write the stored copies from the current code. A deliberate act: review the diff before committing it."""
-    for name, (config, makefile) in FIXTURES.items():
+    for name, config in FIXTURES.items():
         directory = STORED / name
         directory.mkdir(parents=True, exist_ok=True)
-        rendered = {filename + SUFFIX: text for filename, text in render(config, makefile).items()}
+        rendered = {filename + SUFFIX: text for filename, text in render(config).items()}
         for filename, text in rendered.items():
             (directory / filename).write_bytes(text.encode("utf-8"))
         for stale in directory.iterdir():
@@ -91,8 +73,8 @@ def generate():
 
 class GeneratedFilesGuard(unittest.TestCase):
     def test_every_fixture_renders_exactly_its_stored_copies(self):
-        for name, (config, makefile) in FIXTURES.items():
-            rendered = render(config, makefile)
+        for name, config in FIXTURES.items():
+            rendered = render(config)
             directory = STORED / name
             with self.subTest(fixture=name):
                 stored = sorted(path.name for path in directory.glob("*")) if directory.is_dir() else []

@@ -71,13 +71,18 @@ class DocumentLifecycleTests(unittest.TestCase):
     def states(self):
         return {row["id"]: row["state"] for row in json.loads(self.command("documents").stdout)}
 
-    def adopted_paper(self, check_rule=""):
-        """A named paper whose own incremental Make rule owns compilation."""
+    def make_paper(self, rules, goal="main.pdf"):
+        """A paper whose own Make rule owns compilation: init first, then the project's rules after what init wrote."""
         (self.project / "main.tex").write_text(SOURCE)
-        (self.project / "Makefile").write_text(
-            ".PHONY: build\nbuild: main.pdf\nmain.pdf: main.tex compile.py\n\t" + sys.executable + " compile.py main.tex .\n" + check_rule)
-        self.install("init", "--engine", "pdflatex", "--no-lint", "--skip-editor")
-        self.assertEqual(schema.document_settings(schema.load_config(self.project))["build_command"], ["make", "build"])
+        self.write_config({"schema_version": 3, "modules": {"latex": {"default_document": "manuscript", "documents": {"manuscript": {
+            "root": "main.tex", "engine": "pdflatex", "lint": {"enabled": False}, "build_command": ["make", goal], "output_dir": "."}}}}})
+        self.install("init", "--skip-editor")
+        with (self.project / "Makefile").open("a") as stream:
+            stream.write("\n" + rules)
+
+    def adopted_paper(self, check_rule=""):
+        """A paper whose own incremental Make rule owns compilation."""
+        self.make_paper("main.pdf: main.tex compile.py\n\t" + sys.executable + " compile.py main.tex .\n" + check_rule)
 
     def named(self, **documents):
         for root in ("main.tex", "notes/main.tex"):
@@ -137,11 +142,9 @@ class DocumentLifecycleTests(unittest.TestCase):
         self.assertEqual(self.states(), {"manuscript": "current"})
 
     def test_build_that_cannot_regenerate_keeps_the_old_output_and_fails(self):
-        (self.project / "main.tex").write_text(SOURCE)
-        (self.project / "Makefile").write_text(".PHONY: build\nbuild:\n\t@true\n")
+        self.make_paper(".PHONY: pdf\npdf:\n\t@true\n", goal="pdf")
         (self.project / "main.pdf").write_bytes(b"%PDF-old")
         (self.project / "main.log").write_text("old log\n")
-        self.install("init", "--engine", "pdflatex", "--no-lint", "--skip-editor")
         result = self.make("check", expected=2)
         self.assertIn("Build did not regenerate main.pdf", result.stderr)
         self.assertIn("Hint:", result.stderr)
@@ -151,8 +154,9 @@ class DocumentLifecycleTests(unittest.TestCase):
     # F2: project-owned check rules keep running under change-aware validation.
     def test_schema_three_validate_runs_the_projects_own_check_rule(self):
         self.named()
-        (self.project / "Makefile").write_text(".PHONY: check project-tests\ncheck: project-tests\nproject-tests:\n\ttouch project-tests-ran\n")
         self.install("init")
+        with (self.project / "Makefile").open("a") as stream:
+            stream.write("\n.PHONY: project-tests\ncheck: project-tests\nproject-tests:\n\ttouch project-tests-ran\n")
         result = self.command("validate", "--files", "notes/main.tex")
         self.assertTrue((self.project / "project-tests-ran").exists(), result.stdout + result.stderr)
 

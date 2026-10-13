@@ -103,18 +103,12 @@ builds, even when its sources are back to the committed text.
 With schema-3 named documents, validation checks only the selected documents.
 A project-wide `make check` already covers enabled modules and subsumes the
 selected bibliography check.
-If the project's own Makefile gives `check` prerequisites or a recipe of its own
-(outside the workbench block), `make validate` runs `make check` instead, so
+If the Makefile gives `check` anything beyond what `init` wrote (prerequisites, a recipe of its own,
+a second rule, a computed target, an include), `make validate` runs `make check` instead, so
 those project-owned checks are never skipped. The JSON plan includes
-`project_check`. Blank
-lines/comments before recipes, variable targets and unresolved or missing
-optional includes select the full project check conservatively. This costs
-selective document validation when the scanner cannot prove a narrower scope;
-it never expands Make code during planning. Ordinary double-colon `check::`
-rules keep their rule style on installation. PDF verification and collection
-run inside the same TeX container as compilation, before host artifact upload.
-Existing local `validate` targets are preserved on adaptation: the reserved
-`make latex-ai-plan` and `make latex-ai-validate` targets always expose this
+`project_check`. It is decided by reading the rule lines, never by running Make, and when it cannot
+tell it says yes: that costs selective document validation, never a skipped check.
+The reserved `make latex-ai-plan` and `make latex-ai-validate` targets always expose this
 workbench's selection.
 
 For a precise known list, the project runtime also accepts `plan` or `validate`

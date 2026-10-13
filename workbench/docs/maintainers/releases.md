@@ -3,6 +3,35 @@
 Workbench 3 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 4.4.0 — the workbench no longer adapts to a project's own Makefile; existing projects are migrated
+
+The fifth step of [the minimal scope](minimal-scope.md), and the owner's decision after 4.3.0: not to cope with any existing project, but to
+migrate it to the workbench's layout.
+
+- **Removed:** `make_graph.py` (the lexical Make parser and rule graph, 174 lines), `adapters.py` (the adapter that merged a block into a project's Makefile,
+  `merge_block` and the policy-text blocks, 204 lines), `recipe-shell.sh`; the actions `build-prepare`, `build-finish` and `build-shell` (the hooks of a wrapped
+  Make build) with `--build-owner`, `--shell` and `latex.build_phase`; the check of the adopted Make graph in `schema.py` (shared targets, recursion through
+  prerequisites, unresolved ownership); the requirement of GNU Make 4.3 and its check in `doctor` and in `init`; the merging of JSON editor files and of
+  `AGENTS.md`, `CLAUDE.md` and `.gitignore`; the reading of a project's Makefile and build files to guess the engine or a `build_command`;
+  the notes "kept your Makefile target" and the managed-block normalisation of Make-policy input digests.
+- **`init` is create-only.** A file that is absent is written; one that is already what `init` would write is left; one that differs, in any
+  of `AGENTS.md`, `CLAUDE.md`, `.gitignore`, the Makefile (under any of its three spellings), `.vscode/*`, `.claude/`, `.codex/` or `.latex-ai/`, is a `CONFLICT`, and
+  nothing is written until none is left. The message names `docs/migrating.md`.
+- **`docs/migrating.md`** is the recipe an agent follows to bring an existing project over: snapshot, read, decide the build, clear an older workbench's generated files,
+  find the conflicts, `init`, carry the project's content back after what `init` wrote, replace a stale workflow, accept a lint baseline (the owner's decision), verify.
+- **A project's own Make targets** go after what `init` wrote. A `build_command` of `["make", "pdf"]` runs like any other build command; the Makefile is then a
+  recorded input of the build (hashed whole; an included Makefile is no longer followed, so declare it in `inputs`). The short `build` joins the goals a
+  `build_command` may not name, since it is always the workbench's alias now.
+- **`validate`** still runs `make check` when the Makefile gives `check` anything beyond what `init` wrote, now decided by a few lines of `guide.project_check_rule`
+  instead of the parser, and conservatively (an include, an eval, a computed target, a second recipe, prerequisites).
+- **A project that an older release adapted** (its Makefile carries the block with `latex-ai-build-prepare`) keeps running on its own 4.3 runtime. `runtime` refuses to refresh
+  it, `status` says so, and the removed hooks answer with a pointer instead of "invalid choice". Migrating it is the recipe's fourth step.
+- **Unchanged:** the generated Makefile and editor files of every fresh install are byte-identical (the guard's fixtures), the build, the receipts and the locks. What the
+  fresh Makefile asks of Make is nothing: the 3.81 that macOS ships runs it (tested).
+- **Size:** the package is 3,948 lines, from 4,511; `bootstrap.py` 614 to 557. Tests: 365 before, 351 now: 19 new scope tests, 2 adapted, 35 gone with the adoption.
+
+See [the verification record](verification-4.4.0.md).
+
 ## 4.3.0 — the installer creates projects; it no longer audits, upgrades, configures or recovers
 
 The fourth step of [the minimal scope](minimal-scope.md).

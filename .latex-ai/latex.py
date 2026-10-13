@@ -10,10 +10,8 @@ import subprocess
 import os
 import time
 import processes
-import make_graph
 import guide
-from core import CONFIG, WorkbenchError, damaged_text, read_tex, local_path, read_json, run, has_module, atomic_write, path_name, operation_lock, document_paths, input_name, tracked_name
-from schema import DocumentView
+from core import CONFIG, MAKEFILES, WorkbenchError, damaged_text, read_tex, local_path, read_json, run, has_module, atomic_write, path_name, operation_lock, document_paths, input_name, tracked_name
 
 SEPARATOR = "\x1f"
 
@@ -256,10 +254,6 @@ def lint(project, config):
 GENERATED = {".aux", ".log", ".blg", ".bbl", ".bcf", ".toc", ".out", ".fls", ".fdb_latexmk", ".synctex", ".run.xml"}
 
 
-MAKEFILE_NAMES = ("Makefile", "makefile", "GNUmakefile")
-MANAGED_BLOCK = re.compile(r"# BEGIN LATEX AI WORKBENCH\n.*?# END LATEX AI WORKBENCH\n?", re.S)
-
-
 def make_build(config):
     command = config.get("build_command") or []
     return bool(command) and Path(command[0]).name in {"make", "gmake"}
@@ -274,21 +268,19 @@ SETTLED_NS = 2_000_000_000
 DIGESTS = {}  # per invocation: one command hashes each unchanged input once; nothing survives the process
 
 
-def input_digest(project, name, policy=False):
-    """Full source content, or normalized content of an exclusively Make-policy input."""
+def input_digest(project, name):
+    """The content of an input, read through a link that leaves the project."""
     path = project.resolve() / name  # a tracked name may be a link that leaves the project: its content is read through it
-    return file_digest(path, policy) if path.is_file() else None
+    return file_digest(path) if path.is_file() else None
 
 
-def file_digest(path, policy=False):
+def file_digest(path):
     """SHA-256 of a file, hashed once per invocation while the file stays as it is."""
     stat = path.stat()
-    key = (str(path), policy, stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+    key = (str(path), stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
     if key in DIGESTS:
         return DIGESTS[key]
     data = path.read_bytes()
-    if policy:
-        data = MANAGED_BLOCK.sub("", data.decode("utf-8", errors="surrogateescape")).encode("utf-8", errors="surrogateescape")
     digest = hashlib.sha256(data).hexdigest()
     # Every write changes the change time, so an entry keyed by it cannot hide a change, unless the write fell
     # within the same timestamp tick as the one recorded: recently changed files are hashed afresh each time.
@@ -342,15 +334,13 @@ def input_roles(project, config):
     if not isinstance(roles, dict):
         roles = {}
     sources.update(name for name in recorded if roles.get(name) == "source" or
-                   roles.get(name) != "make-policy" and Path(name).name not in MAKEFILE_NAMES)
+                   roles.get(name) != "make-policy" and Path(name).name not in MAKEFILES)
     sources.update(name for name in command_files(project, config)
-                   if not (make_build(config) and Path(name).name in MAKEFILE_NAMES))  # a Makefile is policy, not source
+                   if not (make_build(config) and Path(name).name in MAKEFILES))  # a Makefile is policy, not source
     result = {}
-    for name in MAKEFILE_NAMES if make_build(config) else ():
+    for name in MAKEFILES if make_build(config) else ():
         if (project / name).is_file():
             result[path_name(project, name)] = "make-policy"
-            graph = make_graph.read((project / name).read_text(encoding='utf-8'), project)
-            result.update({included: 'make-policy' for included in graph.files})
     for name in (".latexmkrc", "latexmkrc"):
         if (project / name).is_file():
             sources.add(name)
@@ -362,7 +352,7 @@ def input_roles(project, config):
 
 
 def build_inputs(project, config):
-    return {name: input_digest(project, name, role == "make-policy")
+    return {name: input_digest(project, name)
             for name, role in input_roles(project, config).items()}
 
 
@@ -581,20 +571,15 @@ def prepare_build_locked(project, config, owner):
 
 
 @contextlib.contextmanager
-def compiler_start(project, owner=None):
+def compiler_start(project):
     with operation_lock(project, "build-ownership", wait=True):
-        if owner is not None:
-            active = read_json(local_path(project, ".latex-ai/artifacts/active-build.json"), "active build ownership")
-            if (not isinstance(active, dict) or active.get("owner_pid") != owner
-                    or not process_alive(owner, active.get("owner_token"))):
-                raise WorkbenchError("Raw Make recipe lacks its original live build owner")
         yield
 
 
-def run_compiler(project, config, command, cwd=None, env=None, display=True, owner=None):
+def run_compiler(project, config, command, cwd=None, env=None, display=True):
     return run(command, cwd or project, env,
                started=lambda group: record_compiler_group(project, config, group, locked=True),
-               startup=compiler_start(project, owner), display=display)
+               startup=compiler_start(project), display=display)
 
 
 def unverified_outputs(state, outputs, identities):
@@ -689,39 +674,6 @@ def finish_build(project, config, owner):
     if transaction:
         transaction.commit()
     local_path(project, ".latex-ai/artifacts/active-build.json").unlink(missing_ok=True)
-
-
-def build_phase(project, config, owner, finish=False):
-    # Direct builds invoke the raw project target, which has no phase hooks.
-    # A phase reached under its recursion marker delegates back to the wrapper.
-    if processes.make_dry_run():
-        return  # '+' hands off the jobserver; it must not turn make -n into a build
-    if os.environ.get("LATEX_AI_BUILD_ACTIVE"):
-        raise WorkbenchError("Recursive build_command: do not delegate to make build/check/latex-ai-build")
-    if not isinstance(owner, int) or owner <= 0:
-        raise WorkbenchError("Build phases require the parent Make process ID")
-    with operation_lock(project, "build"):
-        (finish_build if finish else prepare_build)(project, config, owner)
-
-
-def build_shell(project, shell, arguments):
-    """Supervise an unchanged raw Make recipe in the existing outer dependency graph."""
-    if not shell or not arguments or os.name != "posix":
-        raise WorkbenchError("Phased Make ownership requires a POSIX recipe shell")
-    if processes.make_dry_run():
-        return run([shell, *arguments], Path.cwd(), os.environ.copy(), display=False)
-    ownership = read_json(local_path(project, ".latex-ai/artifacts/active-build.json"), "active build ownership")
-    if not isinstance(ownership, dict) or not isinstance(ownership.get("receipt"), str):
-        raise WorkbenchError("Raw Make recipe lacks prepared build ownership")
-    active = read_json(local_path(project, ownership["receipt"]), "prepared build receipt")
-    if not isinstance(active, dict) or active.get("status") != "running" or not owner_alive(active):
-        raise WorkbenchError("Raw Make recipe lacks live build ownership")
-    config = active.get("configuration")
-    if not isinstance(config, dict):
-        raise WorkbenchError("Raw Make recipe has unreadable build configuration")
-    config = DocumentView(config)  # the build record stores the view as JSON; the backend takes it as a view again
-    run_compiler(project, config, [shell, *arguments], cwd=Path.cwd(), env=os.environ.copy(),
-                 display=False, owner=os.getppid())
 
 
 def perform_build(project, config):

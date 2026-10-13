@@ -10,7 +10,6 @@ import json
 from pathlib import Path, PurePosixPath
 import re
 
-import make_graph
 from commands import RECURSIVE_GOALS, RESERVED_PREFIX
 from core import (CONFIG, MODULES, REMOVED_MODULES, WorkbenchError, document_paths, has_module, integrations, local_path, module_config, module_names,
                   path_identity, path_name, read_json)
@@ -378,67 +377,7 @@ def validate_latex(project, values, config, planned_sources=None):
         roots.add(identity)
         outputs.update(output_ids)
         validate_document_settings(project, view, planned_sources)
-    validate_make_ownership(project, targets, values["default_document"])
     return values
-
-
-def validate_make_ownership(project, targets, default=None):
-    """Reject known recursive/shared adopted graphs instead of running them twice."""
-    adopted = {}
-    for name, fields in targets.items():
-        command = fields.get("build_command")
-        if command and len(command) == 2 and Path(command[0]).name in {"make", "gmake"} and re.fullmatch(r"[A-Za-z][\w.-]*", command[1]):
-            adopted[name] = command[1]
-    if not adopted:
-        return
-    text = re.sub(r"# BEGIN LATEX AI WORKBENCH.*?# END LATEX AI WORKBENCH", "", make_graph.makefile_text(project), flags=re.S)
-    graph = make_graph.read(text, project)
-    edges, unresolved = {}, set()
-    for rule in graph.rules:
-        if not rule.literal:
-            continue
-        dependencies = {word for word in rule.prerequisites.split() if make_graph.LITERAL.fullmatch(word)}
-        for name in rule.targets:
-            edges.setdefault(name, set()).update(dependencies)
-            if rule.unresolved:
-                unresolved.add(name)
-    seen = {}
-    forbidden = RECURSIVE_GOALS
-    def closure_for(goal):
-        todo, closure = [goal], set()
-        while todo:
-            node = todo.pop()
-            if node not in closure:
-                closure.add(node)
-                todo.extend(edges.get(node, ()))
-        return closure
-
-    # The adapter adds the default phase to check. An existing raw prerequisite
-    # for another adopted document would also run outside its ownership phase.
-    additional = {goal for name, goal in adopted.items() if name != default}
-    # Parent goals also execute check: `all: check note` has the same conflict.
-    # Dot-prefixed Make metadata declarations (notably .PHONY) are not parents
-    # that the generated adapter executes. Computed parents cannot be resolved
-    # safely without evaluating project Make code, so require explicit ownership.
-    public = {name for name in edges if re.fullmatch(r"[A-Za-z][\w.-]*", name)}
-    full_checks = [closure_for(name) for name in public if "check" in closure_for(name)]
-    if additional and (any(additional & nodes for nodes in full_checks) or unresolved & public or graph.unresolved):
-        raise WorkbenchError("Existing check has shared or unresolved ownership of additional adopted documents",
-                             hint="provide an explicit project adapter that serializes document ownership before registering these builds")
-    for name, goal in adopted.items():
-        closure = closure_for(goal)
-        if closure & forbidden:
-            raise WorkbenchError(f"Recursive adopted build for {name}; use a raw target without workbench build/check dependencies")
-        if len(adopted) > 1 and (closure & unresolved or goal not in edges or graph.unresolved):
-            raise WorkbenchError(f"Cannot establish separate Make target ownership for {name}",
-                                 hint="multiple adopted documents with computed/implicit prerequisites require an explicit project adapter")
-        owned = closure & edges.keys()
-        for previous, nodes in seen.items():
-            shared = owned & nodes
-            if shared:
-                raise WorkbenchError(f"Adopted document builds {previous} and {name} share Make targets: {', '.join(sorted(shared))}",
-                                     hint="provide an explicit project adapter with separate target ownership before registering both document builds")
-        seen[name] = owned
 
 
 def validate_config(project, config, planned_sources=None):

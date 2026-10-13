@@ -63,7 +63,7 @@ class Scope(unittest.TestCase):
         self.assertFalse({"research", "research_modules", "markdown"} & set(plan))
 
     def test_no_generated_file_mentions_a_removed_capability(self):
-        for label, (config, makefile) in FIXTURES.items():
+        for label, config in FIXTURES.items():
             texts = {name: text for name, text in __import__("bootstrap").desired_files(config).items()
                      if name in {"Makefile", ".vscode/tasks.json", ".vscode/settings.json"}}
             for name, text in texts.items():

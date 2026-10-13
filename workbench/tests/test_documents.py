@@ -281,67 +281,12 @@ class DocumentTests(unittest.TestCase):
             with self.subTest(change=change), self.assertRaises(core.WorkbenchError):
                 schema.validate_config(self.project, config)
 
-    def test_adopted_multi_document_make_compiles_paper_once(self):
-        config = self.configuration()
-        config["modules"]["latex"]["documents"]["paper"].update({"build_command": ["make", "pdf"], "output_dir": "paper-out"})
-        (self.project / core.CONFIG).write_text(json.dumps(config))
-        script = self.project / "compile.py"
-        script.write_text(script.read_text() + "\nif root == Path('main.tex'):\n p=Path('paper-count');p.write_text(str(int(p.read_text())+1) if p.exists() else '1')\n")
-        (self.project / "Makefile").write_text("CHECK_TARGET := check\n.PHONY: all pdf check\nall: $(CHECK_TARGET)\npdf: paper-out/main.pdf\npaper-out/main.pdf: main.tex compile.py\n\t$(PYTHON) compile.py main.tex paper-out\ncheck: pdf\n")
-        self.install("init")
-        self.make("-j4", "check")
-        self.assertEqual((self.project / "paper-count").read_text(), "1")
-        self.make("-j4", "check")
-        self.assertEqual((self.project / "paper-count").read_text(), "1")
-        self.make("latex-ai-build", "DOC=note")
-        self.assertEqual((self.project / "paper-count").read_text(), "1")
-
-    def test_shared_adopted_make_graph_requires_explicit_adapter(self):
-        config = self.configuration()
-        (self.project / "Makefile").write_text("paper: shared\nnote: shared\n.PHONY: shared\nshared:\n\t@echo shared\n")
-        for name in ("paper", "note"):
-            config["modules"]["latex"]["documents"][name]["build_command"] = ["make", name]
-        with self.assertRaisesRegex(core.WorkbenchError, "share Make targets"):
-            schema.validate_config(self.project, config)
-        (self.project / "Makefile").write_text("COMMON := shared\npaper: $(COMMON)\nnote: $(COMMON)\nshared:\n\t@echo shared\n")
-        with self.assertRaisesRegex(core.WorkbenchError, "ownership"):
-            schema.validate_config(self.project, config)
-
     def test_separate_adopted_graphs_allow_comments_with_make_symbols(self):
         config = self.configuration()
         (self.project / "Makefile").write_text("paper: main.tex # uses $< and 100%\nnote: notes/main.tex\n")
         for name in ("paper", "note"):
             config["modules"]["latex"]["documents"][name]["build_command"] = ["make", name]
         schema.validate_config(self.project, config)
-
-    def test_existing_check_cannot_run_additional_adopted_documents_outside_their_phase(self):
-        config = self.configuration()
-        for name in ("paper", "note"):
-            config["modules"]["latex"]["documents"][name]["build_command"] = ["make", name]
-        for rule in ("check: paper note", "check: note", "check: $(EXTRA_DOCS)",
-                     "all: check note\ncheck: paper", "all: $(CHECK_TARGET) note\ncheck: paper"):
-            (self.project / "Makefile").write_text(
-                "CHECK_TARGET := check\nEXTRA_DOCS := note\npaper: main.tex\nnote: notes/main.tex\n" + rule + "\n")
-            before = self.snapshot()
-            with self.subTest(rule=rule), self.assertRaisesRegex(core.WorkbenchError, "ownership"):
-                schema.validate_config(self.project, config)
-            self.assertEqual(self.snapshot(), before)
-        (self.project / "Makefile").write_text(".PHONY: all paper note check\nall: check\npaper: main.tex\nnote: notes/main.tex\ncheck: paper\n")
-        schema.validate_config(self.project, config)
-
-    def test_full_adopted_check_ignores_document_selector_without_duplicate_build(self):
-        config = self.configuration()
-        config["modules"]["latex"]["documents"]["paper"].update({"build_command": ["make", "pdf"], "output_dir": "paper-out"})
-        (self.project / core.CONFIG).write_text(json.dumps(config))
-        (self.project / "Makefile").write_text(
-            "CHECK_TARGET := check\n.PHONY: all pdf check\nall: $(CHECK_TARGET)\npdf:\n"
-            "\t@echo paper >> paper-count\n\t$(PYTHON) compile.py main.tex paper-out\ncheck: pdf\n")
-        self.install("init")
-        for goal in ("check", "all"):
-            self.make("-j4", goal, "DOC=note")
-        self.assertEqual((self.project / "paper-count").read_text().splitlines(), ["paper", "paper"])
-        states = self.command("documents", "--json").stdout
-        self.assertEqual(states.count('"state": "current"'), 2)
 
     def test_symlink_root_uses_named_output_directory(self):
         (self.project / "src").mkdir()

@@ -16,7 +16,6 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import adapters
 import bootstrap as boot
 import core
 import schema
@@ -64,32 +63,6 @@ class WorkbenchTests(unittest.TestCase):
         self.assertEqual(self.cli("init"), 2)
         self.assertEqual(before, self.snapshot())
 
-    def test_existing_make_policy_and_workflow_preserved(self):
-        make = "build:\n\tlatexmk -pdf paper.tex\ncheck: build\n"
-        (self.project / "Makefile").write_text(make)
-        (self.project / "AGENTS.md").write_text("Local semantic policy.\n")
-        path = self.project / ".github/workflows/custom.yml"
-        path.parent.mkdir(parents=True)
-        path.write_text("name: custom\n")
-        self.assertEqual(self.cli("init", "--engine", "pdflatex"), 0)
-        self.assertTrue((self.project / "Makefile").read_text().startswith(make))
-        self.assertEqual(path.read_text(), "name: custom\n")
-        self.assertTrue((self.project / "AGENTS.md").read_text().startswith("Local semantic policy."))
-
-    def test_active_gnumakefile_adapted_without_shadow_file(self):
-        make = "build:\n\tlatexmk -pdf paper.tex\n"
-        (self.project / "GNUmakefile").write_text(make)
-        self.assertEqual(self.cli("init", "--engine", "pdflatex"), 0)
-        self.assertFalse((self.project / "Makefile").exists())
-        self.assertIn("latex-ai-integrity", (self.project / "GNUmakefile").read_text())
-        self.assertTrue((self.project / "GNUmakefile").read_text().startswith(make))
-
-    def test_lowercase_makefile_retains_its_name(self):
-        (self.project / "makefile").write_text("build:\n\tlatexmk -pdf paper.tex\n")
-        self.assertEqual(self.cli("init", "--engine", "pdflatex"), 0)
-        self.assertIn("makefile", {p.name for p in self.project.iterdir()})
-        self.assertNotIn("Makefile", {p.name for p in self.project.iterdir()})
-
     def test_commented_documentclass_is_not_a_root(self):
         (self.project / "chapter.tex").write_text("% \\documentclass{article}\nA chapter.\n")
         self.init()
@@ -102,18 +75,6 @@ class WorkbenchTests(unittest.TestCase):
             with self.assertRaises(rt.WorkbenchError):
                 boot.apply(self.project, [{"path": "AGENTS.md", "before": (self.project / "AGENTS.md").read_text(), "after": "New"}])
             self.assertEqual(list(Path(directory).iterdir()), [])
-
-    def test_editor_additions_and_preferences_preserved(self):
-        path = self.project / ".vscode/settings.json"
-        path.parent.mkdir()
-        path.write_text(json.dumps({"editor.tabSize": 8, "latex-workshop.latex.autoBuild.run": "never"}))
-        self.init()
-        config = json.loads(path.read_text())
-        self.assertEqual(config["editor.tabSize"], 8)
-        self.assertEqual(config["latex-workshop.latex.autoBuild.run"], "never")
-        config["editor.rulers"] = [80]
-        path.write_text(json.dumps(config))
-        self.assertEqual(json.loads(path.read_text())["editor.rulers"], [80])
 
     def test_conflicting_editor_item_refuses_all_writes(self):
         path = self.project / ".vscode/tasks.json"
@@ -218,7 +179,6 @@ class WorkbenchTests(unittest.TestCase):
         section = template[template.index("# Suspected workbench defects"):template.index("# Writer/reviewer workflow")]
         for phrase in ("INTERNAL ERROR", "Error 70", "Do not edit `.latex-ai/`", "make latex-ai-issue", "nothing is sent anywhere", "need the user's approval"):
             self.assertIn(phrase, section)
-        self.assertIn("make latex-ai-issue", boot.integration_text("AGENTS.md", ""))  # the short form for existing policies
 
     def test_changed_guardrail_preserved(self):
         path = self.project / ".claude/settings.json"
@@ -628,15 +588,6 @@ class WorkbenchTests(unittest.TestCase):
         with patch.dict(rt.os.environ, {"LATEX_AI_VALIDATE_ACTIVE": str(self.project.parent / "different-project")}), patch.object(rt, "run") as run, contextlib.redirect_stdout(io.StringIO()):
             rt.validate_changes(self.project, plan)
         self.assertEqual(run.call_count, 1)
-
-    def test_existing_validate_target_preserved_with_reserved_aliases(self):
-        make = "build:\n\ttrue\nvalidate:\n\tcustom-validation\n"
-        (self.project / "Makefile").write_text(make)
-        self.assertEqual(self.cli("init", "--engine", "pdflatex"), 0)
-        installed = (self.project / "Makefile").read_text()
-        self.assertTrue(installed.startswith(make))
-        self.assertIn("latex-ai-validate:", installed)
-        self.assertEqual(installed.count("\nvalidate:"), 1)
 
 
 if __name__ == "__main__":

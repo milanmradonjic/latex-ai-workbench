@@ -14,7 +14,7 @@ import tempfile
 import time
 import processes
 
-VERSION = "4.3.0"
+VERSION = "4.4.0"
 CONFIG = ".latex-ai.json"
 # Trees that are never project sources: version control, workbench state, environments, caches and installed packages. Every
 # walk and every check of a declared path agrees on them; the installer adds the folders it alone leaves out.
@@ -210,21 +210,7 @@ def run(command, cwd, env=None, started=None, display=True, startup=None):
 stop_process = processes.stop
 
 
-ADOPTED_MAKE = "GNU Make 4.3+"  # what an adopted single-target Make build needs: .EXTRA_PREREQS
-
-
-def make_has_extra_prereqs():
-    """Whether the `make` on PATH supports .EXTRA_PREREQS (GNU Make 4.3+); None when it cannot be asked."""
-    executable = shutil.which("make")
-    if not executable:
-        return None
-    env = {key: value for key, value in os.environ.items() if key not in {"MAKEFLAGS", "MFLAGS", "MAKELEVEL", "GNUMAKEFLAGS"}}
-    try:
-        done = subprocess.run([executable, "-f", "-", "latex-ai-features"], input="$(info $(.FEATURES))\nlatex-ai-features:;@:\n",
-                              capture_output=True, text=True, env=env, timeout=15, cwd=tempfile.gettempdir())
-    except (OSError, subprocess.SubprocessError):
-        return None
-    return "extra-prereqs" in done.stdout.split() if done.returncode == 0 else None
+MAKEFILES = ("GNUmakefile", "makefile", "Makefile")  # the order in which GNU Make itself looks for one
 
 
 # A module declares configuration defaults and capabilities. Paths belong to the
@@ -361,17 +347,16 @@ def module_names(config, group=None):
 # Every file of the distribution whose change affects installed projects: the planner treats a change to
 # one as a build/configuration change. runtime_sources (below) is the subset a given project receives.
 RUNTIME_FILES = ("runtime.py", "commands.py", "schema.py", "core.py", "latex.py", "documents.py", "diagnostics.py",
-                 "guide.py", "make_graph.py", "processes.py", "output_transaction.py", "recipe-shell.sh",
-                 "bootstrap.py", "adapters.py", "latex-ai-init")
+                 "guide.py", "processes.py", "output_transaction.py",
+                 "bootstrap.py", "latex-ai-init")
 
 
 def runtime_sources(config):
     return {"runtime.py": "workbench.py", "commands.py": "commands.py", "schema.py": "schema.py", "core.py": "core.py", "diagnostics.py": "diagnostics.py", "guide.py": "guide.py",
-            "make_graph.py": "make_graph.py", "processes.py": "processes.py",
+            "processes.py": "processes.py",
             **{MODULES[name]["runtime"]: MODULES[name]["runtime"] for name in module_names(config)},
             **({"documents.py": "documents.py"} if has_module(config, "latex") else {}),
-            **({"output_transaction.py": "output_transaction.py", "recipe-shell.sh": "recipe-shell.sh"}
-               if has_module(config, "latex") else {})}
+            **({"output_transaction.py": "output_transaction.py"} if has_module(config, "latex") else {})}
 
 
 # The checks `validate` can run, in their order. Which of them a change needs is decided once, in validation_actions.

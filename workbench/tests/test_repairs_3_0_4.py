@@ -9,7 +9,6 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import adapters
 from test_support import ProjectCase
 
 PACKAGE = Path(__file__).resolve().parents[1]
@@ -34,23 +33,15 @@ def codex_rules(decision):
 
 class PullRequestPolicy(ProjectCase):
 
-    def test_policy_states_the_rule_for_both_install_paths(self):
-        for text in ((TEMPLATES / "AGENTS.md").read_text(), adapters.integration_text("AGENTS.md", "")):
-            self.assertIn(RULE, text)
-            self.assertIn(OWNER_MERGES, " ".join(text.split()))
+    def test_policy_states_the_rule(self):
+        text = (TEMPLATES / "AGENTS.md").read_text()
+        self.assertIn(RULE, text)
+        self.assertIn(OWNER_MERGES, " ".join(text.split()))
 
     def test_installed_projects_receive_the_rule(self):
         (self.project / "main.tex").write_text(SOURCE)
         self.install("init", "--skip-editor")
         self.assertIn(RULE, (self.project / "AGENTS.md").read_text())
-        owned = self.root / "owned"
-        owned.mkdir()
-        (owned / "main.tex").write_text(SOURCE)
-        (owned / "AGENTS.md").write_text("# Our own policy\n\nKeep it short.\n")
-        self.run_command(sys.executable, "-B", str(PACKAGE / "latex-ai-init"), "init", "--skip-editor", str(owned))
-        text = (owned / "AGENTS.md").read_text()
-        self.assertIn("# Our own policy", text)
-        self.assertIn(RULE, text)
 
     def test_agents_refuse_pushes_to_the_default_branch_and_still_ask_for_other_pushes(self):
         permissions = json.loads((TEMPLATES / ".claude/settings.json").read_text())["permissions"]

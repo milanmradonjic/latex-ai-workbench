@@ -33,7 +33,7 @@ EVERY_KEY = {
     "integrations": {"editor": False},
     "validation": {"manuscript_inputs": ["figures/*.pdf"], "package": None},
 }
-CONFIGURATIONS = {**{name: config for name, (config, makefile) in FIXTURES.items()}, "every-key": EVERY_KEY}
+CONFIGURATIONS = {**dict(FIXTURES), "every-key": EVERY_KEY}
 
 
 def rendered():

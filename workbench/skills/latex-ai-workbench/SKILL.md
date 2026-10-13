@@ -40,8 +40,7 @@ For schema-3 named documents, read [TeX notes](../../docs/tex-notes.md). `make c
 document. Use `make latex-ai-document-check DOC=NAME` for one document and
 `make latex-ai-pdf-artifact DOC=NAME` for its verified export. Included TeX
 fragments are checked through their consuming document. Preserve handwritten
-sources and existing build ownership; ambiguous overlapping
-adopted Make graphs require an explicit adapter.
+sources; a project's own build steps are Make targets or scripts that `build_command` names.
 
 For profiles, module selection/disable, and adapter choices,
 read [modules](../../docs/modules.md). Use the project's declared paths and tool environment; LaTeX is optional.
@@ -110,9 +109,9 @@ or export another project's sources. The user controls GUI applications.
 - AGENTS is canonical semantic policy. Avoid a second independent rule set in
   CLAUDE, editor prompts or this skill.
 - Make commands are canonical; the editor invokes them instead of replicating
-  TeX command logic. Preserve trusted existing build conventions when adapting.
-  This skill writes commands by their short names. Where the project's Makefile already
-  had a target of such a name, that recipe was kept and the workbench command is the
+  TeX command logic. Preserve the project's own build steps.
+  This skill writes commands by their short names. Where the project gave such a name a
+  recipe of its own, the workbench command is the
   `latex-ai-` form; `make latex-ai-help` lists the names that apply in a project.
 - Git reads are allowed. Staging, commits, pushes/pulls, integration, branch
   changes, stashes, resets/restores/cleaning and worktree changes require the

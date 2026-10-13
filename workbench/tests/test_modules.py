@@ -13,7 +13,7 @@ import sys
 import tempfile
 import time
 import unittest
-from test_support import isolate_environment
+from test_support import isolate_environment, own_targets
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -100,15 +100,6 @@ class ModuleTests(unittest.TestCase):
         self.assertFalse(plan["manuscript"])
         self.assertFalse(plan["portability"])
         self.command("validate")
-
-    def test_core_adapts_existing_make_without_build_target(self):
-        make = "local:\n\t@echo local\n"
-        (self.project / "GNUmakefile").write_text(make)
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
-        self.assertTrue((self.project / "GNUmakefile").read_text().startswith(make))
-        self.assertFalse((self.project / "Makefile").exists())
-        result = subprocess.run(["make", "check"], cwd=self.project, capture_output=True, text=True)
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_profile_does_not_override_installed_choices(self):
         self.assertEqual(self.cli("init", "--profile", "core"), 0)
@@ -237,10 +228,10 @@ class ModuleTests(unittest.TestCase):
         self.assertEqual((report["observed_and_expected"], report["command"]), (hostile, "make check"))
 
     def test_advertised_report_command_works_where_the_project_has_its_own_issue_target(self):
-        # The installer keeps a project's own `issue` recipe and installs only `latex-ai-issue`, so
+        # A project may take over the short `issue` and keep only `latex-ai-issue` for the workbench, so
         # whatever the guidance tells an agent to run must be the name that always reaches the report.
-        (self.project / "Makefile").write_text("PYTHON ?= python3\nissue:\n\t@touch PROJECT_ISSUE_RAN\n")
         self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        own_targets(self.project, "issue", recipe="@touch PROJECT_ISSUE_RAN")
         template = (boot.PACKAGE / "templates/AGENTS.md").read_text()
         advertised = re.search(r"`make ([\w-]+) ISSUE_NOTE=", template).group(1)
         done = subprocess.run(["make", advertised, "ISSUE_NOTE=observed X; expected Y"], cwd=self.project, capture_output=True, text=True)
@@ -256,7 +247,7 @@ class ModuleTests(unittest.TestCase):
         with patch.object(rt, "full_check", side_effect=AttributeError("boom")):
             status, errors = self.run_main("check")
         self.assertEqual(status, 70)
-        guidance = {"runtime message": errors, "full policy": template, "short policy": boot.integration_text("AGENTS.md", ""),
+        guidance = {"runtime message": errors, "full policy": template,
                     "skill": (boot.PACKAGE / "skills/latex-ai-workbench/SKILL.md").read_text()}
         for name, text in guidance.items():
             with self.subTest(guidance=name):
@@ -293,8 +284,9 @@ class ModuleTests(unittest.TestCase):
             self.assertIn(line, help_text)
 
     def test_help_names_the_command_that_reaches_the_workbench_when_the_project_has_its_own(self):
-        (self.project / "Makefile").write_text("PYTHON ?= python3\nhelp:\n\t@echo PROJECT_HELP\nissue:\n\t@echo PROJECT_ISSUE\n")
         self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        own_targets(self.project, "help", recipe="@echo PROJECT_HELP")
+        own_targets(self.project, "issue", recipe="@echo PROJECT_ISSUE")
         self.assertEqual(self.make_output("help").strip(), "PROJECT_HELP")  # the project's target is kept
         text = self.make_output("latex-ai-help")
         self.assertIn("make latex-ai-help", text)
@@ -319,7 +311,7 @@ class ModuleTests(unittest.TestCase):
                 text = (self.project / "Makefile").read_text()
                 targets = set(re.findall(r"^([A-Za-z][\w-]*)\s*:(?!=)", text, re.M))
                 described = {name for command in guide.COMMANDS for name in (command.short, command.reserved) if name}
-                self.assertEqual(sorted(targets - described - guide.UNLISTED), [])
+                self.assertEqual(sorted(targets - described), [])
 
     def test_status_reports_where_the_project_stands_and_what_to_do_next(self):
         self.example()
@@ -398,45 +390,15 @@ class ModuleTests(unittest.TestCase):
         self.assertIn("already has the workbench installed", errors)
         self.assertRegex(errors, r"Hint: .*runtime.*diff")
 
-    def test_installer_says_when_it_kept_a_project_target_the_workbench_would_have_used(self):
-        (self.project / "Makefile").write_text("PYTHON ?= python3\nhelp:\n\t@echo MINE\nissue:\n\t@echo MINE\n")
-        status, text = self.cli_output("init", "--profile", "core")
-        self.assertEqual(status, 0)
-        self.assertIn("kept your Makefile target `help`; the workbench command is `make latex-ai-help`", text)
-        self.assertIn("kept your Makefile target `issue`; the workbench command is `make latex-ai-issue`", text)
-        self.assertNotIn("kept your Makefile target `status`", text)
-        self.assertIn("make latex-ai-help", text.split("Next:")[1])  # the follow-up names the command that works
-
     # --- Release 2.3.2: findings of the review of 2.2.2-2.3.1 ---
-
-    def test_help_and_status_read_the_makefile_that_make_itself_uses(self):
-        # GNU Make prefers GNUmakefile, and a wrapper that includes the project's Makefile is a common layout.
-        (self.project / "GNUmakefile").write_text("PYTHON ?= python3\ninclude Makefile\n")
-        (self.project / "Makefile").write_text("all:\n\t@echo ALL\n")
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
-        self.assertIn("latex-ai-help", (self.project / "GNUmakefile").read_text())
-        self.assertEqual(guide.active_makefile(self.project), "GNUmakefile")
-        text = self.make_output("help")
-        for line in ("make check", "make status", "make help"):
-            self.assertIn(line, text)
-        self.assertIn("make check", self.make_output("status"))
-
-    def test_installer_summary_follows_the_active_makefile_name(self):
-        (self.project / "GNUmakefile").write_text("PYTHON ?= python3\nhelp:\n\t@echo MINE\n")
-        status, text = self.cli_output("init", "--profile", "core")
-        self.assertEqual(status, 0)
-        self.assertIn("kept your Makefile target `help`; the workbench command is `make latex-ai-help`", text)
-        following = text.split("Next:")[1]
-        for command in ("make doctor", "make latex-ai-help", "make check"):
-            self.assertIn(command, following)
 
     def test_policy_names_orientation_commands_that_reach_the_workbench(self):
         # The rule that made the report command `latex-ai-issue`: a project's own target of the short name is
         # kept, so guidance an agent follows blindly must name the command that always reaches the workbench.
-        (self.project / "Makefile").write_text("PYTHON ?= python3\nhelp:\n\t@touch PROJECT_HELP_RAN\nstatus:\n\t@touch PROJECT_STATUS_RAN\n")
         self.assertEqual(self.cli("init", "--profile", "core"), 0)
-        policies = {"full policy": (boot.PACKAGE / "templates/AGENTS.md").read_text(), "short policy": boot.integration_text("AGENTS.md", ""),
-                    "installed policy": (self.project / "AGENTS.md").read_text()}
+        own_targets(self.project, "help", recipe="@touch PROJECT_HELP_RAN")
+        own_targets(self.project, "status", recipe="@touch PROJECT_STATUS_RAN")
+        policies = {"full policy": (boot.PACKAGE / "templates/AGENTS.md").read_text(), "installed policy": (self.project / "AGENTS.md").read_text()}
         for name, text in policies.items():
             with self.subTest(policy=name):
                 self.assertNotRegex(text, r"make (?:help|status)\b")
@@ -464,18 +426,12 @@ class ModuleTests(unittest.TestCase):
         self.assertIn("files differing from the record: .latex-ai/core.py", self.command("issue").stdout)
 
     def test_a_projects_own_target_is_never_presented_as_the_workbench_command(self):
-        (self.project / "Makefile").write_text("PYTHON ?= python3\ndoctor:\n\t@touch PROJECT_DOCTOR_RAN\nclean:\n\t@touch PROJECT_CLEAN_RAN\n"
-                                               "build:\n\t@echo software build\nlint:\n\t@echo software lint\n")
-        status, text = self.cli_output("init", "--profile", "core")
-        self.assertEqual(status, 0)
-        self.assertIn("kept your Makefile target `doctor`; the workbench command is `make latex-ai-doctor`", text)
-        following = text.split("Next:")[1]
-        self.assertIn("make latex-ai-doctor", following)
-        self.assertNotRegex(following, r"make doctor\b")
+        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        own_targets(self.project, "doctor", recipe="@touch PROJECT_DOCTOR_RAN")
         listed = self.make_output("help")
         self.assertIn("make latex-ai-doctor", listed)
         for wrong in ("make doctor", "make clean", "make build", "make lint", "Manuscript"):
-            self.assertNotIn(wrong, listed)  # no manuscript here: these are the project's own recipes
+            self.assertNotIn(wrong, listed)  # no manuscript here, and `doctor` is now the project's own recipe
         self.assertIn("python:", self.make_output("latex-ai-doctor"))
         self.assertFalse((self.project / "PROJECT_DOCTOR_RAN").exists())
         with patch.object(shutil, "which", return_value=None):
@@ -486,9 +442,8 @@ class ModuleTests(unittest.TestCase):
         shared = {command.short for command in guide.COMMANDS if command.reserved is None}
         self.assertEqual(shared, {"check", "lint"})  # build has a receipt-producing reserved target
         (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n")
-        (self.project / "Makefile").write_text("PYTHON ?= python3\nbuild:\n\t@echo build\n" + "".join(
-            f"{name}:\n\t@echo MINE\n" for name in ("doctor", "bib-check", "pdf-artifact", "clean")))
         self.assertEqual(self.cli("init", "--modules", "latex", "--engine", "pdflatex"), 0)
+        own_targets(self.project, "doctor", "bib-check", "pdf-artifact", "clean", recipe="@echo MINE")
         targets = guide.make_targets((self.project / "Makefile").read_text())
         for name in ("doctor", "bib-check", "pdf-artifact"):
             self.assertIn("latex-ai-" + name, targets)
@@ -585,11 +540,6 @@ class ModuleTests(unittest.TestCase):
                 latex.lint(self.project, schema.document_settings(config))
         for phrase in ("lint", "args", ".chktexrc", "enabled", "baseline"):
             self.assertIn(phrase, raised.exception.hint)
-        self.fresh_project()  # the same order where an existing Makefile is adapted
-        (self.project / "main.tex").write_text(self.PAPER)
-        (self.project / "Makefile").write_text("build:\n\t@echo build\n")
-        self.assertEqual(self.cli("init", "--engine", "pdflatex"), 0)
-        self.assertRegex((self.project / "Makefile").read_text(), r"(?m)^latex-ai-check-passed: latex-ai-integrity lint$")
 
     def test_a_broken_json_file_is_named_in_the_error(self):
         self.example()
@@ -641,17 +591,8 @@ class ModuleTests(unittest.TestCase):
             self.assertIn("no commit", text)
             self.assertNotIn("fatal:", text)
 
-    def test_targets_in_an_included_makefile_are_the_projects_own(self):
-        (self.project / "GNUmakefile").write_text("include Makefile\n")
-        (self.project / "Makefile").write_text("PYTHON ?= python3\nall:\n\t@echo ALL\nhelp:\n\t@echo MY-HELP\n")
-        status, text = self.cli_output("init", "--profile", "core")
-        self.assertEqual(status, 0)
-        self.assertIn("kept your Makefile target `help`; the workbench command is `make latex-ai-help`", text)
-        self.assertEqual(self.make_output("help").strip(), "MY-HELP")
-        self.assertIn("make latex-ai-help", self.make_output("latex-ai-help"))
-
     def test_policy_never_names_a_short_form_the_project_may_own(self):
-        policies = {"full policy": (boot.PACKAGE / "templates/AGENTS.md").read_text(), "short policy": boot.integration_text("AGENTS.md", "")}
+        policies = {"full policy": (boot.PACKAGE / "templates/AGENTS.md").read_text()}
         for command in guide.COMMANDS:
             for name, text in policies.items():
                 if command.reserved:
@@ -683,13 +624,13 @@ class ModuleTests(unittest.TestCase):
         (self.project / "main.tex").write_text(self.PAPER)
         status, errors = attempt("init", str(self.project / "main.tex"))
         self.assertRegex(errors, r"Hint: .*folder")
-        (self.project / "Makefile").write_text("pdf:\n\t./build.sh\n")  # a build that does not name its engine
+        (self.project / "main.tex").write_text(self.PAPER.replace("\\begin{document}", "\\usepackage{fontspec}\n\\begin{document}"))  # an engine the source does not name
         status, errors = attempt("init", str(self.project))
         self.assertEqual(status, 2)
         hint = errors.split("Hint:")[1]
-        for phrase in ("pdflatex", "lualatex", "xelatex", "--build-command"):
+        for phrase in ("pdflatex", "lualatex", "xelatex", "--engine"):
             self.assertIn(phrase, hint)
-        (self.project / "Makefile").unlink()
+        (self.project / "main.tex").write_text(self.PAPER)
         self.assertEqual(attempt("init", str(self.project))[0], 0)
         status, errors = attempt("init", str(self.project), "--profile", "writing")
         self.assertEqual(status, 2)
@@ -745,7 +686,7 @@ class ModuleTests(unittest.TestCase):
         self.assertEqual(len(reserved), sum(1 for command in guide.COMMANDS if command.reserved))  # no reserved name twice
         # Internal targets of adapted Makefiles are the only latex-ai- names outside the table.
         internal = {"latex-ai-integrity", "latex-ai-core-check", "latex-ai-check-passed"}
-        texts = {"full policy": (boot.PACKAGE / "templates/AGENTS.md").read_text(), "short policy": boot.integration_text("AGENTS.md", ""),
+        texts = {"full policy": (boot.PACKAGE / "templates/AGENTS.md").read_text(),
                  "skill": (boot.PACKAGE / "skills/latex-ai-workbench/SKILL.md").read_text()}
         texts.update({"docs/" + path.name: path.read_text() for path in sorted((boot.PACKAGE / "docs").glob("*.md"))})
         texts["README"] = (boot.PACKAGE / "README.md").read_text()
@@ -810,9 +751,9 @@ class ModuleTests(unittest.TestCase):
         self.assertIsNone(lint([])[0])
         plan = rt.validation_plan(self.project, config, paths=[".chktex-baseline.json"])
         self.assertTrue(plan["manuscript"])  # changing the baseline is a change to what is checked
-        for policy in ((boot.PACKAGE / "templates/AGENTS.md").read_text(), boot.integration_text("AGENTS.md", "")):
-            self.assertIn("make latex-ai-lint-baseline", policy)
-            self.assertRegex(policy, r"(?s)baseline.*owner")
+        policy = (boot.PACKAGE / "templates/AGENTS.md").read_text()
+        self.assertIn("make latex-ai-lint-baseline", policy)
+        self.assertRegex(policy, r"(?s)baseline.*owner")
 
     def test_lint_output_that_cannot_be_read_fails_instead_of_passing(self):
         import latex
@@ -831,32 +772,9 @@ class ModuleTests(unittest.TestCase):
             rows = latex.chktex_warnings(self.project, schema.document_settings(config))
         self.assertEqual(rows, [{"file": "main.tex", "line": 3, "warning": 2, "message": "Non-breaking space", "text": "See Fig. \\ref{f}."}])
 
-    def test_engine_is_read_from_the_projects_own_build_line(self):
-        (self.project / "main.tex").write_text(self.PAPER)
-        (self.project / "Makefile").write_text("LATEXMK = latexmk -pdf -interaction=nonstopmode\npdf:\n\t$(LATEXMK) main.tex\n")
-        status, text = self.cli_output("init", "--build-command", '["make", "pdf"]', "--dry-run")
-        self.assertEqual(status, 0, text)
-        self.assertIn("engine: pdflatex", text)
-        self.assertRegex(text, r"NOTE: engine pdflatex read from Makefile.*--engine")
-        for line, engine in (("latexmk -lualatex main.tex", "lualatex"), ("latexmk -pdfxe main.tex", "xelatex"), ("xelatex main.tex", "xelatex")):
-            (self.project / "Makefile").write_text(f"pdf:\n\t{line}\n")
-            with self.subTest(line=line):
-                self.assertIn(f"engine: {engine}", self.cli_output("init", "--build-command", '["make", "pdf"]', "--dry-run")[1])
-        (self.project / "Makefile").write_text("pdf:\n\tpdflatex main.tex\nalt:\n\txelatex main.tex\n")  # two engines: not guessed
-        status, _, errors = self.cli_result("init", "--build-command", '["make", "pdf"]', "--dry-run")
-        self.assertEqual(status, 2)
-        self.assertIn("--engine", errors)
-
     def test_small_print_from_the_blind_trial(self):
         self.assertEqual(self.cli("init", "--profile", "core"), 0)
         self.assertIn("All required tools found", self.command("doctor").stdout)
-        self.fresh_project()
-        (self.project / "main.tex").write_text(self.PAPER)
-        (self.project / "Makefile").write_text("build:\n\t@echo build\n")
-        self.assertEqual(self.cli("init", "--engine", "pdflatex"), 0)
-        makefile = (self.project / "Makefile").read_text()
-        self.assertRegex(makefile, r"(?m)^check: latex-ai-check-passed$")
-        self.assertRegex(makefile, r"(?m)^\t@echo \"Workbench checks passed")
         quickstart = (boot.PACKAGE / "docs/quickstart.md").read_text()
         self.assertNotIn("fullest", quickstart)
         self.assertIn("make latex-ai-lint-baseline", quickstart)

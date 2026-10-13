@@ -25,13 +25,12 @@ SOURCE = "\\documentclass{article}\n\\begin{document}Guide fixture.\\end{documen
 
 
 class Orientation(ProjectCase):
-    def paper(self, makefile=None):
+    def paper(self, own=()):
         (self.project / "main.tex").write_text(SOURCE)
-        if makefile:
-            (self.project / "Makefile").write_text(makefile)
         self.builder()
         self.configure()
         self.install("init", "--skip-editor")
+        self.own_targets(*own)
 
     # --- make guide ----------------------------------------------------------------------------------------
 
@@ -62,7 +61,7 @@ class Orientation(ProjectCase):
         self.assertIn("make status", result.stdout)
 
     def test_the_manual_names_the_commands_this_makefile_really_has(self):
-        self.paper("build:\n\t@echo mine\n\nguide:\n\t@echo mine\n")
+        self.paper(own=("build", "guide"))
         text = self.command("guide").stdout
         self.assertIn("make latex-ai-build DOC=NAME", text)
         self.assertNotRegex(text, r"make build\b")
@@ -93,7 +92,7 @@ class Orientation(ProjectCase):
 
     @unittest.skipUnless(MAKE, "GNU Make required")
     def test_a_project_target_named_guide_is_kept(self):
-        self.paper("guide:\n\t@echo mine\n")
+        self.paper(own=("guide",))
         self.assertEqual(self.run_command("make", "guide").stdout.strip(), "mine")
         self.assertIn("The everyday loop", self.run_command("make", "latex-ai-guide").stdout)
 

@@ -109,19 +109,16 @@ The next owned build recovers interrupted moves. This supports process recovery,
 not guarantees against lost storage or hardware failure.
 
 Dependencies include literal TeX resources, compiler recorder inputs, declared
-globs, bibliography, command scripts, latexmk configuration, and Make policy
-with literal includes. Make policy excludes the managed integration block only
-when the file is not also a source input. TeX-consumed or explicitly declared
-Makefiles are hashed in full. Declare computed includes and hidden dependencies.
+globs, bibliography, command scripts, latexmk configuration, and the Makefile
+when the build command is a `make` goal. Makefiles are hashed in full; an
+included Makefile is not followed. Declare includes and hidden dependencies in `inputs`.
 Receipts cannot prove that arbitrary custom commands invoke a compiler or that
 their results are scientifically correct.
 
 ## Make and editor boundaries
 
-One lexical Make scanner supplies rule/include facts without executing Make
-during inspection. Ambiguous ownership, custom recipe prefixes, and conditional
-rule styles can require manual adaptation; installation refuses unsafe merges.
-Simple adopted phased builds require GNU Make 4.3+ and POSIX.
+`init` writes the Makefile and never reads or merges another one; a project's own targets go after what it wrote
+([migrating](migrating.md)). The generated Makefile asks nothing of the GNU Make version.
 
 Editor setup creates named Make tasks/recipes, disables automatic builds on
 save, and prevents magic comments from bypassing Make. `init` merges into existing JSON settings by key;

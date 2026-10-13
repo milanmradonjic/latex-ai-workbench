@@ -73,9 +73,10 @@ class Audit3Repairs(unittest.TestCase):
             'default_document': 'paper', 'defaults': {'lint': {'enabled': False}},
             'documents': {'paper': {'root': 'main.tex'}, 'note': {'root': 'note.tex'}}}}}
         (self.project / core.CONFIG).write_text(json.dumps(config))
-        if makefile is not None:
-            (self.project / 'Makefile').write_text(makefile)
         self.install('init', '--skip-editor')
+        if makefile is not None:  # the project's own Make text goes after what init wrote
+            with (self.project / 'Makefile').open('a') as stream:
+                stream.write('\n' + makefile)
         return config
 
     def synthetic(self, makefile=None):
@@ -93,9 +94,10 @@ class Audit3Repairs(unittest.TestCase):
             'documents': {name: {'root': root, 'build_command': [sys.executable, 'compile.py', root,
                 f'.latex-ai/artifacts/documents/{name}/build']} for name, root in [('paper','main.tex'),('note','note.tex')]}}}}
         (self.project / core.CONFIG).write_text(json.dumps(config))
-        if makefile is not None:
-            (self.project / 'Makefile').write_text(makefile)
         self.install('init', '--skip-editor')
+        if makefile is not None:  # the project's own Make text goes after what init wrote
+            with (self.project / 'Makefile').open('a') as stream:
+                stream.write('\n' + makefile)
         return config
 
     @unittest.skipUnless(TEX, 'real latexmk/pdflatex required')
@@ -108,42 +110,6 @@ class Audit3Repairs(unittest.TestCase):
             stream.write('# Added displayed manuscript content\n')
         self.command('verify', '--document', 'paper', expected=1)
         self.command('artifact', '--document', 'paper', expected=1)
-
-    @unittest.skipUnless(TEX, 'real latexmk/pdflatex required')
-    def test_a1_declared_makefile_source_hashes_managed_text(self):
-        config = self.named('# Displayed Makefile\n')
-        config['modules']['latex']['documents']['paper']['inputs'] = ['Makefile']
-        (self.project / core.CONFIG).write_text(json.dumps(config))
-        (self.project / 'main.tex').write_text(
-            '\\documentclass{article}\n\\usepackage{verbatim}\n\\begin{document}\\verbatiminput{Makefile}\\end{document}\n')
-        self.command('document-check', '--document', 'paper')
-        makefile = self.project / 'Makefile'
-        makefile.write_text(makefile.read_text().replace('# END LATEX AI WORKBENCH', '# a change inside the managed block\n# END LATEX AI WORKBENCH'))
-        self.command('verify', '--document', 'paper', expected=1)
-        self.command('artifact', '--document', 'paper', expected=1)
-
-    @unittest.skipUnless(TEX,'real compiler required')
-    def test_review_included_make_policy_changes_invalidate_pdf(self):
-        (self.project/'main.tex').write_text(SOURCE.replace('Audit fixture.','\\fixturetext'))
-        (self.project/'compile.mk').write_text('TEX_TEXT := First\n')
-        (self.project/'Makefile').write_text('include compile.mk\n.PHONY: build\nbuild: main.pdf\n'
-            "main.pdf: main.tex\n\tpdflatex -recorder -interaction=nonstopmode -halt-on-error '\\def\\fixturetext{$(TEX_TEXT)}\\input{main.tex}'\n")
-        self.install('init','--no-lint','--skip-editor','--engine','pdflatex')
-        self.run_command('make','check')
-        receipt=json.loads((self.project/'.latex-ai/artifacts/documents/manuscript/build-receipt.json').read_text())
-        self.assertEqual(receipt['input_roles']['compile.mk'],'make-policy')
-        before=(self.project/'main.pdf').read_bytes()
-        with (self.project/'compile.mk').open('a') as stream:
-            stream.write('# BEGIN LATEX AI WORKBENCH\n# Managed policy comment\n# END LATEX AI WORKBENCH\n')
-        self.command('verify')
-        self.command('artifact')
-        (self.project/'compile.mk').write_text('TEX_TEXT := Second\n')
-        self.command('verify',expected=1)
-        self.command('artifact',expected=1)
-        self.run_command('make','check')
-        self.command('verify')
-        self.command('artifact')
-        self.assertNotEqual(before,(self.project/'main.pdf').read_bytes())
 
     @unittest.skipUnless(TEX, 'real latexmk/pdflatex required')
     def test_a2_custom_output_symlink_cannot_escape(self):
@@ -172,28 +138,6 @@ class Audit3Repairs(unittest.TestCase):
                 return path.read_text().strip()
             time.sleep(.03)
         self.fail(f'{name} was not written')
-
-    @unittest.skipUnless(os.name == 'posix' and TEX, 'POSIX and real compiler required')
-    def test_a3_phased_make_compiler_keeps_ownership_after_owner_dies(self):
-        (self.project / 'main.tex').write_text(SOURCE)
-        (self.project / 'slow.py').write_text(
-            "import os,time,subprocess\nfrom pathlib import Path\n"
-            "if not Path('compiler.pid').exists():\n"
-            " Path('compiler.pid').write_text(str(os.getpid()))\n"
-            " while not Path('release').exists(): time.sleep(.05)\n"
-            "subprocess.run(['pdflatex','-interaction=nonstopmode','-halt-on-error','main.tex'],check=True)\n")
-        (self.project / 'Makefile').write_text('.PHONY: build check\nbuild: main.pdf\nmain.pdf: main.tex\n\t'+sys.executable+' slow.py\ncheck: build\n')
-        self.install('init', '--no-lint', '--skip-editor', '--engine', 'pdflatex')
-        owner = subprocess.Popen(['make','-j4','check'], cwd=self.project, env=self.env,
-                                 start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        self.addCleanup(lambda: owner.poll() is None and owner.kill())
-        pid = int(self.wait_file('compiler.pid'))
-        self.children.append(pid)
-        owner.kill()
-        owner.wait(timeout=5)
-        result = self.command('build', expected=1)
-        self.assertIn('Another build is active', result.stderr)
-        (self.project / 'release').write_text('continue')
 
     def test_a4_project_check_syntax_is_preserved_by_selected_validation(self):
         cases = {'blank':'check:\n\n\ttouch project-check-ran\n',
@@ -325,80 +269,6 @@ class Audit3Repairs(unittest.TestCase):
             self.assertEqual(result.returncode,2,result.stdout+result.stderr)
             self.assertEqual((self.project/'Makefile').read_text(),makefile)
             self.assertFalse((self.project/'.latex-ai/installation.json').exists())
-
-    def adopted(self, header=''):
-        (self.project/'main.tex').write_text(SOURCE)
-        (self.project/'compile.py').write_text(
-            "from pathlib import Path\nPath('main.pdf').write_bytes(b'%PDF-1.4 fixture')\n"
-            "Path('main.log').write_text('Clean fixture log')\n")
-        (self.project/'Makefile').write_text(header+'.PHONY: build check\nbuild: main.pdf\n'
-            'main.pdf: main.tex\n\t@'+sys.executable+' compile.py\n\t@touch recipe-completed\ncheck: build\n')
-        self.install('init','--no-lint','--skip-editor','--engine','pdflatex')
-
-    def test_review_raw_adopted_goal_still_builds_without_receipt(self):
-        self.adopted()
-        self.run_command('make','build')
-        self.assertTrue((self.project/'main.pdf').is_file())
-        self.assertFalse((self.project/'.latex-ai/artifacts/active-build.json').exists())
-        self.command('verify',expected=1)
-
-    def test_review_oneshell_and_chosen_shell_keep_receipt_ownership(self):
-        original = self.project
-        for oneshell in (False, True):
-            for shell in ('/bin/sh', '/bin/bash'):
-                for flags in ('-c', '-ec'):
-                    with self.subTest(oneshell=oneshell, shell=shell, flags=flags):
-                        self.project = original / f'{oneshell} {Path(shell).name} {flags}'
-                        self.project.mkdir()
-                        self.adopted('.ONESHELL:\n' if oneshell else '')
-                        self.run_command('make','-j4',f'SHELL={shell}',f'.SHELLFLAGS={flags}','check')
-                        self.assertTrue((self.project/'recipe-completed').exists())
-                        self.command('verify')
-        self.project = original
-
-    def test_review_command_line_shell_cannot_bypass_owner(self):
-        self.adopted()
-        (self.project/'compile.py').write_text("import os,time\nfrom pathlib import Path\n"
-            "Path('compiler.pid').write_text(str(os.getpid()))\ntime.sleep(30)\n")
-        owner=subprocess.Popen(['make','-j4','SHELL=/bin/sh','check'],cwd=self.project,env=self.env,
-            start_new_session=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-        self.addCleanup(lambda: owner.poll() is None and owner.kill())
-        pid=int(self.wait_file('compiler.pid'))
-        self.children.append(pid)
-        state=json.loads((self.project/'.latex-ai/artifacts/documents/manuscript/build-receipt.json').read_text())
-        self.assertTrue(state.get('compiler_groups'),state)
-        owner.kill()
-        owner.wait(timeout=5)
-        result=self.command('build',expected=1)
-        self.assertIn('Another build is active',result.stderr)
-
-    def test_review_make_nonbuilding_modes_do_not_write_receipts(self):
-        self.adopted()
-        for mode in ('-n','-q','-t'):
-            with self.subTest(mode=mode):
-                self.run_command('make',mode,'check',expected=None)
-                self.assertFalse((self.project/'.latex-ai/artifacts/active-build.json').exists())
-                self.assertFalse((self.project/'.latex-ai/artifacts/documents/manuscript/build-receipt.json').exists())
-
-    def test_review_conditional_rule_styles_refuse_before_installing(self):
-        makefile='ifeq (0,1)\ncheck::\nelse\ncheck:\nendif\n'
-        (self.project/'Makefile').write_text(makefile)
-        (self.project/'main.tex').write_text(SOURCE)
-        result=self.install('init','--no-lint','--skip-editor',
-            '--engine','pdflatex','--build-command',json.dumps([sys.executable,'-c','pass']),expected=2)
-        self.assertIn('colon',result.stdout+result.stderr)
-        self.assertEqual((self.project/'Makefile').read_text(),makefile)
-        self.assertFalse((self.project/'.latex-ai/installation.json').exists())
-
-    def test_review_custom_recipe_prefix_refuses_before_installing(self):
-        makefile='.RECIPEPREFIX := >\ncheck:\n>touch project-check-ran\n'
-        (self.project/'Makefile').write_text(makefile)
-        (self.project/'main.tex').write_text(SOURCE)
-        result=self.install('init','--no-lint','--skip-editor','--engine','pdflatex',
-            '--build-command',json.dumps([sys.executable,'-c','pass']),expected=2)
-        self.assertIn('recipe prefix',result.stdout+result.stderr)
-        self.assertEqual((self.project/'Makefile').read_text(),makefile)
-        self.assertFalse((self.project/'.latex-ai/installation.json').exists())
 
     def test_review_restored_journal_does_not_block_later_cleanup(self):
         pdf=self.project/'main.pdf'

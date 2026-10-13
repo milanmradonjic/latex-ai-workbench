@@ -46,14 +46,12 @@ copy made by `make latex-ai-pdf-artifact`; rebuilding does not update it.
 `default_document` in `.latex-ai.json`. Cleanup targets one document and
 invalidates its receipt; custom builds keep their own cleanup convention.
 
-## Adopt an existing paper
+## Bring in an existing paper
 
-Every paper is a named document from initial setup. Preview installation on the
-existing project, specifying its engine or raw build target where detection
-requires clarification. To add a note, create its root and add it under `documents` in
-`.latex-ai.json`; no schema migration is needed. Custom build output
-locations must agree with `output_dir`. Existing Make recipes and authored
-sources are preserved; the adapter boundaries below still apply.
+Every paper is a named document from initial setup. An existing project is [migrated](migrating.md) to the workbench's layout:
+`init` writes only files that are absent, and the project's own Make targets and policy go in after it. To add a note,
+create its root and add it under `documents` in `.latex-ai.json`; no schema migration is needed. Custom build output
+locations must agree with `output_dir`.
 
 ## Configure documents and note organization
 
@@ -85,31 +83,17 @@ scientific tasks implicitly.
 Builds are serialized because custom recipes can affect shared files. The
 compiler runs in its own process group, recorded as part of the build's
 ownership: stopping a build stops its compiler, and if the build's own process
-is killed outright, no other build starts until that compiler has exited. Simple
-adopted Make builds retain their existing recipe and incremental behavior; GNU
-Make 4.3+ and POSIX are required for prepare/finish hooks. The adopted goal's
-recipe shell is supervised without replacing the outer dependency graph;
-parallel prerequisites, recursive Make jobserver descriptors, `.ONESHELL`,
-automatic variables and inherited input are preserved. Target-specific
-`SHELL`/`.SHELLFLAGS` overrides need an explicit project adapter. Plain original
-build goals still work outside the workbench; they do not create a verified
-receipt. Make's `-n`, `-q` and `-t` modes do not create receipt ownership.
+is killed outright, no other build starts until that compiler has exited. A build command that is a
+`make` goal of the project's own Makefile runs like any other build command; whether it is incremental is Make's doing,
+and a run that changes nothing is accepted only when a verified receipt vouches for the outputs. Make's `-n`, `-q` and `-t` modes
+never reach the build, because the workbench's own recipes do not run under them.
 Every owned compiler waits for publication of its process identity before
 execution. Repeated cooperative interrupts cannot abort its cleanup;
 `--json` returns one interrupted result after cleanup. SIGKILL cannot emit JSON,
 but recorded live compiler groups keep other builds blocked. Linux liveness
 excludes zombies and checks process birth identities. Other platforms retain
 portable fallbacks; Windows and macOS behavior still require validation.
-Additional targets use explicit
-commands. Ambiguous shared custom build ownership needs an explicit adaptation.
-Multiple simple adopted commands that share declared Make targets are rejected
-until an explicit adapter gives them separate ownership; the workbench does not
-silently run a shared prerequisite in two nested Make graphs.
-An existing `check` that already runs an additional adopted document also needs
-an adapter: its raw prerequisite would otherwise run outside that document's
-serialized ownership phase. This includes parent goals such as `all: check note`.
-Computed prerequisite ownership is unresolved when additional adopted targets
-are registered; an explicit adapter is required.
+Additional targets use explicit commands.
 
 Editor setup creates named Make tasks and recipes. Automatic builds on
 save are disabled in the generated settings so a note save cannot build the

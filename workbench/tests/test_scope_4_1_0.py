@@ -11,7 +11,7 @@ from pathlib import Path
 
 PACKAGE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE))
-import adapters
+import bootstrap
 import core
 import schema
 from test_support import ProjectCase
@@ -23,7 +23,7 @@ class NoGeneratedCI(ProjectCase):
     def test_the_generator_and_its_pins_are_gone(self):
         for name in GONE:
             with self.subTest(name=name):
-                self.assertFalse(hasattr(adapters, name))
+                self.assertFalse(hasattr(bootstrap, name))
         self.assertEqual(core.integrations({"integrations": {"editor": True}}), {"editor": True})
 
     def test_the_options_of_the_generator_are_gone(self):

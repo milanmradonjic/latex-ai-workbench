@@ -118,12 +118,6 @@ def jobserver_fds(env):
     return tuple(result)
 
 
-def make_dry_run(env=None):
-    flags = (env or os.environ).get('MAKEFLAGS', '').split()
-    return bool(flags and '=' not in flags[0] and not flags[0].startswith('--') and set('nqt') & set(flags[0])) or any(
-        flag in {'--just-print', '--dry-run', '--recon', '--question', '--touch', '-n', '-q', '-t'} for flag in flags)
-
-
 def stop(process, grouped, grace=5):
     def signal_all(number):
         try:

@@ -16,7 +16,6 @@ from test_support import isolate_environment
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import adapters
 import bootstrap as boot
 import core
 import schema
@@ -202,12 +201,11 @@ class ImportLayering(unittest.TestCase):
         self.assertEqual(offenders, [])
 
     def test_core_and_schema_sit_at_the_bottom(self):
-        """core imports only processes; schema, the validated configuration and its documents, only core, the command registry and
-        the Makefile reader, and those two only core."""
+        """core imports only processes; schema, the validated configuration and its documents, only core and the command registry,
+        and those two only core."""
         self.assertLessEqual(set(self.graph["core"]), {"processes"})
-        self.assertLessEqual(set(self.graph["schema"]), {"core", "commands", "make_graph"})
+        self.assertLessEqual(set(self.graph["schema"]), {"core", "commands"})
         self.assertLessEqual(set(self.graph["commands"]), {"core"})
-        self.assertLessEqual(set(self.graph["make_graph"]), {"core"})
 
 
 if __name__ == "__main__":

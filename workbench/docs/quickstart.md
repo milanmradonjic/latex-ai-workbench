@@ -26,9 +26,8 @@ The profiles are `core` and `writing`; an explicit
 `--modules` list also works. A LaTeX project needs its main `.tex` file to exist already: a single
 one is detected, otherwise pass `--root`. Without a profile, a paper gets the manuscript checks
 (and bibliography checks when it has one), plus VS Code settings; `--skip-editor` leaves them out. A module is turned on later by adding it to `modules` in `.latex-ai.json` ([modules](modules.md)). A paper
-with its own Makefile also needs the command that builds it, for example
-`--build-command '["make", "pdf"]'`; the installer says so, and reads the TeX engine from your
-build line when it names one.
+that is built by something other than latexmk is declared with `--build-command '["make", "pdf"]'` (a target you add to the
+Makefile after `init`). A project that already has a Makefile or policy files is migrated: see [migrating](migrating.md).
 
 The installer does not overwrite your manuscript or other project files, backs up the files it
 manages before replacing them, never touches Git, and ends with a summary and the commands to try
@@ -51,8 +50,7 @@ make doctor    # are the required tools installed?
 make guide     # a short manual for this project
 ```
 
-If your Makefile already had a target called `help`, `status` or `doctor`, your recipe was kept
-and `make help` still shows only your own targets. The workbench commands are then
+If you give `help`, `status` or `doctor` a recipe of your own, `make help` shows only your own targets. The workbench commands are then
 `make latex-ai-help`, `make latex-ai-status` and `make latex-ai-doctor` (and `make latex-ai-guide`);
 these long names work in every project.
 

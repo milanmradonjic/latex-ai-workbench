@@ -1,13 +1,13 @@
 """Create a workbench project, or refresh its runtime. No Git mutations or network calls.
 
-``init`` writes the files a new project needs and merges into the ones it already has, never overwriting authored text.
+``init`` writes the files a new project needs. It never changes a file the project has: one that differs from what it would write
+is a conflict, and an existing project is migrated by following docs/migrating.md, which an agent can do.
 ``diff`` shows how a project differs from what ``init`` would write now. ``runtime`` refreshes the vendored runtime files.
-There is no upgrade, audit or recovery: a project is updated by following docs/upgrading.md, which an agent can do.
+There is no upgrade, audit or recovery: a project is updated by following docs/upgrading.md.
 """
 import argparse
 import copy
 import difflib
-import hashlib
 import json
 import os
 from datetime import datetime, timezone
@@ -20,12 +20,11 @@ import sys
 
 sys.dont_write_bytecode = True
 import guide
-import make_graph
-from adapters import core_makefile, integration_text, make_adapter, merge_block, module_make_targets
-from core import (ADOPTED_MAKE, CONFIG, GENERATED_TREES, MODULES, PROFILES, VERSION, WorkbenchError, atomic_write, effective_config, git_output,
-                  has_module, integrations, line_buffered, local_path, make_has_extra_prereqs, module_config, read_json, read_tex, runtime_sources)
+from commands import RECIPE_ARGUMENTS
+from core import (CONFIG, GENERATED_TREES, MAKEFILES, MODULES, PROFILES, VERSION, WorkbenchError, atomic_write, effective_config, git_output,
+                  has_module, integrations, line_buffered, local_path, module_config, read_tex, runtime_sources)
 from diagnostics import recorded_digests, sha256_text
-from guide import MAKEFILES, make_targets
+from guide import make_targets
 from latex import bibliography_check, source_tree, tex_without_comments
 from schema import document_settings, load_config, specifications, validate_config
 
@@ -92,7 +91,7 @@ def git_snapshot(project):
 
 
 def discover(project):
-    tex, bib, helper = [], [], []
+    tex, bib = [], []
     for directory, folders, files in os.walk(project, followlinks=False):
         folders[:] = sorted(d for d in folders if d not in EXCLUDED and not (Path(directory) / d).is_symlink())
         for name in sorted(files):
@@ -104,10 +103,8 @@ def discover(project):
                 tex.append(relative)
             if name.endswith(".bib"):
                 bib.append(relative)
-            if name in {"Makefile", "GNUmakefile", "makefile", ".latexmkrc", "latexmkrc"} or name.endswith((".sh", ".py")):
-                helper.append(relative)
     roots = [name for name in tex if re.search(r"\\documentclass(?:\[[^\]]*\])?\s*\{", tex_without_comments(read_tex(project / name)))]
-    return {"tex_files": tex, "root_candidates": roots, "bib_files": bib, "build_files": helper,
+    return {"tex_files": tex, "root_candidates": roots, "bib_files": bib,
             "editor_files": [p for p in (".vscode/settings.json", ".vscode/tasks.json") if (project / p).exists()],
             "agent_files": [p for p in ("AGENTS.md", "CLAUDE.md", ".claude/settings.json", ".codex/rules/git-safety.rules") if (project / p).exists()]}
 
@@ -130,7 +127,8 @@ def detect_config(project, inventory, args):
     if read(project, STATE) is not None:
         raise WorkbenchError("This project already has the workbench installed",
                              hint="`init` creates projects. To refresh its runtime files run `latex-ai-init runtime .`; "
-                                  "to see how it differs from what `init` would write now, `latex-ai-init diff .`; the rest is in docs/upgrading.md")
+                                  "to see how it differs from what `init` would write now, `latex-ai-init diff .`; the rest is in docs/upgrading.md "
+                                  "(and docs/migrating.md for a project that an older release adapted, or one to start over)")
     if read(project, CONFIG) is not None:
         config = load_config(project)
         if args.profile is not None or args.modules is not None or args.editor:
@@ -181,17 +179,9 @@ def detect_config(project, inventory, args):
         engine = "lualatex"
     if not engine and re.search(r"\\(?:XeTeX|setCJKmainfont)|\{xeCJK\}", text):
         engine = "xelatex"
-    if not engine and inventory["build_files"]:
-        engine, source = build_engine(project, inventory["build_files"])
-        if engine:
-            inventory["engine_source"] = source  # reported as a note, so the choice can be checked in the dry run
-    if not engine and ("fontspec" in text or inventory["build_files"]):
-        reason = "it loads fontspec" if "fontspec" in text else "it has build files of its own (" + ", ".join(inventory["build_files"][:3]) + ") that do not name one engine"
-        makefile = guide.makefile_text(project)
-        own_build = "" if not makefile or "build" in make_targets(makefile, project) else (
-            "; its Makefile has no `build` target, so also name the command that builds the PDF, for example --build-command '[\"make\", \"pdf\"]'")
-        raise WorkbenchError("Engine/build conventions need confirmation; inspect build files and supply --engine",
-                             hint=f"the engine is not guessed for this project because {reason}: add --engine pdflatex, --engine lualatex or --engine xelatex{own_build}")
+    if not engine and "fontspec" in text:
+        raise WorkbenchError("The engine needs confirmation: the source loads fontspec",
+                             hint="the engine is not guessed for this project: add --engine pdflatex, --engine lualatex or --engine xelatex")
     engine = engine or "pdflatex"
     biblatex = re.search(r"\\usepackage(?:\[([^\]]*)\])?\{biblatex\}", text)
     backend = args.backend or ("bibtex" if biblatex and re.search(r"backend\s*=\s*bibtex", biblatex[1] or "")
@@ -206,8 +196,6 @@ def detect_config(project, inventory, args):
             path = local_path(project, str((root.parent / value).relative_to(project)))
             files.append(path.relative_to(project).as_posix())
     command = build_command_argument(args.build_command) if args.build_command else None
-    if command is None and "build" in make_targets(guide.makefile_text(project), project):
-        command = ["make", "build"]
     modules = {"latex": {"default_document": "manuscript", "documents": {"manuscript": {
         "root": selected, "engine": engine, "backend": backend,
         "lint": {"enabled": not args.no_lint, "args": []}, "build_command": command,
@@ -219,49 +207,25 @@ def detect_config(project, inventory, args):
 
 
 
-ENGINE_SIGNS = (("lualatex", r"lualatex|-pdflua(?![a-z])|-lualatex(?![a-z])"), ("xelatex", r"xelatex|-pdfxe(?![a-z])|-xelatex(?![a-z])"),
-                ("pdflatex", r"pdflatex|latexmk\b[^\n]*\s-pdf(?![a-z])"))
+def core_makefile():
+    return "# Project-local core checks.\nPYTHON ?= python3\n.DEFAULT_GOAL := check\n.PHONY: check\ncheck:\n\t@$(PYTHON) .latex-ai/workbench.py check\n"
 
 
-def build_engine(project, build_files):
-    """The engine the project's own build names (a Makefile, latexmkrc or shell script), with the file it was
-    read from. Reading the project's convention is not guessing; two different engines are left to the user."""
-    found = {}
-    for name in build_files:
-        if Path(name).name in {*MAKEFILES, ".latexmkrc", "latexmkrc"} or name.endswith(".sh"):
-            try:
-                text = "\n".join(line.split("#", 1)[0] for line in (project / name).read_text(encoding="utf-8").splitlines())
-            except (OSError, ValueError):
-                continue
-            for engine, pattern in ENGINE_SIGNS:
-                if re.search(pattern, text):
-                    found.setdefault(engine, name)
-    return next(iter(found.items())) if len(found) == 1 else (None, None)
-
-
-def initial_json_merge(current, desired):
-    result = dict(current)
-    for key, value in desired.items():
-        if key not in result:
-            result[key] = value
-        elif key in {"latex-workshop.latex.recipe.default", "latex-workshop.latex.build.enableMagicComments", "latex-workshop.latex.outDir"} and result[key] != value:
-            raise WorkbenchError(f"Editor setting {key} conflicts with canonical Make/output configuration; use --skip-editor to preserve it")
-        elif isinstance(value, dict) and isinstance(result[key], dict):
-            result[key] = initial_json_merge(result[key], value)
-        elif isinstance(value, list) and key in {"tasks", "latex-workshop.latex.tools", "latex-workshop.latex.recipes"}:
-            identity = "label" if key == "tasks" else "name"
-            if not isinstance(result[key], list) or any(not isinstance(item, dict) for item in result[key]):
-                raise WorkbenchError(f"Invalid {key} array")
-            existing = {item.get(identity): item for item in result[key]}
-            additions = []
-            for item in value:
-                if item[identity] in existing and existing[item[identity]] != item:
-                    raise WorkbenchError(f"Conflicting editor {identity}: {item[identity]}; use --skip-editor to preserve editor files")
-                if item[identity] not in existing:
-                    additions.append(item)
-            result[key] = result[key] + additions
-        # Ordinary editor preferences belong to the project; retain them.
-    return result
+def module_make_targets(config, existing=()):
+    """Every command of the registry that this configuration enables, under its reserved ``latex-ai-`` name, plus the short alias
+    unless the template defines that name itself. Guidance and hints can therefore always name a command that reaches the
+    workbench, and no command is named in a second place."""
+    commands = [command for command in guide.COMMANDS if command.reserved and guide.enabled(command, config)]
+    # DOC reaches recipes through the environment ("$$DOC"), never as Make text
+    # spliced into a shell line, so its value cannot be interpreted as shell syntax.
+    result = ["export ISSUE_NOTE ISSUE_COMMAND",  # the same rule for the issue report's free text
+              "export DOC"]  # the document selector
+    for command in commands:
+        result.extend([f".PHONY: {command.reserved}", f"{command.reserved}:"])
+        result.append(f"\t@$(PYTHON) .latex-ai/workbench.py {command.action}{RECIPE_ARGUMENTS[command.selects]}")
+        if command.short not in existing:
+            result.extend([f".PHONY: {command.short}", f"{command.short}: {command.reserved}"])
+    return "\n".join(result) + "\n"
 
 
 def compiled_pdf(tex, project=None):
@@ -305,11 +269,11 @@ def desired_files(config, project=None):
     files[".gitignore"] = ".DS_Store\n__pycache__/\n.latex-ai/backups/\n.latex-ai/artifacts/\n"
     adapter = integrations(config)
     if not has_module(config, "latex"):
-        files["Makefile"] = core_makefile(config)
+        files["Makefile"] = core_makefile()
     pdfs = ["/" + compiled_pdf(document.view, project).removeprefix("./") for document in specifications(config)]
     if pdfs:
         files[".gitignore"] = (PACKAGE / "templates/.gitignore").read_text() + "\n".join(pdfs) + "\n.latex-ai/backups/\n"
-    files["Makefile"] += module_make_targets(config, make_graph.read(files["Makefile"]).targets)  # the short names the template already defines
+    files["Makefile"] += module_make_targets(config, make_targets(files["Makefile"]))  # the short names the template already defines
     if adapter["editor"]:
         if has_module(config, "latex"):
             files[".vscode/settings.json"] = (PACKAGE / "templates/.vscode/settings.json").read_text(encoding="utf-8")
@@ -337,16 +301,14 @@ def desired_files(config, project=None):
     return files
 
 
+MOVE_ASIDE = "move it aside, run init, then merge your content back (docs/migrating.md in the workbench package says how)"
+
+
 def plan(project, config, args):
-    """What `init` would write: (updates, conflicts, notes). Existing files are merged into, never overwritten."""
+    """What `init` would write: (updates, conflicts, notes). A file that is absent is created; one that is already what init writes is
+    left as it is; one that differs is a conflict. Nothing of the project's is merged into or overwritten."""
     wanted = desired_files(config, project)
-    # Use actual directory names: on macOS, exists("makefile") can also match "Makefile".
-    project_names = {path.name for path in project.iterdir()}
-    active_makefile = next((name for name in MAKEFILES if name in project_names), "Makefile")
-    if active_makefile not in project_names and any((project / name).exists() for name in MAKEFILES):
-        raise WorkbenchError("Unsupported Makefile filename casing; reconcile explicitly before setup")
-    if active_makefile != "Makefile":
-        wanted[active_makefile] = wanted.pop("Makefile")
+    present = {path.name for path in project.iterdir()}  # actual names: on macOS, exists("makefile") also matches "Makefile"
     if args.skip_editor:
         wanted = {p: t for p, t in wanted.items() if not p.startswith(".vscode/")}
     updates, conflicts, notes = [], [], []
@@ -356,32 +318,20 @@ def plan(project, config, args):
             notes.append(reason)
     if read(project, CONFIG) is None:  # a configuration the project wrote itself is kept as it is
         updates.append({"path": CONFIG, "before": None, "after": encoded(config)})
-    for name, upstream in wanted.items():
+    for other in (name for name in MAKEFILES if name in present and name != "Makefile"):
+        conflicts.append(f"{other}: GNU Make reads it instead of the Makefile init writes; {MOVE_ASIDE}")
+    for name, text in wanted.items():
+        if name.startswith(".vscode/"):
+            text = encoded(json.loads(text))
         try:
-            if name.startswith(".vscode/"):
-                upstream = encoded(json.loads(upstream))
             current = read(project, name)
-            proposed = upstream
-            if current is None:
-                pass
-            elif name in MAKEFILES:
-                proposed = merge_block(current, make_adapter(current, config, project))
-            elif name in {"AGENTS.md", "CLAUDE.md", ".gitignore"}:
-                proposed = merge_block(current, integration_text(name, upstream))
-            elif name.startswith(".vscode/"):
-                try:
-                    proposed = encoded(initial_json_merge(json.loads(current), json.loads(upstream)))
-                except json.JSONDecodeError:
-                    raise WorkbenchError("JSONC/comments unsupported for automatic editing; use --skip-editor and integrate manually")
-            elif name.startswith((".claude/", ".codex/")):
-                if current != upstream:
-                    raise WorkbenchError("Existing agent guardrail differs; preserved. Reconcile with supplied template manually")
-            elif current != upstream:
-                raise WorkbenchError("Unmanaged runtime file already exists")
-            if current != proposed:
-                updates.append({"path": name, "before": current, "after": proposed})
-        except (WorkbenchError, ValueError, KeyError) as error:
+        except WorkbenchError as error:
             conflicts.append(f"{name}: {error}")
+            continue
+        if current is None:
+            updates.append({"path": name, "before": None, "after": text})
+        elif current != text:
+            conflicts.append(f"{name}: already exists and is not what init writes; {MOVE_ASIDE}")
     if not conflicts:
         updates.append({"path": STATE, "before": read(project, STATE), "after": state_text({n: t for n, t in wanted.items() if n.startswith(".latex-ai/")})})
     return updates, conflicts, notes
@@ -395,15 +345,13 @@ def state_text(runtime):
 def closing_lines(args, report, makefile):
     """The plain-language end of the text output: what happened, and what to do next."""
     if report["conflicts"]:
-        return ["", "Nothing was changed. Resolve the CONFLICT lines above, then run this command again."]
+        return ["", "Nothing was changed. Resolve the CONFLICT lines above, then run this command again; migrating an existing project is described in docs/migrating.md."]
     if args.dry_run:
         return ["", "Dry run: nothing was changed. Run the same command without --dry-run to apply it (--diff shows the exact changes)."]
     if not report["applied"] or not report["changes"]:
         return []
-    files = [item for item in report["changes"] if item["path"] != STATE]
-    created = sum(item["action"] == "create" for item in files)
-    lines = ["", f"Done: {created} file(s) added, {len(files) - created} updated. Files you already had were kept; "
-                 f"anything replaced is backed up under {report['backup'] or '.latex-ai/backups'}.", "", "Next:"]
+    created = sum(item["path"] != STATE for item in report["changes"])
+    lines = ["", f"Done: {created} file(s) added. No file you already had was changed.", "", "Next:"]
     steps = [(guide.usable_name(makefile, short, reserved), meaning) for short, reserved, meaning in (
         ("doctor", "latex-ai-doctor", "confirm the required tools are installed"), ("help", "latex-ai-help", "see the commands this project has"),
         ("status", "latex-ai-status", "see where the project stands and what to run first"), ("check", None, "run the full check"))]
@@ -462,6 +410,9 @@ def recorded_version(project):
 
 def do_runtime(project, args):
     """Refresh the vendored runtime files, and the record of them. A file the project edited is never overwritten without --force."""
+    if guide.old_adapter(project):
+        raise WorkbenchError("This project's Makefile wraps its build in an adapter that Workbench 4.4 no longer has; refreshing the runtime would break it",
+                             hint="migrate the project to the workbench's own Makefile first: docs/migrating.md in the workbench package says how")
     config = load_config(project)
     recorded = recorded_digests(project) or {}
     updates, conflicts = [], []
@@ -534,8 +485,6 @@ def main(argv=None):
         git = git_snapshot(project)
         config = detect_config(project, inventory, args)
         updates, conflicts, notes = plan(project, config, args)
-        if inventory.get("engine_source"):
-            notes.append(f"engine {document_settings(config)['engine']} read from {inventory['engine_source']}; pass --engine to choose another")
         if args.profile is None and args.modules is None:
             # The default for a paper is the fullest: say what comes with it besides the checks, and how to decline.
             created = [update["path"] for update in updates if update["before"] is None]
@@ -548,12 +497,6 @@ def main(argv=None):
             conflicts.append("Bibliography: " + str(error))
         # The Makefile as it will be: the planned text of whichever name is active, else the one on disk.
         final_makefile = next((u["after"] for u in updates if u["path"] in MAKEFILES), None) or guide.makefile_text(project)
-        for short, reserved in guide.shadowed(final_makefile, project):
-            notes.append(f"kept your Makefile target `{short}`; the workbench command is `make {reserved}`")
-        if "latex-ai-build-prepare" in final_makefile and make_has_extra_prereqs() is False:
-            notes.append(f"the adopted Make build needs {ADOPTED_MAKE} (with .EXTRA_PREREQS), and the `make` on PATH is older: "
-                         "your own targets keep working, but the workbench's build and check refuse until a newer GNU Make "
-                         "comes first on PATH (on macOS, for example, Homebrew's `make`, installed as gmake with a gnubin directory)")
         export = module_config(config, "bibliography").get("export")
         if export and not local_path(project, export["path"]).exists() and not export.get("required", True):
             notes.append(f"Optional bibliography export pending: {export['path']}")

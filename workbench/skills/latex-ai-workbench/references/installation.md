@@ -20,25 +20,24 @@ when needed; read [module setup](../../../docs/modules.md). Projects without a m
 do not need a TeX root. Profiles choose initial configuration only.
 For handwritten TeX notes, add independent roots under `modules.latex.documents` in
 `.latex-ai.json` by hand. Read [TeX notes](../../../docs/tex-notes.md) for named output ownership,
-mixed formats and adopted Make restrictions. Only project configuration schema 3 is supported.
+mixed formats and `build_command`. Only project configuration schema 3 is supported.
 Ambiguous root/engine detection returns 2 and requires explicit choices after
 inspection. Select `--root` for multiple manuscripts, `--engine` for fontspec
 or custom build files, and `--backend` for nonstandard bibliography declarations.
 Do not ask the owner to resolve ordinary choices evident from local files.
 
-For an existing Makefile whose build target is not `build`, supply `--build-command` as a JSON
-argv list invoking its actual safe target. Check where its PDF/log are written;
+For a build that is not latexmk, supply `--build-command` as a JSON
+argv list invoking the project's script or a Make target it adds after `init`. Check where its PDF/log are written;
 config `output_dir` must match. Never delegate a runtime build to itself.
 
-Assess each planned addition/merge. Prefer retaining a local Make recipe over
-replacing it. Treat malformed JSON, colliding task names, differing agent
-permissions and unsupported syntax as conflicts to explain, not excuses to
-overwrite. Strict JSON editor merges preserve unrelated settings. Use
-`--skip-editor` for JSONC when the user does not need immediate GUI integration;
-document the manual integration still pending. The workbench writes no
+`init` changes no file the project has: each file that exists and differs is a `CONFLICT`, and nothing is written until none is left.
+Read the conflicts; for an existing project follow [migrating](../../../docs/migrating.md): move the file aside, run `init`, carry
+the project's own content back by hand. Differing agent permissions are explained to the owner and merged keeping the stricter
+rule, never overwritten. Use `--skip-editor` when the project has editor files of its own and the user does not need immediate
+GUI integration; document the manual integration still pending. The workbench writes no
 workflow; never remove one the project has without authorization.
 
-After evaluating a safe plan, apply it with the same command minus dry-run.
+When the dry run shows no conflict, apply it with the same command minus dry-run.
 Do not request approval for harmless authorized file changes. Setup does not
 stage files or run builds. Run `make doctor`, then `make check`, inspect diff
 and status. Report real validation and any incomplete GUI

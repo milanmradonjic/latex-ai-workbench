@@ -1,5 +1,6 @@
 """Fixture environments do not inherit another project's selectors or Git state, and the shared project fixture."""
 import json
+import re
 import os
 from pathlib import Path
 import subprocess
@@ -34,6 +35,17 @@ def isolate_environment(test):
     test.addCleanup(context.stop)
 
 
+def own_targets(project, *names, recipe="@echo mine"):
+    """The project takes over these short Make names: each alias line init wrote becomes the project's own recipe."""
+    makefile = project / "Makefile"
+    text = makefile.read_text(encoding="utf-8")
+    for name in names:
+        alias = re.search(rf"^{re.escape(name)}: (latex-ai-[\w-]+)$", text, re.M)
+        assert alias, f"no alias line for {name} in the Makefile init wrote"
+        text = text.replace(alias[0], f"{name}:\n\t{recipe}")
+    makefile.write_text(text, encoding="utf-8")
+
+
 class ProjectCase(unittest.TestCase):
     """A throwaway project with the installer and installed runtime run as subprocesses.
 
@@ -58,6 +70,9 @@ class ProjectCase(unittest.TestCase):
 
     def install(self, *args, expected=0):
         return self.run_command(sys.executable, "-B", str(PACKAGE / "latex-ai-init"), *args, str(self.project), expected=expected)
+
+    def own_targets(self, *names):
+        own_targets(self.project, *names)
 
     def edit_config(self, change):
         """Change .latex-ai.json directly: since 4.3 the configuration is edited by hand (or by an agent), not by a command."""
