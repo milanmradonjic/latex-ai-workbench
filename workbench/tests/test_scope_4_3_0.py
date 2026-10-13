@@ -35,7 +35,7 @@ class NoUpgradeMachinery(ProjectCase):
             with self.subTest(mode=mode):
                 done = self.run_command(sys.executable, "-B", str(PACKAGE / "latex-ai-init"), mode, str(self.project), expected=2)
                 self.assertIn("invalid choice", done.stderr)
-                self.assertIn("'init', 'diff', 'runtime'", done.stderr)
+                self.assertIn("{init,diff,runtime}", done.stderr)  # the usage line: the error text quotes the names differently by Python version
 
     def test_the_merge_engine_and_the_manifest_are_gone(self):
         self.assertFalse((PACKAGE / "installation.py").exists())
