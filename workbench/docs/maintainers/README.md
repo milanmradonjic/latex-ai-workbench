@@ -2,6 +2,8 @@
 
 For people who change or release the workbench itself; users do not need any of this.
 
+The records cite local evidence folders (trial transcripts, an adjudication report, smoke projects). On 13 October 2026 they were packed, unchanged, into one archive kept outside the repository, `latex-ai-evidence-3.7.0.tar.gz` (11 MB); the folder names in the records are the top-level folders of that archive. The other scratch folders of the portability and audit runs were deleted.
+
 Workbench 3 is the supported development line. Earlier releases and their
 verification records below are historical, retired from support; they are not
 compatibility targets. Keep that evidence without maintaining old runtime paths.
