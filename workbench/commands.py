@@ -3,7 +3,7 @@
 An action is what ``workbench.py NAME`` runs. This table says, once per action, which module it needs, whether it takes
 ``--document``, whether its ``--json`` output is its own, which Make names reach it and how they are described.
 ``runtime`` derives its argument choices, its checks and its dispatch from it, ``guide`` derives ``COMMANDS`` (every name
-shown to readers) and ``adapters`` derives the Makefile recipes. The handler of an action is the function ``do_<name>``
+shown to readers) and ``bootstrap`` derives the Makefile recipes. The handler of an action is the function ``do_<name>``
 in ``runtime`` (``-`` written ``_``); a test keeps the two in step. The order is the order ``make help`` lists commands.
 """
 from typing import NamedTuple, Optional, Tuple
@@ -18,9 +18,8 @@ RESERVED_PREFIX = "latex-ai-"  # every Make name the installer reserves starts w
 
 
 class Target(NamedTuple):
-    """A Make name that reaches an action. ``short`` is the everyday alias, and only where the project has no target
-    of that name; ``reserved`` is the name the installer always provides (None for check and lint, whose recipe
-    belongs to the project's Makefile)."""
+    """A Make name that reaches an action. ``short`` is the everyday alias, added unless the template Makefile defines it itself;
+    ``reserved`` is the name the installer always provides (None for check and lint, which the template defines)."""
     short: str
     reserved: Optional[str]
     group: str
@@ -73,9 +72,6 @@ ACTIONS = (
         Target("guide", "latex-ai-guide", "Everyday", "A short manual for this project"),)),
     Action("build", module="latex", document=True, view=True, targets=(
         Target("build", "latex-ai-build", "Manuscript", "Build the PDF and record its input/output validity", selects="document", usage="DOC=NAME"),)),
-    Action("build-prepare", module="latex", document=True, view=True),    # internal transaction hooks of an adopted build
-    Action("build-finish", module="latex", document=True, view=True),
-    Action("build-shell", module="latex", view=True),
     Action("lint", module="latex", document=True, view=True, targets=(
         Target("lint", None, "Manuscript", "Run the configured static checks (ChkTeX)"),
         Target("document-lint", "latex-ai-lint", "Documents", "Run the selected document's static checks (ChkTeX)", selects="document", usage="DOC=NAME"))),
@@ -101,12 +97,15 @@ ACTIONS = (
 NAMES = tuple(action.name for action in ACTIONS)
 BY_NAME = {action.name: action for action in ACTIONS}
 
-# The Make goals that run the project's own build command again: the check, validate and document-check actions under every name,
-# and the reserved build goal. A build command that reaches one of them would call itself. (The short `build` is not among them:
-# where the project has a target of that name it is the project's own.)
+# The Make goals that run the project's own build command again: the build, check, validate and document-check actions under every name.
+# A build command that reaches one of them would call itself.
 RECURSIVE_GOALS = frozenset(
-    [target.short for name in ("check", "validate", "document-check") for target in BY_NAME[name].targets]
+    [target.short for name in ("build", "check", "validate", "document-check") for target in BY_NAME[name].targets]
     + [target.reserved for name in ("check", "validate", "document-check", "build") for target in BY_NAME[name].targets if target.reserved])
+
+# Internal hooks of an earlier release's build adapter (4.3 and before). A Makefile of that kind still calls them, so the
+# runtime refuses them by name and says what to do, instead of "invalid choice".
+REMOVED_ACTIONS = ("build-prepare", "build-finish", "build-shell")
 
 
 def _commands():

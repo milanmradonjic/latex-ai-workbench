@@ -36,7 +36,7 @@ Lint baseline creation and checker-policy changes remain owner decisions.
 ## Interrupted builds
 
 Ctrl-C or SIGTERM normally stops the runtime's compiler group and records a
-failed build. SIGKILL cannot run cleanup; a compiler or adopted Make recipe can
+failed build. SIGKILL cannot run cleanup; a compiler or the Make recipe that runs it can
 outlive its owner. The build stays `running` while any recorded group is alive,
 and another build is refused. Status shows an ended owner separately from its
 live compiler groups; JSON documents/status include the same ownership details.

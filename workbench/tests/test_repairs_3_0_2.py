@@ -14,7 +14,6 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import adapters
 import core
 import schema
 import diagnostics
@@ -23,7 +22,6 @@ import processes
 from test_support import ProjectCase
 
 PACKAGE = Path(__file__).resolve().parents[1]
-MAKE = bool(shutil.which("make"))
 SOURCE = "\\documentclass{article}\n\\begin{document}Audit fixture.\\end{document}\n"
 HOLD = ("import sys, time\nsys.path.insert(0, {package!r})\nfrom pathlib import Path\nimport core\n"
         "with {lock}:\n    print('held', flush=True)\n    time.sleep(60)\n")
@@ -60,41 +58,6 @@ class Repairs(ProjectCase):
     def test_fault_records_are_kept_per_user(self):
         if hasattr(os, "getuid"):
             self.assertIn(str(os.getuid()), str(diagnostics.fault_dir(self.project)))
-
-    # --- F2: an old GNU Make keeps the project's own targets ---------------------------------------------
-
-    def adopted(self):
-        (self.project / "main.tex").write_text(SOURCE)
-        (self.project / "Makefile").write_text(".PHONY: pdf\npdf:\n\t@echo project pdf rule\n")
-        self.configure({"paper": {"root": "main.tex", "lint": {"enabled": False}, "build_command": ["make", "pdf"], "output_dir": "."}})
-
-    @unittest.skipUnless(MAKE, "GNU Make required")
-    def test_make_without_extra_prereqs_still_runs_project_targets_and_help(self):
-        self.adopted()
-        self.install("init", "--skip-editor")
-        old = ".FEATURES="  # what GNU Make before 4.3 reports: no extra-prereqs
-        self.assertIn("project pdf rule", self.run_command("make", "pdf", old).stdout)
-        self.run_command("make", "latex-ai-help", old)
-        refused = self.run_command("make", "latex-ai-build", old, expected=None)
-        self.assertNotEqual(refused.returncode, 0)
-        self.assertIn("GNU Make 4.3", refused.stdout + refused.stderr)
-
-    def fake_make(self):
-        """A `make` first on PATH that runs the real one but reports the features of GNU Make 3.81."""
-        directory = self.root / "old-make"
-        directory.mkdir()
-        (directory / "make").write_text(f"#!/bin/sh\nexec {shutil.which('make')} \"$@\" .FEATURES=\n")
-        (directory / "make").chmod(0o755)
-        return {**self.env, "PATH": f"{directory}{os.pathsep}{self.env.get('PATH', '')}"}
-
-    @unittest.skipUnless(MAKE, "GNU Make required")
-    def test_installer_and_doctor_name_the_make_requirement(self):
-        self.adopted()
-        env = self.fake_make()
-        installed = self.run_command(sys.executable, "-B", str(PACKAGE / "latex-ai-init"), "init", "--skip-editor", str(self.project), env=env)
-        self.assertIn("GNU Make 4.3", installed.stdout)
-        doctor = self.command("doctor", expected=1, env=env)
-        self.assertIn("GNU Make 4.3", doctor.stdout + doctor.stderr)
 
     # --- F3: TeX sources that are not UTF-8 --------------------------------------------------------------
 

@@ -59,11 +59,9 @@ The LaTeX module uses named `documents`, optional `defaults`, and a `default_doc
 configuration and document commands. `make check` checks
 every declared document; `make latex-ai-build DOC=NAME` selects one.
 `check` checks enabled modules and runs full manuscript validation when LaTeX is
-enabled. `make modules` prints effective settings. Existing local target names
-remain authoritative; every command except the shared `check`, `build` and `lint`
-also has a reserved `latex-ai-*` name that reaches the workbench when an existing
-target has the short one. Existing custom Make recipes and
-workflows can still invoke tools themselves; disabling workbench modules does
+enabled. `make modules` prints effective settings. Every command except the shared `check` and `lint`
+also has a reserved `latex-ai-*` name that reaches the workbench even when a project gives the short one a recipe of its own.
+Custom Make recipes and workflows can still invoke tools themselves; disabling workbench modules does
 not rewrite unrelated project code.
 
 `validation.manuscript_inputs` and `validation.ignore` remain optional top-level settings. Bibliography

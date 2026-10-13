@@ -5,18 +5,9 @@ The full reference for putting the workbench into a project. For the short versi
 Python 3.10+ and Make are the core requirements. Git is optional: absent Git or
 comparison history yields unavailable metadata and full validation selection.
 
-`make latex-ai-build` always reaches the workbench's build/receipt wrapper.
-An existing `build` recipe stays yours; a new project gets `build` as an alias.
-Adapted `make check` uses the wrapper exactly once before verifying the PDF.
-For an adopted command such as `["make", "pdf"]`, GNU Make 4.3+ is required:
-the existing target and workbench verification share the outer dependency graph,
-so `check: build lint` does not launch a second compiler under parallel Make.
-The installer and `make doctor` say when the `make` on PATH is older (macOS ships
-3.81). With an older Make the project's own targets and the read-only commands keep
-working; only the workbench's build and check goals refuse, naming the requirement.
-Preparation claims the build until its parent Make process exits; failed or
-interrupted builds leave an unverified receipt. Project-only targets such as
-`make pdf` retain their own behavior; they do not establish a new receipt.
+`make latex-ai-build` always reaches the workbench's build/receipt wrapper, and the short `build` is an alias of it.
+A build command of the project's own, such as `["make", "pdf"]` for a target it added to the Makefile, runs like any other build
+command; no GNU Make version is required (the 3.81 that macOS ships runs the generated Makefile).
 Custom builders must produce the configured PDF and compiler log, and a no-op
 is accepted only when a matching verified receipt already vouches for them.
 PDF export also requires that receipt; changing inputs or failing a build
@@ -37,7 +28,7 @@ The reference uses LaTeX and bibliography.
 | Layer | Location | Responsibility |
 |---|---|---|
 | Reusable templates | `templates/` | Agent policy, Make, editor, permissions |
-| Create and refresh | `latex-ai-init`, `bootstrap.py` | `init` creates a project (detects conventions, merges into the files it has); `diff` shows how a project differs from this release; `runtime` refreshes `.latex-ai/` |
+| Create and refresh | `latex-ai-init`, `bootstrap.py` | `init` creates a project (detects the root, engine and bibliography; refuses to touch a file the project has); `diff` shows how a project differs from this release; `runtime` refreshes `.latex-ai/` |
 | Runtime/core | `runtime.py`, `core.py`, `guide.py`, `diagnostics.py` | Vendored to `.latex-ai/`; dispatcher, config and file checks, help/status/guide, local defect reports |
 | Optional backends | `latex.py`, `documents.py` | Installed when LaTeX or bibliography is enabled |
 | Configuration | Project `.latex-ai.json` | Enabled modules, paths, commands, optional adapters; schema 3 only |
@@ -63,57 +54,39 @@ make -C /path/to/project check
 ```
 
 A single plain root is detected. For multiple roots, select `--root thesis.tex`.
-Magic engine comments are recognized; explicit engine choices win. Where the
-project has build files of its own, the engine is read from them when they name
-exactly one (`latexmk -pdf`, `-lualatex`, `-xelatex`, or the engine's own name)
-and reported in a note. For
-fontspec or existing build conventions requiring judgment, provide
+Magic engine comments are recognized; explicit engine choices win. For
+fontspec or other conventions requiring judgment, provide
 `--engine lualatex`, `--engine xelatex`, or `--engine pdflatex` after inspecting
 the project. Bibliography detection follows literal inputs and recognizes
 BibTeX and biblatex/Biber. Explicit `--backend` handles custom macros.
 
 ## Existing projects
 
-Begin with status, branch, local policies, existing Makefile/build scripts and
-engine settings. Preserve dirty user files. Setup may safely add to a dirty
-repository; dirtiness is reported and never automatically discarded.
+`init` writes only files that are absent, or already what it would write, and refuses the rest, listing each with `CONFLICT`.
+An existing project is therefore migrated, not adapted to: follow [migrating](migrating.md). Begin with the state of Git and a
+snapshot to return to; setup never discards a dirty file.
 
 ```sh
-python3 /path/to/workbench/latex-ai-init init /path/to/project --engine lualatex --dry-run --diff
+python3 /path/to/workbench/latex-ai-init init /path/to/project --engine lualatex --dry-run
 ```
 
-Apply that same `init` command without `--dry-run --diff` after assessing the
-plan. For an existing Makefile with a `build` target, the tool preserves the
-file and appends a managed block: `check` gains lint plus integrity validation
-that depends on `latex-ai-build`. Existing recipes remain authoritative. When the
-local build target is named differently, declare its argv, for example:
+The engine is read from a magic comment (`% !TeX program = lualatex`) or from the source (`directlua`, `xeCJK`) and otherwise
+defaults to pdfLaTeX, except that a source loading `fontspec` must be told: `--engine lualatex` or `--engine xelatex`.
+Bibliography detection follows literal inputs and recognizes BibTeX and biblatex/Biber; `--backend` handles custom macros. A build
+that is not latexmk is declared with its argv, for example:
 
 ```sh
 python3 /path/to/workbench/latex-ai-init init /path/to/project \
   --engine lualatex --build-command '["make", "pdf"]' --dry-run --diff
 ```
 
-Use the project's actual command, and set `output_dir` if its outputs are
-elsewhere. Never delegate to `make build` or `make check` when those targets
-invoke the workbench runtime: that creates recursion. Existing direct
-Makefile recipes may implement extra local conventions.
+Use the project's actual command, and set `output_dir` if its outputs are elsewhere. Never name `build`, `check` or another goal that
+reaches the workbench: that would call itself. `--dry-run --diff` previews the content; new runtime files under `.latex-ai/` are listed by
+name and size instead of printed, and the summary is printed last.
 
-Existing AGENTS/CLAUDE/ignore files gain marked integration blocks. JSON editor
-files retain ordinary preferences and unrelated tasks/recipes/tools. An
-identically named but different task/tool is a conflict. JSONC with comments
-or trailing commas is preserved without automatic editing; `--skip-editor`
-allows setup to continue while editor integration stays manual. Agent
-permission files with conflicting content are preserved and block setup for
-manual reconciliation. GitHub workflows are never written, and any a project has are left as they are.
-
-The active Makefile follows GNU Make's filename order (`GNUmakefile`,
-`makefile`, `Makefile`). Its existing filename is retained.
+GitHub workflows are never written, and any a project has are left as they are. The Makefile `init` writes is named `Makefile`;
+a `GNUmakefile` or `makefile` would be read instead of it, so either is a conflict.
 [GNU Make filename rules](https://www.gnu.org/software/make/manual/make.html#Makefile-Names).
-
-No file is changed when any conflict blocks the plan. Review `--diff` to see
-proposed concrete content; new runtime files under `.latex-ai/` are listed by
-name and size instead of printed, and the summary is printed last. Targets
-defined in makefiles your Makefile includes by name count as existing targets.
 
 ## After installing, and limitations
 
@@ -128,17 +101,15 @@ itself. `diff` and dry-runs make no project writes and never execute project bui
 
 Every workbench command has a reserved Make name (`latex-ai-doctor`,
 `latex-ai-bib-check`, `latex-ai-help`, ...). The short name (`doctor`,
-`bib-check`, `help`) is added as an alias only where the Makefile has no target
-of that name, so an existing recipe is never replaced and the installer notes
-each name it kept. The shared targets are `check`, which runs workbench and
-project checks, and `lint`, which keeps the project's convention. An existing
-`build` recipe stays intact; `latex-ai-build` establishes its receipt.
+`bib-check`, `help`) is an alias of it, unless the template defines that name itself.
+A project that gives a short name a recipe of its own keeps it, and the `latex-ai-` name still reaches the workbench.
+The shared targets are `check`, which runs the workbench's checks and anything the
+project adds to it, and `lint`; `latex-ai-build` establishes the build's receipt.
 
 Literal include/resource detection is conservative. Macro-generated resources,
-custom import layouts, external shared libraries, unusual Make target syntax,
-or changed job names need explicit adaptation.
-Schema 3 supports explicit named roots; see [TeX notes](tex-notes.md). Multiple adopted Make graphs with shared or
-unresolved prerequisites require an explicit adapter. TeX root paths with spaces
+custom import layouts, external shared libraries
+or changed job names need explicit declaration in `inputs`.
+Schema 3 supports explicit named roots; see [TeX notes](tex-notes.md). TeX root paths with spaces
 or TeX-special characters are rejected; directories containing ordinary spaces
 are handled through argv. Sources outside the project are not installed or
 modified. Use compiler results and local conventions to resolve uncertain

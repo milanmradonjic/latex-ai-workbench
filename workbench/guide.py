@@ -7,14 +7,8 @@ This module is also the one place that knows how a workbench command is named in
 import re
 
 from commands import COMMANDS  # the registry derives every name shown to readers
-from core import MODULES, VERSION, WorkbenchError, has_module
-import make_graph
-from make_graph import MAKEFILES, active_makefile, makefile_text  # read the project's Makefile
+from core import MAKEFILES, MODULES, VERSION, WorkbenchError, has_module
 from schema import STATES, specifications
-
-# Check and lint retain the project's conventions. Build also has a reserved
-# wrapper so an adopted recipe participates in the artifact validity contract.
-UNLISTED = frozenset({"latex-ai-build-prepare"})  # internal transaction hook, never a user command
 
 
 def enabled(command, config):
@@ -28,59 +22,80 @@ PURPOSE = {
 CHECKED = ("files", "policy", "unit", "portability", "manuscript", "bibliography")
 
 
-def included_texts(project, text, seen=None):
-    """Texts of the makefiles this one includes by literal name, inside the project. A target defined
-    there is as much the project's own as one in the file itself."""
-    return make_graph.read(text, project, managed=False).sources[1:]
+RULE = re.compile(r"^([^\s#:=$%][^:=#$%]*?)\s*::?(?![:=])", re.M)  # a rule line: its targets, before the colon
+CONDITIONALS = {"ifeq", "ifneq", "ifdef", "ifndef", "else", "endif"}
+WRAPPER = re.compile(r"^[+@-]*\s*(?:\$\(PYTHON\)|python(?:3(?:\.\d+)?)?)\s+(?:-[A-Za-z]+\s+)*\.latex-ai/workbench\.py\s+check\s*$")
+
+
+def active_makefile(project):
+    """Name of the file GNU Make reads in this directory, or None.
+
+    Actual directory entries are compared first: on a case-insensitive filesystem ``makefile`` and
+    ``Makefile`` are one file, and the spelling on disk is the one that was written.
+    """
+    try:
+        present = {path.name for path in project.iterdir()}
+    except OSError:
+        return None
+    return next((name for name in MAKEFILES if name in present), None) or next((name for name in MAKEFILES if (project / name).is_file()), None)
+
+
+def makefile_text(project):
+    name = active_makefile(project)
+    try:
+        return (project / name).read_text(encoding="utf-8") if name else ""
+    except (OSError, ValueError):
+        return ""
+
+
+def make_targets(text):
+    """The targets a Makefile text names on rule lines. Nothing is expanded or included."""
+    return {name for match in RULE.finditer(text) for name in match.group(1).split()}
+
+
+def old_adapter(project):
+    """Whether the Makefile still carries the build adapter of Workbench 4.3 and before, which this release cannot run."""
+    return "latex-ai-build-prepare" in makefile_text(project)
 
 
 def project_check_rule(project):
-    """Whether the project's own Makefile text (outside the workbench block, including makefiles it
-    includes) gives ``check`` prerequisites or a recipe of its own, beyond the installed template's."""
-    graph = make_graph.read(makefile_text(project), project)
-    if graph.unresolved:
-        return True  # a computed target/include may define check; do not skip it
-    managed = {"latex-ai-core-check", "latex-ai-check-passed", "latex-ai-other-documents", "latex-ai-named-check"}
-    wrapper = re.compile(r"^[+@-]*\s*(?:\$\(PYTHON\)|python(?:3(?:\.\d+)?)?)\s+(?:-[A-Za-z]+\s+)*\.latex-ai/workbench\.py\s+check\s*$")
-    for rule in graph.rules:
-        if "check" not in rule.targets:
+    """Whether the Makefile gives ``check`` anything beyond what the installer wrote: prerequisites, an inline recipe, a recipe
+    other than the workbench's own, a second rule that adds any of those, or an include or eval that might define one. ``validate`` then runs
+    ``make check`` rather than select documents, so that the project's own check is never skipped. When in doubt, True."""
+    text = makefile_text(project)
+    if re.search(r"^\s*-?s?include\s", text, re.M) or "$(eval" in text or "${eval" in text or re.search(r"^[^\s#:=]*\$[^:=#]*::?(?![:=])", text, re.M):
+        return True  # a target or an include that is computed may be check
+    lines = text.replace("\\\n", " ").splitlines()
+    for index, line in enumerate(lines):
+        match = RULE.match(line)
+        if not match or "check" not in match.group(1).split():
             continue
-        prerequisites = [word for word in rule.prerequisites.split() if word != "|"]
-        if any(word not in managed for word in prerequisites):
+        prerequisites, *inline = line[match.end():].split("#", 1)[0].split(";", 1)
+        if match.group(1).split() != ["check"] or prerequisites.strip() or inline:
             return True
-        for command in rule.recipes:
-            command = make_graph.partition(command, '#')[0].strip()
-            if command and not wrapper.fullmatch(command):
-                return True
+        for follow in lines[index + 1:]:
+            if follow.startswith("\t"):
+                if not WRAPPER.fullmatch(follow[1:].split("#", 1)[0].strip()):
+                    return True
+            elif follow.strip() and not follow.lstrip().startswith("#") and follow.split()[0] not in CONDITIONALS:
+                break  # a conditional does not end a rule's recipe in GNU Make; anything else does
     return False
 
 
-def make_targets(text, project=None):
-    """Targets a Makefile text defines; with a project, also those of the files it includes."""
-    return make_graph.read(text, project, managed=False).targets
-
-
-def usable_name(text, short, reserved, targets=None, project=None):
+def usable_name(text, short, reserved, targets=None):
     """The Make name that reaches the workbench command, or None when this Makefile lacks it."""
-    targets = make_targets(text, project) if targets is None else targets
+    targets = make_targets(text) if targets is None else targets
     if reserved is None:
         return short if short in targets else None
     if reserved not in targets:
-        return None  # a bare `short` here would be the project's own target, not ours
+        return None  # a bare `short` here would not be ours
     return short if re.search(rf"^{re.escape(short)}\s*:\s*{re.escape(reserved)}\s*$", text, re.M) else reserved
-
-
-def shadowed(text, project=None):
-    """(short, reserved) pairs where the Makefile keeps its own target under the short name."""
-    targets = make_targets(text, project)
-    return [(command.short, command.reserved) for command in COMMANDS if command.reserved and command.reserved in targets
-            and command.short in targets and usable_name(text, command.short, command.reserved, targets) == command.reserved]
 
 
 def available(project, config=None):
     """Each command's usable Make name here (None when it is not available)."""
     text = makefile_text(project)
-    targets = make_targets(text, project)
+    targets = make_targets(text)
     return {command.short: None if config is not None and not enabled(command, config)
             else usable_name(text, command.short, command.reserved, targets) for command in COMMANDS}
 
@@ -88,7 +103,7 @@ def available(project, config=None):
 def command_name(project, short):
     """The Make name of one command in this project, or None when its Makefile lacks it."""
     reserved = next(command.reserved for command in COMMANDS if command.short == short)
-    return usable_name(makefile_text(project), short, reserved, project=project)
+    return usable_name(makefile_text(project), short, reserved)
 
 
 def enabled_modules(config):
@@ -208,6 +223,9 @@ def status_text(project, config, problem, installed, git, plan, plan_error, docu
             lines.append(f"               and {len(changed) - 5} more")
         if changed and installed.get("version_matches"):
             next_steps.append(installer("diff . --diff") + "   (shows what differs from the files that were installed)")
+    if old_adapter(project):
+        row("Makefile", "wraps its build in an adapter that this release no longer has; the build and check fail until the project is migrated")
+        next_steps.insert(0, "migrate the project to the workbench's own Makefile: docs/migrating.md in the workbench package says how")
     if problem:
         row("Config", f"Configuration problem: {problem[0]}")
         next_steps.insert(0, problem[1])

@@ -71,13 +71,14 @@ class Repairs(ProjectCase):
         (self.project / "main.tex").write_text("\\documentclass{article}\n\\usepackage{graphicx}\n\\begin{document}\n"
                                                "Sum of data: \\input{table}\n\\includegraphics[width=2cm]{figure.pdf}\n\\end{document}\n")
         self.run_command("pdflatex", "-interaction=nonstopmode", "-jobname=base", "\\documentclass{article}\\begin{document}x\\end{document}")
-        (self.project / "Makefile").write_text(
-            ".PHONY: pdf\npdf: main.pdf\n"
-            "table.tex: data.csv\n\tawk '{s+=$$1} END {printf \"%d\", s}' data.csv > table.tex\n"
-            "figure.pdf: data.csv base.pdf\n\tcp base.pdf figure.pdf\n"
-            "main.pdf: main.tex table.tex figure.pdf\n\tlatexmk -pdf -interaction=nonstopmode -recorder main.tex\n")
         self.configure({"paper": {"root": "main.tex", "lint": {"enabled": False}, "backend": "none", "build_command": ["make", "pdf"], "output_dir": "."}})
         self.install("init", "--skip-editor")
+        with (self.project / "Makefile").open("a") as stream:  # the project's own rules, after what init wrote
+            stream.write(
+                ".PHONY: pdf\npdf: main.pdf\n"
+                "table.tex: data.csv\n\tawk '{s+=$$1} END {printf \"%d\", s}' data.csv > table.tex\n"
+                "figure.pdf: data.csv base.pdf\n\tcp base.pdf figure.pdf\n"
+                "main.pdf: main.tex table.tex figure.pdf\n\tlatexmk -pdf -interaction=nonstopmode -recorder main.tex\n")
         self.run_command("make", "check")
         self.assertEqual(self.state(), "current")
         (self.project / "data.csv").write_text("5\n5\n")
@@ -178,31 +179,11 @@ class Repairs(ProjectCase):
             latex.verify(self.project, view, check_receipt=False)
         self.assertIn("DOC=note", str(caught.exception) + (caught.exception.hint or ""))
 
-    def test_installer_keeps_the_line_endings_of_authored_files(self):
-        (self.project / "main.tex").write_text(SOURCE)
-        authored = {"AGENTS.md": "# Mine\r\n\r\nKeep this line.\r\n", ".gitignore": "*.tmp\r\nnotes/\r\n"}
-        for name, text in authored.items():
-            (self.project / name).write_bytes(text.encode())
-        self.install("init", "--no-lint", "--skip-editor")
-        installed = {name: (self.project / name).read_bytes() for name in authored}
-        for name, text in authored.items():
-            with self.subTest(name):
-                self.assertTrue(installed[name].startswith(text.encode()), installed[name][:120])
-                self.assertIsNone(re.search(rb"(?<!\r)\n", installed[name]), "a bare LF was introduced")
-        self.install("runtime")
-        self.assertEqual({name: (self.project / name).read_bytes() for name in authored}, installed)
-
-    def test_installer_keeps_lf_files_lf(self):
-        (self.project / "main.tex").write_text(SOURCE)
-        (self.project / "AGENTS.md").write_bytes(b"# Mine\n\nKeep this line.\n")
-        self.install("init", "--no-lint", "--skip-editor")
-        self.assertNotIn(b"\r", (self.project / "AGENTS.md").read_bytes())
-
     # --- planner, configuration messages, orientation ----------------------------------------------------
 
     def test_every_installed_runtime_file_is_a_full_validation_trigger(self):
         everything = {"schema_version": 3, "modules": {name: {} for name in core.MODULES}}
-        shipped = set(core.runtime_sources(everything)) | {"bootstrap.py", "adapters.py", "latex-ai-init"}
+        shipped = set(core.runtime_sources(everything)) | {"bootstrap.py", "latex-ai-init"}
         self.assertLessEqual(shipped, set(core.RUNTIME_FILES))
         self.configure()
         (self.project / "main.tex").write_text(SOURCE)

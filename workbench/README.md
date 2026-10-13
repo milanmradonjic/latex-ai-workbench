@@ -62,10 +62,10 @@ Understand the [architecture and state](docs/architecture.md), or find the next
 action in [troubleshooting](docs/troubleshooting.md).
 
 Every manuscript build records verified input/output
-hashes; PDF collection requires a current receipt. Adopted Make recipes are
-preserved and invoked through `make latex-ai-build`.
-Adopted single-target Make builds require GNU Make 4.3+; parallel checks share
-the existing compiler target and reject overlapping build attempts.
+hashes; PDF collection requires a current receipt. A project's own build
+command, such as `make pdf` for a target of its Makefile, is run by `make latex-ai-build` like any other build command.
+No particular GNU Make version is required.
+An existing project is [migrated](docs/migrating.md) to the workbench's layout, not adapted to.
 
 For automation, run the installed runtime with `--json`, for example
 `python3 .latex-ai/workbench.py check --json` or `status --json`. Check, validate

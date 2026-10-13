@@ -21,7 +21,7 @@ import commands
 import diagnostics
 import guide
 import processes
-from core import CONFIG, GENERATED_TREES, VERSION, MODULES, RUNTIME_FILES, WorkbenchError, atomic_write, damaged_text, git_read_env, input_identity, operation_lock, line_buffered, local_path, run, has_module, module_config, path_name, tracked_name, effective_config, module_names, validation_actions, validation_argv, VALIDATION_ACTIONS, CAPTURE_COMMANDS, make_has_extra_prereqs, ADOPTED_MAKE, read_tex
+from core import CONFIG, GENERATED_TREES, VERSION, MODULES, RUNTIME_FILES, WorkbenchError, atomic_write, damaged_text, git_read_env, input_identity, operation_lock, line_buffered, local_path, run, has_module, module_config, path_name, tracked_name, effective_config, module_names, validation_actions, validation_argv, VALIDATION_ACTIONS, CAPTURE_COMMANDS, read_tex
 from schema import document_settings, load_config, required_tools, resolve, specifications
 
 
@@ -549,12 +549,13 @@ ACTIONS = commands.NAMES  # every action, from the registry
 
 
 def main():
+    if sys.argv[1:2] and sys.argv[1] in commands.REMOVED_ACTIONS:
+        print(f"ERROR: {sys.argv[1]} belongs to the build adapter that Workbench 4.4 no longer has: this project's Makefile still calls it", file=sys.stderr)
+        print("Hint: migrate the project to the workbench's own Makefile; docs/migrating.md in the workbench package says how", file=sys.stderr)
+        return 2
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=ACTIONS)
     parser.add_argument("--document", help="Named LaTeX document; omitted uses the default for document operations")
-    parser.add_argument("--build-owner", type=int, help=argparse.SUPPRESS)
-    parser.add_argument("--shell", help=argparse.SUPPRESS)
-    parser.add_argument("--shell-arguments", nargs=argparse.REMAINDER, default=[], help=argparse.SUPPRESS)
     parser.add_argument("--note", default="", help="issue: what you observed and what you expected")
     parser.add_argument("--command", dest="failed_command", default="", help="issue: the command that misbehaved")
     parser.add_argument("--project", type=Path, default=Path.cwd(), help="Project root (default: current directory); an installed runtime belongs to its own project")
@@ -680,23 +681,6 @@ def do_build(project, config, persisted, args):
     build(project, config)
 
 
-def do_build_prepare(project, config, persisted, args):
-    import latex
-    latex.build_phase(project, config, args.build_owner, finish=False)
-
-
-def do_build_finish(project, config, persisted, args):
-    import latex
-    latex.build_phase(project, config, args.build_owner, finish=True)
-
-
-def do_build_shell(project, config, persisted, args):
-    import latex
-    shell = args.shell or (args.shell_arguments[0] if args.shell_arguments else None)
-    arguments = args.shell_arguments if args.shell else args.shell_arguments[1:]
-    latex.build_shell(project, shell, arguments)
-
-
 def do_lint(project, config, persisted, args):
     lint(project, config)
 
@@ -748,11 +732,6 @@ def do_doctor(project, config, persisted, args):
         print(f"{name}: {path or 'MISSING'}")
         if not path:
             missing.append(name)
-    if ".EXTRA_PREREQS" in guide.makefile_text(project) and "make" not in missing:
-        adopted = make_has_extra_prereqs()
-        print(f"{ADOPTED_MAKE} for the adopted Make build: " + {True: "yes", False: "MISSING", None: "unknown"}[adopted])
-        if adopted is False:
-            missing.append(ADOPTED_MAKE)
     if not missing:
         print("All required tools found")
     if missing:

@@ -118,13 +118,10 @@ def main():
         "paper.tex": "% !TeX program = lualatex\n\\documentclass{article}\n\\usepackage[backend=biber]{biblatex}\n\\addbibresource{bib/references.bib}\n\\begin{document}\n\\input{chapters/result}\n\\printbibliography{}\n\\end{document}\n",
         "chapters/result.tex": "\\section{Result}\\label{sec:result}\nSee Section~\\ref{sec:result} and fixture~\\autocite{fixture}.\n",
         "bib/references.bib": BIB,
-        ".vscode/settings.json": '{"editor.tabSize": 3, "latex-workshop.latex.autoBuild.run": "never"}\n',
     })
     init("lua", lua)
     config(lua, lambda c: c["modules"]["bibliography"].update(export={"path": "bib/references.bib", "required": True, "format": "biblatex"}))
     run("lua-biber-check", lua, ["make", "check"])
-    if json.loads((lua / ".vscode/settings.json").read_text())["editor.tabSize"] != 3:
-        raise RuntimeError("Editor preference lost")
 
     nested = create("xelatex-nested", {"source/thesis.v1.tex": PLAIN})
     init("xelatex", nested, "--engine", "xelatex")
@@ -133,25 +130,22 @@ def main():
     run("xelatex-runtime", nested, [sys.executable, str(CLI), "runtime", str(nested)])
     run("xelatex-artifact", nested, ["make", "pdf-artifact"])
 
-    custom_make = "pdf:\n\tlatexmk -pdf -interaction=nonstopmode -halt-on-error paper.tex\n"
-    custom = create("existing-build", {"paper.tex": PLAIN, "Makefile": custom_make,
-                                         "AGENTS.md": "Preserve this project's semantic policy.\n",
-                                         ".github/workflows/custom.yml": "name: Existing workflow\non: workflow_dispatch\n"})
+    # A project with a build of its own: init writes beside the workflow it has, the project's Make target goes in after it.
+    custom = create("existing-build", {"paper.tex": PLAIN, ".github/workflows/custom.yml": "name: Existing workflow\non: workflow_dispatch\n"})
     init("existing", custom, "--engine", "pdflatex", "--build-command", '["make", "pdf"]')
-    if not (custom / "Makefile").read_text().startswith(custom_make):
-        raise RuntimeError("Existing Makefile overwritten")
+    with (custom / "Makefile").open("a") as stream:
+        stream.write("\npdf:\n\tlatexmk -pdf -interaction=nonstopmode -halt-on-error paper.tex\n")
+    if sorted(p.name for p in (custom / ".github/workflows").iterdir()) != ["custom.yml"]:
+        raise RuntimeError("A workflow appeared or went")
     run("existing-check", custom, ["make", "-j2", "check"])
     run("existing-runtime", custom, [sys.executable, str(CLI), "runtime", str(custom)])
-    run("existing-diff", custom, [sys.executable, str(CLI), "diff", str(custom)])
+    run("existing-diff", custom, [sys.executable, str(CLI), "diff", str(custom)], expected=0)
 
-    gnumake = "build:\n\tlatexmk -pdf -interaction=nonstopmode -halt-on-error paper.tex\n"
-    gnu = create("existing-gnumakefile", {"paper.tex": PLAIN, "GNUmakefile": gnumake})
-    init("gnumakefile", gnu, "--engine", "pdflatex")
-    if "Makefile" in {p.name for p in gnu.iterdir()} or not (gnu / "GNUmakefile").read_text().startswith(gnumake):
-        raise RuntimeError("Active GNUmakefile was not preserved")
-    run("gnumakefile-check", gnu, ["make", "check"])
-    run("gnumakefile-runtime", gnu, [sys.executable, str(CLI), "runtime", str(gnu)])
-    run("gnumakefile-diff", gnu, [sys.executable, str(CLI), "diff", str(gnu)])
+    # A file the project has is never merged into: init refuses it, and writes nothing.
+    gnu = create("existing-gnumakefile", {"paper.tex": PLAIN, "GNUmakefile": "build:\n\tlatexmk -pdf -interaction=nonstopmode -halt-on-error paper.tex\n"})
+    run("gnumakefile-refused", gnu, [sys.executable, str(CLI), "init", str(gnu), "--engine", "pdflatex"], expected=2, diagnostic="docs/migrating.md")
+    if {p.name for p in gnu.iterdir()} != {"paper.tex", "GNUmakefile"}:
+        raise RuntimeError("A refused init wrote files")
 
     # Compiler-dependent failure checks bypass lint intentionally to prove
     # unresolved citations/references fail after a successful PDF build.

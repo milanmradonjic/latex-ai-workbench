@@ -1,7 +1,7 @@
 # I want to…
 
 Every command is run from the project root. `make help` lists the ones your project has. Where
-your own Makefile already had a target of one of these names, your recipe was kept and the
+you gave one of these names a recipe of your own in the Makefile, the
 workbench command is the `latex-ai-` form: `make latex-ai-help` always works and shows which
 names apply. `latex-ai-init` below is a file in the workbench package, run as
 `python3 /path/to/workbench/latex-ai-init`.

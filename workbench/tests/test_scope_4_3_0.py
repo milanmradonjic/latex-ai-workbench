@@ -279,7 +279,7 @@ class NothingDescribesWhatIsGone(unittest.TestCase):
     def test_no_live_document_or_guide_describes_the_removed_modes(self):
         paths = [PACKAGE / name for name in ("README.md", "templates/AGENTS.md", "skills/latex-ai-workbench/SKILL.md", "guide.py", "runtime.py",
                                              "bootstrap.py", "Makefile")]
-        paths += sorted((PACKAGE / "docs").glob("*.md"))
+        paths += sorted(path for path in (PACKAGE / "docs").glob("*.md") if path.name != "migrating.md")  # the recipe names the settings that are gone, to find them
         for path in paths:
             with self.subTest(file=path.name):
                 found = REMOVED_WORDS.search(path.read_text(encoding="utf-8"))

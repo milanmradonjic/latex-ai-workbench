@@ -23,6 +23,7 @@ import schema
 from test_support import ProjectCase
 
 OLD_RECURSIVE_GOALS = {"latex-ai-build", "latex-ai-document-check", "latex-ai-validate", "check", "document-check", "validate"}
+RECURSIVE_GOALS = OLD_RECURSIVE_GOALS | {"build"}  # since 4.4 the short `build` is always the workbench's own alias
 # How 3.6.0 routed each file name, recorded from its code before this change: M manuscript input or potential figure,
 # O ordinary documentation/data/code, U unclassified (conservative manuscript validation).
 ROUTING = dict(
@@ -46,10 +47,10 @@ class RecursionGuard(ProjectCase):
         (self.project / "main.tex").write_text("\\documentclass{article}\\begin{document}x\\end{document}\n")
 
     def test_the_goals_that_run_the_build_again_come_from_the_registry(self):
-        self.assertEqual(set(commands.RECURSIVE_GOALS), OLD_RECURSIVE_GOALS)
+        self.assertEqual(set(commands.RECURSIVE_GOALS), RECURSIVE_GOALS)
         names = {name for command in commands.COMMANDS for name in (command.short, command.reserved)}
         self.assertLessEqual(commands.RECURSIVE_GOALS, names | {"latex-ai-build"})
-        self.assertTrue(all(goal.startswith(commands.RESERVED_PREFIX) or goal in {"check", "validate", "document-check"}
+        self.assertTrue(all(goal.startswith(commands.RESERVED_PREFIX) or goal in {"build", "check", "validate", "document-check"}
                             for goal in commands.RECURSIVE_GOALS))
         self.assertTrue(all(command.reserved.startswith(commands.RESERVED_PREFIX) for command in commands.COMMANDS if command.reserved))
 
@@ -61,7 +62,7 @@ class RecursionGuard(ProjectCase):
                     schema.validate_config(self.project, config)
 
     def test_the_project_s_own_targets_are_not_refused(self):
-        for goal in ("build", "lint", "paper", "all"):
+        for goal in ("lint", "paper", "all"):
             with self.subTest(goal=goal):
                 config = self.configure(documents_={"paper": {"root": "main.tex", "build_command": ["make", goal]}})
                 schema.validate_config(self.project, config)

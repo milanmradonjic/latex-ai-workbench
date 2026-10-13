@@ -33,8 +33,7 @@ integrity checks, then lint (so a TeX error is reported even when ChkTeX also ob
 [lint baseline](configuration.md#accepting-existing-style-warnings) lists as accepted). `make build` builds only; `make lint` runs configured ChkTeX;
 `make bib-check` checks bibliography boundaries/keys/export readiness;
 `make doctor` reports required tools; `make pdf-artifact` collects the configured
-PDF. An adapted existing Makefile retains its own build/lint implementation;
-the added integrity target validates bibliography and compiler results.
+PDF. `make check` validates bibliography and compiler results.
 
 Do not clean routinely. Build logs, unresolved citations, references, duplicate
 labels and bibliography/backend failures are errors. Typesetting and unrelated
