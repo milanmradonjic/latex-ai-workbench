@@ -14,7 +14,7 @@ import tempfile
 import time
 import processes
 
-VERSION = "4.0.0"
+VERSION = "4.1.0"
 CONFIG = ".latex-ai.json"
 # Trees that are never project sources: version control, workbench state, environments, caches and installed packages. Every
 # walk and every check of a declared path agrees on them; the installer adds the folders it alone leaves out.
@@ -250,9 +250,9 @@ def module_config(config, name):
 
 def integrations(config):
     adapter = config.get("integrations", {})
-    if not isinstance(adapter, dict) or not isinstance(adapter.get("ci", {}), dict):
-        raise WorkbenchError("integrations must be an object whose ci entry is an object")
-    return {"editor": adapter.get("editor", False), "ci": {"enabled": False, "pdf_artifact": False, "texlive_version": "2026", **adapter.get("ci", {})}}
+    if not isinstance(adapter, dict):
+        raise WorkbenchError("integrations must be an object")
+    return {"editor": adapter.get("editor", False)}
 
 
 def atomic_write(path, data):
@@ -375,13 +375,12 @@ def runtime_sources(config):
                if has_module(config, "latex") else {})}
 
 
-# Both local validation and generated CI use these actions and their ordering.
-# Conditions are resolved once in validation_actions; CI only consumes the booleans.
+# The checks `validate` can run, in their order. Which of them a change needs is decided once, in validation_actions.
 VALIDATION_ACTIONS = {
-    "unit": {"label": "Test workbench", "argv": ("make", "-C", "{package}", "test"), "stage": "host"},
-    "bibliography": {"label": "Check bibliography", "argv": ("make", "latex-ai-bib-check"), "stage": "host"},
-    "portability": {"label": "Test compiler portability", "argv": ("make", "-C", "{package}", "portability"), "stage": "tex"},
-    "full": {"label": "Check project", "argv": ("make", "check"), "stage": "project"},
+    "unit": {"label": "Test workbench", "argv": ("make", "-C", "{package}", "test")},
+    "bibliography": {"label": "Check bibliography", "argv": ("make", "latex-ai-bib-check")},
+    "portability": {"label": "Test compiler portability", "argv": ("make", "-C", "{package}", "portability")},
+    "full": {"label": "Check project", "argv": ("make", "check")},
 }
 
 

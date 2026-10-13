@@ -25,8 +25,7 @@ Then apply it by running the same command without `--dry-run`.
 The profiles are `core` and `writing`; an explicit
 `--modules` list also works. A LaTeX project needs its main `.tex` file to exist already: a single
 one is detected, otherwise pass `--root`. Without a profile, a paper gets the manuscript checks
-(and bibliography checks when it has one), plus VS Code settings and a GitHub Actions workflow;
-`--skip-editor` and `--no-ci` leave those two out. A module can be turned on later. A paper
+(and bibliography checks when it has one), plus VS Code settings; `--skip-editor` leaves them out. A module can be turned on later. A paper
 with its own Makefile also needs the command that builds it, for example
 `--build-command '["make", "pdf"]'`; the installer says so, and reads the TeX engine from your
 build line when it names one.

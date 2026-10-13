@@ -13,11 +13,6 @@
           "make",
           "pdf"
         ],
-        "ci": {
-          "enabled": true,
-          "pdf_artifact": true,
-          "texlive_version": "2026"
-        },
         "engine": "pdflatex",
         "inputs": [],
         "lint": {
@@ -48,11 +43,6 @@
           "make",
           "pdf"
         ],
-        "ci": {
-          "enabled": true,
-          "pdf_artifact": true,
-          "texlive_version": "2026"
-        },
         "engine": "pdflatex",
         "inputs": [],
         "lint": {
@@ -83,11 +73,6 @@
           "make",
           "pdf"
         ],
-        "ci": {
-          "enabled": true,
-          "pdf_artifact": true,
-          "texlive_version": "2026"
-        },
         "engine": "pdflatex",
         "inputs": [],
         "lint": {
@@ -119,11 +104,6 @@
           "python3",
           "build.py"
         ],
-        "ci": {
-          "enabled": true,
-          "pdf_artifact": true,
-          "texlive_version": "2026"
-        },
         "engine": "pdflatex",
         "inputs": [],
         "lint": {
@@ -158,11 +138,6 @@
           ]
         },
         "build_command": null,
-        "ci": {
-          "enabled": true,
-          "pdf_artifact": true,
-          "texlive_version": "2026"
-        },
         "engine": "lualatex",
         "inputs": [
           "data/*.csv"
@@ -205,11 +180,6 @@
           "make",
           "note"
         ],
-        "ci": {
-          "enabled": true,
-          "pdf_artifact": true,
-          "texlive_version": "2026"
-        },
         "engine": "xelatex",
         "inputs": [],
         "lint": {
@@ -242,11 +212,6 @@
           "files": []
         },
         "build_command": null,
-        "ci": {
-          "enabled": true,
-          "pdf_artifact": true,
-          "texlive_version": "2026"
-        },
         "engine": "pdflatex",
         "inputs": [],
         "lint": {
@@ -272,11 +237,6 @@
           "files": []
         },
         "build_command": null,
-        "ci": {
-          "enabled": true,
-          "pdf_artifact": true,
-          "texlive_version": "2026"
-        },
         "engine": "pdflatex",
         "inputs": [],
         "lint": {
@@ -302,11 +262,6 @@
           "files": []
         },
         "build_command": null,
-        "ci": {
-          "enabled": true,
-          "pdf_artifact": true,
-          "texlive_version": "2026"
-        },
         "engine": "pdflatex",
         "inputs": [],
         "lint": {
@@ -335,11 +290,6 @@
           "files": []
         },
         "build_command": null,
-        "ci": {
-          "enabled": true,
-          "pdf_artifact": true,
-          "texlive_version": "2026"
-        },
         "engine": "pdflatex",
         "inputs": [],
         "lint": {
@@ -356,7 +306,7 @@
       }
     }
   ],
-  "profile-writing-no-editor-no-ci": [
+  "profile-writing-no-editor": [
     {
       "default": true,
       "name": "manuscript",
@@ -367,11 +317,6 @@
           "files": []
         },
         "build_command": null,
-        "ci": {
-          "enabled": false,
-          "pdf_artifact": true,
-          "texlive_version": "2026"
-        },
         "engine": "pdflatex",
         "inputs": [],
         "lint": {

@@ -1,4 +1,4 @@
-"""Project Make, editor-policy and CI adapters generated from shared command contracts."""
+"""Project Make and editor-policy adapters generated from shared command contracts."""
 import re
 import shlex
 import os
@@ -6,70 +6,11 @@ import make_graph
 import guide
 from commands import RECIPE_ARGUMENTS, RESERVED_PREFIX
 from guide import make_targets
-from core import WorkbenchError, has_module, integrations, module_names, VALIDATION_ACTIONS, validation_argv
+from core import WorkbenchError, has_module
 from schema import document_settings, specifications
 
 BEGIN = "# BEGIN LATEX AI WORKBENCH"
 END = "# END LATEX AI WORKBENCH"
-
-def package_name(config):
-    """Directory CI runs the distribution's own tests in; the steps only run where routing finds one."""
-    return shlex.quote(config.get("validation", {}).get("package") or "workbench")
-
-
-def ci_command(action, config):
-    return shlex.join(validation_argv(action, config.get("validation", {}).get("package") or "workbench"))
-
-
-def ci_action(action, config):
-    spec = VALIDATION_ACTIONS[action]
-    return (f"      - name: {spec['label']}\n"
-            f"        if: steps.plan.outputs.check_{action} == 'true'\n"
-            f"        run: {ci_command(action, config)}\n")
-
-
-def package_routed(config):
-    """Whether validation may route changes to a hosted workbench package: ``validation.package`` null turns it off,
-    and then the package's test and portability steps could never be selected, so they are not generated."""
-    return config.get("validation", {}).get("package", "workbench") is not None
-
-
-def ci_host_checks(config):
-    result = []
-    for name, spec in VALIDATION_ACTIONS.items():
-        if name == "full" and not has_module(config, "latex"):
-            result.append(ci_action(name, config))
-        elif spec["stage"] == "host" and (name == "unit" and package_routed(config) or module_names(config, name)):
-            result.append(ci_action(name, config))
-    return "".join(result)
-
-
-# The commit each action's tag pointed to when it was last checked (the SHA GitHub resolved in a hosted run, and the one
-# the action's own repository lists for the tag). A tag is resolved again on every run, so a moved or hijacked tag would
-# change what CI executes with the project's checkout and token in reach; a commit cannot move. The tag stays in a
-# comment for readers and for Dependabot, which keeps this repository's own pins current. Installed projects get new
-# pins from a new workbench release.
-PINNED_ACTIONS = {
-    ("actions/checkout", "v7"): "3d3c42e5aac5ba805825da76410c181273ba90b1",
-    ("actions/upload-artifact", "v7"): "cf430e030ddbb5b0abf93d22962f4752f3646cd9",
-    ("xu-cheng/texlive-action", "v3"): "22c04326a5d855880f9d39bb955138bf11c6df80",
-}
-
-
-def pin_actions(text):
-    """Replace every ``uses: action@tag`` of a workflow by the commit of that tag; an action without a pin is an error."""
-    def pinned(match):
-        action, tag = match["action"], match["tag"]
-        if (action, tag) not in PINNED_ACTIONS:
-            raise WorkbenchError(f"No pinned commit for the workflow action {action}@{tag}",
-                                 hint="add its commit to PINNED_ACTIONS in adapters.py (the commit the action's repository lists for the tag)")
-        return f"uses: {action}@{PINNED_ACTIONS[(action, tag)]} # {tag}"
-    return re.sub(r"uses: (?P<action>[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+)@(?P<tag>v\d+(?:\.\d+)*)\b", pinned, text)
-
-
-def workflow(config):
-    return pin_actions(document_workflow(config) if has_module(config, "latex") else core_workflow(config))
-
 
 def block(content):
     return BEGIN + "\n" + content.rstrip() + "\n" + END + "\n"
@@ -236,7 +177,7 @@ def integration_text(name, upstream):
 
 def module_make_targets(config, existing=(), omitted=()):
     """Every command of the registry (commands.py, as guide.COMMANDS) that this configuration enables, under its reserved ``latex-ai-``
-    name, plus the short alias where the project has no target of that name. Guidance, hints and CI can therefore
+    name, plus the short alias where the project has no target of that name. Guidance and hints can therefore
     always name a command that reaches the workbench, and no command is named in a second place."""
     commands = [command for command in guide.COMMANDS if command.reserved and command.reserved not in omitted and guide.enabled(command, config)]
     # DOC and TOPIC reach recipes through the environment ("$$DOC"), never as Make text
@@ -261,102 +202,3 @@ def core_make_adapter(current, config, project=None):
     result = ["PYTHON ?= python3", ".PHONY: latex-ai-core-check",
               "latex-ai-core-check:", "\t@$(PYTHON) .latex-ai/workbench.py check", "check: latex-ai-core-check"]
     return matching_check_rules("\n".join(result) + "\n" + module_make_targets(config, targets), make_graph.read(outside, project))
-
-
-def core_workflow(config):
-    disabled = "    if: ${{ false }}\n" if not integrations(config)["ci"].get("enabled", False) else ""
-    return """name: AI Workbench
-on:
-  push:
-  pull_request:
-  workflow_dispatch:
-permissions:
-  contents: read
-jobs:
-  validate:
-""" + disabled + """    runs-on: ubuntu-latest
-    env:
-      LATEX_AI_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: Select validation
-        id: plan
-        run: python3 -B .latex-ai/workbench.py plan --github-output "$GITHUB_OUTPUT"
-      - name: Check changed files and policy
-        run: python3 -B .latex-ai/workbench.py validate --files-only
-""" + ci_host_checks(config)
-
-
-def document_workflow(config):
-    """Each CI target consumes the same selected IDs as local validation."""
-    ci = integrations(config)["ci"]
-    disabled = "    if: ${{ false }}\n" if not ci.get("enabled", False) else ""
-    result = """name: LaTeX AI Workbench
-on:
-  push:
-  pull_request:
-  workflow_dispatch:
-permissions:
-  contents: read
-jobs:
-  validate:
-""" + disabled + """    runs-on: ubuntu-latest
-    env:
-      LATEX_AI_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: Select validation
-        id: plan
-        run: python3 -B .latex-ai/workbench.py plan --github-output "$GITHUB_OUTPUT"
-      - name: Check changed files and policy
-        run: python3 -B .latex-ai/workbench.py validate --files-only
-"""
-    result += ci_host_checks(config)
-    result += ("" if not package_routed(config) else
-               "      - name: Test compiler portability\n"
-               "        if: steps.plan.outputs.check_portability == 'true'\n"
-               "        uses: xu-cheng/texlive-action@v3\n"
-               "        with:\n"
-               f"          texlive_version: {ci.get('texlive_version', '2026')}\n"
-               "          os: debian\n          run: |\n"
-               "            apt-get update -qq\n"
-               f"            apt-get install -y --no-install-recommends python3 make\n"
-               f"            {ci_command('portability', config)}\n")
-    result += ("      - name: Check project Make rules\n        id: project_check\n"
-               "        if: ${{ !cancelled() && steps.plan.outcome == 'success' && steps.plan.outputs.check_full == 'true' && steps.plan.outputs.project_check == 'true' }}\n"
-               "        uses: xu-cheng/texlive-action@v3\n        with:\n"
-               f"          texlive_version: {ci.get('texlive_version', '2026')}\n          os: debian\n          run: |\n"
-               "            apt-get update -qq\n"
-               f"            apt-get install -y --no-install-recommends python3 make\n"
-               "            make check\n")
-    if ci.get('pdf_artifact', False):
-        # Keep verification/export in the TeX container that owns the compiler
-        # outputs; host uploads only need read access to the resulting PDFs.
-        result += ''.join(f'            make latex-ai-pdf-artifact DOC={document.name}\n'
-                          for document in specifications(config))
-    for ordinal, document in enumerate(specifications(config)):
-        selected = "${{ !cancelled() && steps.plan.outcome == 'success' && contains(fromJSON(steps.plan.outputs.document_ids), '" + document.name + "') }}"
-        individual = selected[:-3] + " && steps.plan.outputs.check_full == 'true' && steps.plan.outputs.project_check != 'true' }}"
-        result += (f"      - name: Check document {document.name}\n        id: document_{ordinal}\n"
-                   f"        if: {individual}\n        uses: xu-cheng/texlive-action@v3\n        with:\n"
-                   f"          texlive_version: {ci.get('texlive_version', '2026')}\n          os: debian\n          run: |\n"
-                   "            apt-get update -qq\n"
-                   f"            apt-get install -y --no-install-recommends python3 make\n"
-                   f"            make latex-ai-document-check DOC={document.name}\n")
-        if ci.get("pdf_artifact", False):
-            export = ("${{ !cancelled() && steps.plan.outcome == 'success' && contains(fromJSON(steps.plan.outputs.document_ids), '"
-                      + document.name + "') && (steps.project_check.outcome == 'success' || steps.document_" + str(ordinal) + ".outcome == 'success') }}")
-            result += (f"            make latex-ai-pdf-artifact DOC={document.name}\n"
-                       f"      - name: Upload PDF {document.name}\n"
-                       f"        if: {export}\n"
-                       "        uses: actions/upload-artifact@v7\n        with:\n"
-                       f"          name: {document.name}\n          path: .latex-ai/artifacts/documents/{document.name}/document.pdf\n"
-                       "          include-hidden-files: true\n          if-no-files-found: error\n")
-    return result
-

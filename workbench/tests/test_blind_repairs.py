@@ -48,8 +48,7 @@ class BlindRepairTests(unittest.TestCase):
         if custom:
             settings["build_command"] = ["latexmk", "-pdf", "-recorder", "-interaction=nonstopmode",
                                          "-halt-on-error", "-outdir=custom/output with spaces", "tex/nested/paper.tex"]
-        config = {"schema_version": 3, "modules": {"latex": {"default_document": "paper", "documents": {"paper": settings}}},
-                  "integrations": {"ci": {"enabled": False, "pdf_artifact": True}}}
+        config = {"schema_version": 3, "modules": {"latex": {"default_document": "paper", "documents": {"paper": settings}}}}
         (project / core.CONFIG).write_text(json.dumps(config))
         self.install("init", str(project))
         return config
@@ -194,7 +193,7 @@ class BlindRepairTests(unittest.TestCase):
 
     def test_configure_reports_resolved_policy_and_missing_root_recovery(self):
         (self.project / "main.tex").write_text(SOURCE)
-        self.install("init", str(self.project), "--no-lint", "--no-ci", "--skip-editor")
+        self.install("init", str(self.project), "--no-lint", "--skip-editor")
         (self.project / "note.tex").write_text(SOURCE)
         result = self.install("configure", str(self.project), "--document", "note", "--root", "note.tex", "--dry-run")
         self.assertIn("lint: enabled", result.stdout)

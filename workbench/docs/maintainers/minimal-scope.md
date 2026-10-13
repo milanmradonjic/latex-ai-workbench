@@ -76,6 +76,7 @@ the per-document targets. The full version stays available as the first commit o
 ## Progress
 
 - **4.0.0** removed the research modules, the notes and Markdown modules and what served them ([verification](verification-4.0.0.md)).
+- **4.1.0** removed the generator of CI workflows ([verification](verification-4.1.0.md)).
 
 ## Not yet decided
 

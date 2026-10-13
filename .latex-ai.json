@@ -30,11 +30,6 @@
     }
   },
   "integrations": {
-    "editor": true,
-    "ci": {
-      "enabled": true,
-      "pdf_artifact": true,
-      "texlive_version": "2026"
-    }
+    "editor": true
   }
 }

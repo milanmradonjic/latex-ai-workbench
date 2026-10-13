@@ -60,7 +60,7 @@ class GeneratedEditorSettings(ProjectCase):
         (self.project / "revision").mkdir()
         for name in ("main", "supplementary"):
             (self.project / "revision" / f"{name}.tex").write_text(TEX)
-        self.configure(documents_, integrations={"editor": True, "ci": {"enabled": False, "pdf_artifact": True}})
+        self.configure(documents_, integrations={"editor": True})
         return self.install("init")
 
     def settings(self):

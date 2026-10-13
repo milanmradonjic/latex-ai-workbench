@@ -26,7 +26,7 @@ absent, then may reuse unchanged verified outputs on subsequent checks.
 ## Choosing a profile and modules
 
 For new projects choose `--profile core` or `writing`, or an explicit `--modules` list.
-Editor/CI adapters are opt-in for modular projects. Read
+The editor adapter is opt-in for modular projects. Read
 [module configuration and profiles](modules.md).
 
 Every installation uses schema 3. Older project schemas are unsupported and are
@@ -37,7 +37,7 @@ uses LaTeX and bibliography.
 
 | Layer | Location | Responsibility |
 |---|---|---|
-| Reusable templates | `templates/` | Agent policy, Make, editor, permissions; workflow rendered from config |
+| Reusable templates | `templates/` | Agent policy, Make, editor, permissions |
 | Setup/audit/upgrade | `latex-ai-init`, `bootstrap.py` | Detect conventions, plan safe changes, manage installation |
 | Runtime/core | `runtime.py`, `core.py`, `guide.py`, `handbook.py`, `diagnostics.py` | Vendored to `.latex-ai/`; dispatcher, config and file checks, help/status/guide, local defect reports |
 | Optional backends | `latex.py`, `documents.py` | Installed when LaTeX or bibliography is enabled |
@@ -106,8 +106,7 @@ identically named but different task/tool is a conflict. JSONC with comments
 or trailing commas is preserved without automatic editing; `--skip-editor`
 allows setup to continue while editor integration stays manual. Agent
 permission files with conflicting content are preserved and block setup for
-manual reconciliation. Unrelated GitHub workflows are preserved and the
-workbench adds a distinct workflow, so review whether duplicate CI is desired.
+manual reconciliation. GitHub workflows are never written, and any a project has are left as they are.
 
 The active Makefile follows GNU Make's filename order (`GNUmakefile`,
 `makefile`, `Makefile`). Its existing filename is retained. A new file that
@@ -143,8 +142,7 @@ Every workbench command has a reserved Make name (`latex-ai-doctor`,
 of that name, so an existing recipe is never replaced and the installer notes
 each name it kept. The shared targets are `check`, which runs workbench and
 project checks, and `lint`, which keeps the project's convention. An existing
-`build` recipe stays intact; `latex-ai-build` establishes its receipt. The generated CI workflow
-calls only `check` and reserved names.
+`build` recipe stays intact; `latex-ai-build` establishes its receipt.
 Audit and dry-run make no project writes and never execute project builds.
 They report inventory, Git state, detection and planned changes. Audit compares
 against this package version; it is not a security scanner or a CI run.

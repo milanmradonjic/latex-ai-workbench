@@ -163,18 +163,6 @@ class WorkbenchTests(unittest.TestCase):
             self.assertIn("Local", labels)
             self.assertIn("New release task", labels)
 
-    def test_disabling_managed_ci_preserves_file_and_disables_job(self):
-        self.init()
-        path = self.project / rt.CONFIG
-        config = json.loads(path.read_text())
-        config["integrations"]["ci"]["enabled"] = False
-        path.write_text(json.dumps(config))
-        self.assertEqual(self.cli("upgrade"), 0)
-        workflow = self.project / ".github/workflows/latex-ai.yml"
-        self.assertTrue(workflow.is_file())
-        self.assertIn("if: ${{ false }}", workflow.read_text())
-        self.assertEqual(self.cli("audit"), 0)
-
     def test_backup_symlink_escape_refused(self):
         self.init()
         with tempfile.TemporaryDirectory(prefix="latex-ai-external-") as directory:
@@ -277,10 +265,6 @@ class WorkbenchTests(unittest.TestCase):
                 parent[path[-1]] = value
             with self.subTest(path=path, value=value), self.assertRaises(rt.WorkbenchError):
                 schema.validate_config(self.project, config)
-        without = json.loads(json.dumps(base))
-        del without["integrations"]["ci"]
-        schema.validate_config(self.project, without)
-        self.assertIn("name: LaTeX AI Workbench", boot.workflow(without))
 
     def test_installer_separates_internal_defects_from_ordinary_errors(self):
         errors = io.StringIO()
@@ -451,7 +435,7 @@ class WorkbenchTests(unittest.TestCase):
             plan = self.selection(name)
             self.assertTrue(plan["unit"])
             self.assertFalse(plan["manuscript"] or plan["portability"])
-        for name in ("Makefile", ".github/workflows/latex.yml", rt.CONFIG, "workbench/runtime.py", "workbench/bootstrap.py"):
+        for name in ("Makefile", rt.CONFIG, "workbench/runtime.py", "workbench/bootstrap.py"):
             plan = self.selection(name)
             self.assertTrue(plan["manuscript"] and plan["unit"] and plan["portability"])
 
@@ -489,21 +473,6 @@ class WorkbenchTests(unittest.TestCase):
         for bad in ("../kit", "/abs/kit", "", 7):
             with self.subTest(bad=bad), self.assertRaises(rt.WorkbenchError):
                 schema.validate_config(self.project, {**config, "validation": {"package": bad}})
-
-    def test_package_directory_drives_the_test_commands_and_generated_ci(self):
-        self.init()
-        config = {**rt.load_config(self.project), "validation": {"package": "tools/kit"}}
-        (self.project / "tools/kit").mkdir(parents=True)
-        (self.project / "tools/kit/Makefile").write_text("test:\n\ttrue\n")
-        plan = rt.validation_plan(self.project, config, ["tools/kit/runtime.py"])
-        with patch.object(rt, "run") as run, contextlib.redirect_stdout(io.StringIO()):
-            rt.validate_changes(self.project, plan)
-        self.assertEqual([item.args[0] for item in run.call_args_list], [["make", "-C", "tools/kit", "test"], ["make", "-C", "tools/kit", "portability"], ["make", "latex-ai-document-check", "DOC=manuscript"]])
-        for modules in ({"latex": {}}, {"notes": {}}):
-            workflow = boot.workflow({'schema_version': 3, 'modules': modules, 'validation': {'package': 'tools/kit'}, 'integrations': {'editor': False, 'ci': {'enabled': True, 'pdf_artifact': False}}})
-            self.assertIn("make -C tools/kit test", workflow)
-            self.assertNotIn("make -C workbench", workflow)
-        self.assertIn("make -C workbench test", boot.workflow({'schema_version': 3, 'modules': {'notes': {}}, 'integrations': {'editor': False, 'ci': {'enabled': True}}}))
 
     def test_tex_bib_and_unknown_inputs_select_manuscript(self):
         self.init()
@@ -588,24 +557,6 @@ class WorkbenchTests(unittest.TestCase):
         boot.git_snapshot(self.project)
         self.assertEqual(index.read_bytes(), before)
 
-    @unittest.skipUnless(shutil.which("git"), "needs git")
-    def test_generated_workflows_can_be_started_by_hand_and_a_manual_run_validates_everything(self):
-        # A push is compared with the commit before it, so a change to one file selects only its checks. A manual
-        # run has no such commit; its empty comparison base must mean "everything", never "nothing changed".
-        self.assertEqual(self.cli("init"), 0)
-        config = rt.load_config(self.project)
-        for name, text in (("latex", boot.workflow(config)), ("core", adapters.core_workflow({**config, "modules": {"notes": {}}}))):
-            with self.subTest(workflow=name):
-                self.assertRegex(text, r"(?m)^on:\n  push:\n  pull_request:\n  workflow_dispatch:")
-                self.assertIn("github.event.pull_request.base.sha || github.event.before", text)  # empty on a manual run
-        self.throwaway_git("init", "-q")
-        self.throwaway_git("add", "-A")
-        self.throwaway_git("commit", "-q", "-m", "fixture")
-        self.assertEqual(rt.validation_plan(self.project, config, base=None)["paths"], [])  # a clean tree, as a push of no file
-        plan = rt.validation_plan(self.project, config, base="")  # what LATEX_AI_BASE is on a manual run
-        self.assertTrue(plan["manuscript"] and plan["files"], plan)
-        self.assertIn("full validation selected", plan["fallback"])
-
     def throwaway_git(self, *args):
         subprocess.run(["git", "-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid", "-C", str(self.project), *args],
                        check=True, capture_output=True)
@@ -645,26 +596,6 @@ class WorkbenchTests(unittest.TestCase):
         rt.project_files(self.project)
         boot.git_snapshot(self.project)
         self.assertEqual({path: path.read_bytes() for path in tracked}, before)
-
-    def test_package_paths_are_safe_in_generated_ci_and_never_the_project_root(self):
-        self.init()
-        base = rt.load_config(self.project)
-        (self.project / "tools/kit space").mkdir(parents=True)
-        (self.project / "tools/kit space/Makefile").write_text("test:\n\t@echo TESTS-RAN\nportability:\n\t@echo PORTABILITY-RAN\n")
-        config = {**base, "validation": {"package": "tools/kit space"}}
-        schema.validate_config(self.project, config)
-        for modules in (None, {'schema_version': 3, 'modules': {'notes': {}}, 'integrations': {'editor': False, 'ci': {'enabled': True}}}):
-            workflow = boot.workflow({**(modules or config), "validation": config["validation"]})
-            commands = [line[line.index("make -C"):] for line in workflow.splitlines() if "make -C" in line]
-            self.assertTrue(commands)
-            for command in commands:  # run what the generated workflow would run, not a string match
-                with self.subTest(command=command):
-                    done = subprocess.run(["sh", "-c", command], cwd=self.project, capture_output=True, text=True)
-                    self.assertEqual(done.returncode, 0, done.stderr)
-                    self.assertIn("RAN", done.stdout)
-        for bad in (".", "./", "-x", "a;b", "a$b", "a'b", 'a"b', "a#b", "a: b", " a", "a ", "../x"):
-            with self.subTest(bad=bad), self.assertRaises(rt.WorkbenchError):
-                schema.validate_config(self.project, {**base, "validation": {"package": bad}})
 
     def test_every_git_query_runs_with_optional_locks_disabled(self):
         import diagnostics
@@ -765,14 +696,6 @@ class WorkbenchTests(unittest.TestCase):
         self.assertEqual([item.args[0] for item in run.call_args_list], [["make", "-C", "workbench", "test"], ["make", "-C", "workbench", "portability"], ["make", "latex-ai-document-check", "DOC=manuscript"]])
         with patch.object(rt, "run", side_effect=AssertionError("Build tool invoked")), contextlib.redirect_stdout(io.StringIO()):
             rt.validate_changes(self.project, plan, files_only=True)
-
-    def test_ci_output_is_boolean_and_plan_does_not_run_checks(self):
-        self.init()
-        output = self.project / "routing-output"
-        with patch.object(sys, "argv", ["runtime", "plan", "--project", str(self.project), "--files", "README.md", "--github-output", str(output)]), patch.object(rt, "run", side_effect=AssertionError("Build invoked")), contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(rt.main(), 0)
-        self.assertEqual(output.read_text(), "unit=false\nportability=false\nmanuscript=false\nbibliography=false\n"
-                         "check_unit=false\ncheck_bibliography=false\ncheck_portability=false\ncheck_full=false\ndocument_ids=[]\nproject_check=false\n")
 
     def test_recursion_guard_blocks_same_project_but_allows_synthetic_children(self):
         self.init()

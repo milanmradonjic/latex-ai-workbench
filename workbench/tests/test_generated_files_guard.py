@@ -1,4 +1,4 @@
-"""Guard: the Makefile block, editor files and CI workflow an installed project carries stay byte-identical.
+"""Guard: the Makefile block and the editor files an installed project carries stay byte-identical.
 
 Upgrading must not churn an installed project, so a refactor of the code that renders these files (Phase 1 of
 the plan after 3.0.2 replaces the command tables behind them) must leave them exactly as they are. Each fixture
@@ -22,28 +22,27 @@ import core
 
 STORED = Path(__file__).resolve().parent / "fixtures" / "generated"
 SUFFIX = ".txt"  # so no tool mistakes a stored copy for a live Makefile, workflow or editor file, and the planner files it as plain text
-WORKFLOW = ".github/workflows/latex-ai.yml"
 GUARDED = {"Makefile": "Makefile", ".vscode/settings.json": "vscode-settings.json",
-           ".vscode/tasks.json": "vscode-tasks.json", WORKFLOW: "workflow.yml"}  # generated path -> stored name
+           ".vscode/tasks.json": "vscode-tasks.json"}  # generated path -> stored name
 
 
-def profile(name, editor=True, ci=True, build_command=None):
+def profile(name, editor=True, build_command=None):
     """The configuration `init --profile NAME` starts from (bootstrap.detect_config), with an optional build command."""
     modules = core.PROFILES[name]
     config = {"schema_version": 3, "modules": {n: copy.deepcopy(core.MODULES[n]["defaults"]) for n in modules},
-              "integrations": {"editor": editor, "ci": {"enabled": ci, "pdf_artifact": "latex" in modules, "texlive_version": "2026"}}}
+              "integrations": {"editor": editor}}
     if build_command:
         config["modules"]["latex"]["documents"]["manuscript"].update(build_command=build_command, output_dir=".")
     return config
 
 
-# The multi-document example (examples/tex-notes), with the editor files and CI switched on.
+# The multi-document example (examples/tex-notes), with the editor files switched on.
 MULTI_DOCUMENT = {
     "schema_version": 3,
     "modules": {"latex": {"default_document": "paper", "documents": {
                     "paper": {"root": "main.tex"}, "derivation": {"root": "notes/derivation.tex"},
                     "notebook": {"root": "notes/notebook.tex"}}}},
-    "integrations": {"editor": True, "ci": {"enabled": True, "pdf_artifact": True, "texlive_version": "2026"}},
+    "integrations": {"editor": True},
 }
 
 # A project's own Makefile that the installer adopts: the managed block is merged into it, never written whole.
@@ -56,7 +55,7 @@ OWN_CHECK = "check:\n\t@echo project check\n"
 # name -> (configuration, the project's existing Makefile, or None for a fresh install)
 FIXTURES = {
     **{f"profile-{name}": (profile(name), None) for name in core.PROFILES},
-    "profile-writing-no-editor-no-ci": (profile("writing", editor=False, ci=False), None),
+    "profile-writing-no-editor": (profile("writing", editor=False), None),
     "multi-document": (MULTI_DOCUMENT, None),
     "adopted-make-goal": (profile("writing", build_command=["make", "pdf"]), PHASED),
     "adopted-make-goal-reached-by-check": (profile("writing", build_command=["make", "pdf"]), CHECK_REACHES_GOAL),
@@ -71,7 +70,6 @@ def render(config, makefile=None):
     files = {name: text for name, text in bootstrap.desired_files(config).items() if name in GUARDED}
     if makefile is not None:
         files["Makefile"] = adapters.make_adapter(makefile, config)  # the block merged into the project's Makefile
-    files[WORKFLOW] = adapters.workflow(config)  # with CI off the installer still keeps an existing workflow, disabled
     return {GUARDED[name]: text for name, text in files.items()}
 
 

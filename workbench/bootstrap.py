@@ -11,16 +11,16 @@ import shlex
 import sys
 
 sys.dont_write_bytecode = True
-from core import CONFIG, GENERATED_TREES, VERSION, WorkbenchError, local_path, git_output, make_has_extra_prereqs, ADOPTED_MAKE, read_tex
+from core import CONFIG, GENERATED_TREES, VERSION, WorkbenchError, local_path, git_output, make_has_extra_prereqs, ADOPTED_MAKE, read_json, read_tex
 import make_graph
-from schema import document_settings, load_config, specifications, validate_config
+from schema import document_settings, specifications, validate_config
 from latex import bibliography_check, source_tree, tex_without_comments
 from core import MODULES, PROFILES, has_module, line_buffered, module_config, integrations, effective_config, runtime_sources
 from diagnostics import EXTENDABLE, MANIFEST_SCHEMA, current_record, extends, file_record, is_installed, managed_text
 import copy
 import guide
 from guide import MAKEFILES, make_targets
-from adapters import core_makefile, integration_text, make_adapter, merge_block, module_make_targets, workflow
+from adapters import core_makefile, integration_text, make_adapter, merge_block, module_make_targets
 from installation import apply, installation_lock, pending_transaction, read, recover
 
 PACKAGE = Path(__file__).resolve().parent
@@ -48,7 +48,7 @@ def git_snapshot(project):
 
 
 def discover(project):
-    tex, bib, helper, workflows = [], [], [], []
+    tex, bib, helper = [], [], []
     for directory, folders, files in os.walk(project, followlinks=False):
         folders[:] = sorted(d for d in folders if d not in EXCLUDED and not (Path(directory) / d).is_symlink())
         for name in sorted(files):
@@ -62,11 +62,9 @@ def discover(project):
                 bib.append(relative)
             if name in {"Makefile", "GNUmakefile", "makefile", ".latexmkrc", "latexmkrc"} or name.endswith((".sh", ".py")):
                 helper.append(relative)
-            if relative.startswith(".github/workflows/"):
-                workflows.append(relative)
     roots = [name for name in tex if re.search(r"\\documentclass(?:\[[^\]]*\])?\s*\{", tex_without_comments(read_tex(project / name)))]
     return {"tex_files": tex, "root_candidates": roots, "bib_files": bib, "build_files": helper,
-            "workflows": workflows, "editor_files": [p for p in (".vscode/settings.json", ".vscode/tasks.json") if (project / p).exists()],
+            "editor_files": [p for p in (".vscode/settings.json", ".vscode/tasks.json") if (project / p).exists()],
             "agent_files": [p for p in ("AGENTS.md", "CLAUDE.md", ".claude/settings.json", ".codex/rules/git-safety.rules") if (project / p).exists()]}
 
 
@@ -85,11 +83,15 @@ def build_command_argument(text):
 def detect_config(project, inventory, args):
     old = read(project, CONFIG)
     if old is not None:
-        config = load_config(project)
-        if args.profile is not None or args.modules is not None or args.editor or args.ci:
+        stored = read_json(project / CONFIG, CONFIG)
+        if isinstance(stored.get("integrations"), dict) and "ci" in stored["integrations"]:
+            del stored["integrations"]["ci"]  # workbench 4.1 generates no CI: the installer drops the setting, the runtime refuses it
+            args.dropped_ci = True
+        config = validate_config(project, stored)
+        if args.profile is not None or args.modules is not None or args.editor:
             raise WorkbenchError("Profiles/adapters select initial defaults only; edit installed configuration explicitly",
                                  hint="this project is already installed: `upgrade` refreshes it, and `configure --enable NAME` or `--disable NAME` changes "
-                                      "its modules. --profile, --modules, --editor and --ci only choose the starting set of a new install")
+                                      "its modules. --profile, --modules and --editor only choose the starting set of a new install")
         if args.document or args.default_document:
             if args.mode != "configure":
                 raise WorkbenchError("Document changes require configure mode")
@@ -112,10 +114,8 @@ def detect_config(project, inventory, args):
         selections = [(args.root, tex.get("root")), (args.engine, tex.get("engine")),
                       (args.backend, tex.get("bibliography", {}).get("backend", "none")),
                       (build_command_argument(args.build_command) if args.build_command else None, tex.get("build_command"))]
-        adapter = integrations(config)
         if any(chosen is not None and chosen != current for chosen, current in selections) or (
-            args.no_lint and tex.get("lint", {}).get("enabled", True) or args.no_ci and adapter["ci"].get("enabled", False) or
-            args.no_artifact and adapter["ci"].get("pdf_artifact", False)):
+            args.no_lint and tex.get("lint", {}).get("enabled", True)):
             raise WorkbenchError("Project choices differ; edit .latex-ai.json explicitly instead of overriding installed configuration")
         if args.mode == "configure":
             saved = config.setdefault("disabled_modules", {})
@@ -138,9 +138,7 @@ def detect_config(project, inventory, args):
         if set(names) - MODULES.keys():
             raise WorkbenchError("Unknown module(s): " + ", ".join(sorted(set(names) - MODULES.keys())))
         config = {"schema_version": 3, "modules": {n: copy.deepcopy(MODULES[n]["defaults"]) for n in names},
-                  "integrations": {"editor": args.editor and not args.skip_editor,
-                                   "ci": {"enabled": args.ci and not args.no_ci, "pdf_artifact": "latex" in names and not args.no_artifact,
-                                          "texlive_version": "2026"}}}
+                  "integrations": {"editor": args.editor and not args.skip_editor}}
         if "latex" not in names:
             if args.root or args.engine or args.backend or args.build_command or args.no_lint:
                 raise WorkbenchError("TeX options require the latex module")
@@ -206,8 +204,7 @@ def detect_config(project, inventory, args):
     if files or backend != "none":
         modules["bibliography"] = {"files": sorted(set(files)), "export": None}
     return validate_config(project, {"schema_version": 3, "modules": modules,
-        "integrations": {"editor": not args.skip_editor, "ci": {"enabled": not args.no_ci,
-            "pdf_artifact": not args.no_artifact, "texlive_version": "2026"}}})
+        "integrations": {"editor": not args.skip_editor}})
 
 
 ENGINE_SIGNS = (("lualatex", r"lualatex|-pdflua(?![a-z])|-lualatex(?![a-z])"), ("xelatex", r"xelatex|-pdfxe(?![a-z])|-xelatex(?![a-z])"),
@@ -236,7 +233,7 @@ def replay(args, verb, project):
     for name in ("profile", "modules", "root", "engine", "backend", "build_command"):
         if getattr(args, name) is not None:
             words += ["--" + name.replace("_", "-"), getattr(args, name)]
-    words += ["--" + name.replace("_", "-") for name in ("editor", "ci", "no_lint", "no_ci", "no_artifact", "skip_editor") if getattr(args, name)]
+    words += ["--" + name.replace("_", "-") for name in ("editor", "no_lint", "skip_editor") if getattr(args, name)]
     return shlex.join(words)
 
 
@@ -402,8 +399,6 @@ def desired_files(config, project=None):
             files[".vscode/settings.json"] = encoded(settings)
         else:
             files[".vscode/tasks.json"] = encoded({"version": "2.0.0", "tasks": [{"label": "Workbench: Check", "type": "process", "command": "make", "args": ["check"], "options": {"cwd": "${workspaceFolder}"}, "problemMatcher": []}]})
-    if adapter["ci"].get("enabled", False):
-        files[".github/workflows/latex-ai.yml"] = workflow(config)
     return files
 
 
@@ -442,13 +437,6 @@ def plan(project, config, args):
         raise WorkbenchError(f"Active {active_makefile} differs from managed {managed_makefiles}; reconcile Makefile selection explicitly")
     if active_makefile != "Makefile":
         wanted[active_makefile] = wanted.pop("Makefile")
-    # Retain the reference's existing CI filename on every subsequent run.
-    if ".github/workflows/latex.yml" in oldfiles and ".github/workflows/latex-ai.yml" in wanted:
-        wanted[".github/workflows/latex.yml"] = wanted.pop(".github/workflows/latex-ai.yml")
-    if not integrations(config)["ci"].get("enabled", False):
-        for name in oldfiles:
-            if name.startswith(".github/workflows/"):
-                wanted[name] = workflow(config)
     if args.skip_editor:
         wanted = {p: t for p, t in wanted.items() if not p.startswith(".vscode/")}
     updates, conflicts, notes, records, local = [], [], [], dict(oldfiles), []  # local: edits that block, for --diff
@@ -457,7 +445,9 @@ def plan(project, config, args):
         if reason:
             notes.append(reason)
     config_before = read(project, CONFIG)
-    if config_before is None or args.mode == "configure":
+    if getattr(args, "dropped_ci", False):
+        notes.append(f"removed integrations.ci from {CONFIG}: the workbench no longer generates CI workflows")
+    if config_before is None or args.mode == "configure" or getattr(args, "dropped_ci", False):
         if config_before is None or json.loads(config_before) != config:
             updates.append({"path": CONFIG, "before": config_before, "after": encoded(config)})
     if not has_module(config, "latex") and ".vscode/settings.json" in oldfiles:
@@ -523,9 +513,6 @@ def plan(project, config, args):
             elif name.startswith((".claude/", ".codex/")):
                 if current != upstream:
                     raise WorkbenchError("Existing agent guardrail differs; preserved. Reconcile with supplied template manually")
-            elif name.startswith(".github/"):
-                if current != upstream:
-                    raise WorkbenchError("Workflow filename already used; preserve and reconcile manually")
             elif current != upstream:
                 raise WorkbenchError("Unmanaged runtime file already exists")
             if current != proposed:
@@ -535,7 +522,10 @@ def plan(project, config, args):
             conflicts.append(f"{name}: {error}")
     # Keep custom policy and ignore blocks stable on subsequent upgrades.
     for name, record in list(records.items()):
-        if name not in wanted:
+        if name not in wanted and name.startswith(".github/workflows/"):
+            del records[name]  # a workflow an earlier release wrote: the project's own file from now on
+            notes.append(f"{name} was written by an earlier release; the workbench no longer generates or tracks it, and it stays as your file")
+        elif name not in wanted:
             notes.append(f"Previously managed {name} retained; no automatic deletion")
     manifest = encoded({"schema_version": MANIFEST_SCHEMA, "version": VERSION,
                         "files": {name: current_record(name, record) for name, record in records.items()}})
@@ -552,7 +542,6 @@ def main(argv=None):
     selection.add_argument("--profile", choices=sorted(PROFILES))
     selection.add_argument("--modules", help="Exact comma-separated initial module selection; empty selects core only")
     parser.add_argument("--editor", action="store_true", help="Opt into project-local editor adapter for a new modular project")
-    parser.add_argument("--ci", action="store_true", help="Opt into CI for a new modular project")
     parser.add_argument("--document", help="configure: add or update a named LaTeX document")
     parser.add_argument("--default-document", help="configure: select the default named document")
     parser.add_argument("--enable", action="append", choices=sorted(MODULES), default=[])
@@ -562,8 +551,6 @@ def main(argv=None):
     parser.add_argument("--backend", choices=["none", "bibtex", "biber"])
     parser.add_argument("--build-command", help="JSON argv for an existing build, e.g. '[\"make\",\"pdf\"]'")
     parser.add_argument("--no-lint", action="store_true", help="Disable lint for the selected document; other documents inherit their shared defaults")
-    parser.add_argument("--no-ci", action="store_true")
-    parser.add_argument("--no-artifact", action="store_true")
     parser.add_argument("--skip-editor", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--diff", action="store_true")
@@ -571,8 +558,8 @@ def main(argv=None):
     args = parser.parse_intermixed_args(argv)
     line_buffered()
     try:
-        if (args.document or args.default_document) and (args.enable or args.disable or args.no_ci or args.no_artifact):
-            raise WorkbenchError("Configure documents and module/CI choices in separate reviewed operations")
+        if (args.document or args.default_document) and (args.enable or args.disable):
+            raise WorkbenchError("Configure documents and module choices in separate reviewed operations")
         if (args.enable or args.disable) and args.mode != "configure":
             raise WorkbenchError("--enable/--disable require configure mode")
         if set(args.enable) & set(args.disable):
@@ -600,8 +587,6 @@ def main(argv=None):
             created = [update["path"] for update in updates if update["before"] is None]
             if any(path.startswith(".vscode/") for path in created):
                 notes.append("the default for a paper adds VS Code settings and tasks (.vscode/); --skip-editor leaves them out")
-            if any(path.startswith(".github/workflows/") for path in created):
-                notes.append("the default for a paper adds a GitHub Actions workflow (.github/workflows/); --no-ci leaves it out")
         try:
             if has_module(config, "latex") or has_module(config, "bibliography"):
                 bibliography_check(project, document_settings(config))

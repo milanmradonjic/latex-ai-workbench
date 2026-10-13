@@ -32,7 +32,7 @@ build configuration and uncertain inputs need manuscript checks. Policy changes
 also need semantic review; structural validation cannot prove safe permissions.
 For committed review changes use `LATEX_AI_BASE=<verified revision>`; for a full
 manuscript check use `make check`. Read the package's
-[validation guide](../../docs/validation.md) for comparison and CI behavior.
+[validation guide](../../docs/validation.md) for comparison behavior.
 
 ## Named documents and modules
 
@@ -109,7 +109,7 @@ or export another project's sources. The user controls GUI applications.
 
 - AGENTS is canonical semantic policy. Avoid a second independent rule set in
   CLAUDE, editor prompts or this skill.
-- Make commands are canonical; editor and CI invoke them instead of replicating
+- Make commands are canonical; the editor invokes them instead of replicating
   TeX command logic. Preserve trusted existing build conventions when adapting.
   This skill writes commands by their short names. Where the project's Makefile already
   had a target of such a name, that recipe was kept and the workbench command is the

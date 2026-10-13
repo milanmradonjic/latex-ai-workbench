@@ -26,7 +26,7 @@ skip manuscript compilation. Policy edits need structure checks and semantic
 review; unrelated code needs its own relevant tests. Workbench code changes get
 regression tests, and build/control changes get full checks. See
 [validation routing](validation.md) for inputs, baselines, conservative
-fallbacks and selective CI. No general save hook or watcher is added.
+fallbacks. No general save hook or watcher is added.
 
 With LaTeX enabled, `make check` runs the bibliography preflight and the build, then the compiler-log
 integrity checks, then lint (so a TeX error is reported even when ChkTeX also objects; its warnings fail the check, except those a

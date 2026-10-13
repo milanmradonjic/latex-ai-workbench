@@ -44,7 +44,7 @@ footer{max-width:62rem;margin:0 auto;padding:1rem 16px 2rem;color:var(--muted);f
 </head>
 <body>
 <a class="skip" href="#main">Skip to the guide</a>
-<header><h1>LaTeX AI Workbench 4.0.0: guide</h1><p class="lede">What it is, how the parts fit, and how to do the common things.</p></header>
+<header><h1>LaTeX AI Workbench 4.1.0: guide</h1><p class="lede">What it is, how the parts fit, and how to do the common things.</p></header>
 <div class="layout">
 <nav aria-label="Guide topics">
 <ul><li><a href="#overview">What this is</a></li></ul>
@@ -133,7 +133,7 @@ footer{max-width:62rem;margin:0 auto;padding:1rem 16px 2rem;color:var(--muted);f
 │ notes, Markdown, scripts   │──▶│ quick file checks, no TeX build        │
 │ AGENTS.md, permissions     │──▶│ structure checks; you review meaning   │
 │ .tex, .bib, figures, data  │──▶│ build and check documents using them   │
-│ Makefile, settings, CI     │──▶│ file checks, then a full check         │
+│ Makefile, settings         │──▶│ file checks, then a full check         │
 │ no Git, or unknown files   │──▶│ everything, to be safe                 │
 └────────────────────────────┘   └────────────────────────────────────────┘</pre><figcaption>How the files you changed decide what <code>make validate</code> runs.</figcaption></figure>
 <p><code>make validate</code> is the quick one: it asks Git which files changed and runs only the checks they need. <code>make check</code> always covers everything, though it may reuse a build whose verified record is still current.</p>

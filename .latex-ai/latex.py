@@ -405,7 +405,7 @@ def recorded_inputs(project, config, receipt):
 
 def build_identity(project, config):
     """What a verified receipt certifies: the compiled target, its compiler and its bibliography
-    declarations. Presentation and policy settings (the default document, lint, CI) are not part of
+    declarations. Presentation and policy settings (the default document, lint) are not part of
     it, so changing them leaves the build current; changed input files are compared separately."""
     try:
         _, _, stem = output_paths(project, config)
@@ -858,9 +858,6 @@ def artifact(project, config):
 
 
 def collect_artifact(project, config):
-    if not config.ci.get("pdf_artifact", True):
-        print("PDF artifact disabled")
-        return
     verify(project, config)
     _, _, stem = output_paths(project, config)
     pdf = stem.parent / (stem.name + ".pdf")

@@ -25,7 +25,7 @@ tests for that code: parsing Python is not a substitute for executing its tests.
 | Workbench Python helpers/regression tests | File checks and package regression tests (only where the project hosts the distribution; see below) |
 | Portability test runner | Regression and compiler portability tests |
 | TeX/BibTeX, classes/styles, potential figures or CSV/TSV data | Manuscript `make check` |
-| Makefiles, project/runtime/build configuration, editor integration, CI or workbench templates | File/policy checks, package regression/portability tests when distributed here, and manuscript `make check` |
+| Makefiles, project/runtime/build configuration, editor integration or workbench templates | File/policy checks, package regression/portability tests when distributed here, and manuscript `make check` |
 | Unclassified inputs or unavailable comparison history | Conservative manuscript/full validation |
 
 Package routing (the rows about workbench helpers, tests and templates) applies only
@@ -33,7 +33,7 @@ to a project that hosts this distribution. It is found at `validation.package`, 
 else at `workbench/` when that directory has both a `Makefile` and the distribution's
 `latex-ai-init`; an unrelated directory called `workbench` is not mistaken for it, and
 `"package": null` turns the routing off. The package tests run with `make -C` in that
-directory, and the generated CI workflow uses the same path.
+directory.
 
 A Markdown or code file included by LaTeX belongs to the manuscript category.
 Routing recognizes literal inputs/listings, configured bibliography exports,
@@ -106,7 +106,7 @@ selected bibliography check.
 If the project's own Makefile gives `check` prerequisites or a recipe of its own
 (outside the workbench block), `make validate` runs `make check` instead, so
 those project-owned checks are never skipped. The JSON plan includes
-`project_check`, and generated schema-3 CI consumes that same decision. Blank
+`project_check`. Blank
 lines/comments before recipes, variable targets and unresolved or missing
 optional includes select the full project check conservatively. This costs
 selective document validation when the scanner cannot prove a narrower scope;
@@ -143,27 +143,6 @@ and workbench state, caches, `node_modules`, installed packages
 Markdown files get the core's lightweight inline-link check. Missing comparison history
 checks all enabled modules.
 
-## CI
-
-The workflow still starts on every push and pull request. Its always-present
-`validate` job compares the push's previous revision or the pull request's base
-against the checkout and uses the same runtime classifier. Missing history
-falls back to full checks. Checkout includes history so ordinary comparisons
-work without an extra Git mutation in the runtime.
-The baseline comes from [GitHub's event context](https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#github-context).
-
-Every run checks the selected files/policy. Workbench regressions run only when
-selected. The TeX container runs only for manuscript or portability checks;
-PDF collection/upload runs only for manuscript checks. A documentation-only
-push therefore reports a completed lightweight job without a TeX build or PDF
-upload. CI selection does not affect local save behavior.
-
-To run every selected check regardless of what changed (for example to confirm a release after
-pushes that each selected only part of it), start the workflow by hand: **Actions, LaTeX AI
-Workbench (AI Workbench in a project without LaTeX), Run workflow** (or `gh workflow run`, naming the workflow file). A manual run has no
-previous revision, so the comparison base is empty and the runtime falls back to full checks, the
-same as for a branch's first push. Ordinary pushes stay change-aware.
-
 ## Optional modules
 
 A disabled module is never selected. Missing comparison history selects
@@ -174,15 +153,13 @@ compiler portability is selected only in a LaTeX-enabled distribution project.
 No filesystem watcher or save hook is installed. See [module configuration](modules.md).
 
 
-## Local and CI execution contract
+## The execution contract
 
-The JSON plan now includes an ordered `actions` list. The shared action table
+The JSON plan includes an ordered `actions` list. The shared action table
 in `core.py` defines package tests, compiler portability, full project checks,
-and the selected bibliography check. GitHub outputs named
-`check_<action>` select those same actions; the original routing booleans remain
-available for tool installation and artifact decisions. Full checks subsume the
+and the selected bibliography check, and `validate` runs exactly those. Full checks subsume the
 individual module checks, preventing duplicate execution. Package unit tests and
-portability are separate actions both locally and in CI.
+portability are separate actions.
 
 Module runtime files, check groups and base tool requirements are registered in
 `core.MODULES`. Planning and installation use schema 3 with module defaults. Compilation uses

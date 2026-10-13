@@ -88,7 +88,7 @@ CHECKS = routes("you changed", "make validate runs", [
     ("notes, Markdown, scripts", "quick file checks, no TeX build"),
     ("AGENTS.md, permissions", "structure checks; you review meaning"),
     (".tex, .bib, figures, data", "build and check documents using them"),
-    ("Makefile, settings, CI", "file checks, then a full check"),
+    ("Makefile, settings", "file checks, then a full check"),
     ("no Git, or unknown files", "everything, to be safe"),
 ], width=(28, 40))
 

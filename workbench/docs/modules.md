@@ -25,13 +25,12 @@ selection. When LaTeX source declares bibliography resources, detection adds
 the bibliography capability and records those paths. TeX selection still needs
 a real root and any explicit engine choice required by existing build conventions.
 Without either option a paper gets `latex` (and `bibliography` when its source declares one), with the
-editor and CI adapters on; every profile uses schema 3.
+editor adapter on; every profile uses schema 3.
 Profiles are initialization presets, not persistent policies or upgrade defaults.
 The configuration stores the resolved module choices.
 
-New projects chosen by profile or module list enable the editor and CI adapters only with `--editor` and
-`--ci`. They install project files without opening/configuring GUI applications.
-A project without LaTeX has no TeX container and no PDF upload in its CI.
+New projects chosen by profile or module list enable the editor adapter only with `--editor`. It installs
+project files without opening/configuring GUI applications.
 
 ## Configuration
 
@@ -45,8 +44,7 @@ An absent module is disabled. A present object enables it and supplies settings;
     "bibliography": {"files": ["refs.bib"]}
   },
   "integrations": {
-    "editor": false,
-    "ci": {"enabled": false, "pdf_artifact": false, "texlive_version": "2026"}
+    "editor": false
   }
 }
 ```
@@ -89,9 +87,8 @@ upgrade dry-run. No source is generated or guessed during configure.
 Disabling retains source files. It also saves the module's settings in optional
 `disabled_modules` configuration; that field does not enable modules. Re-enabling
 restores the saved paths/settings. Commands stop being offered/accepted for the
-disabled module. Managed CI is updated; disabling LaTeX also stops its managed editor
-auto-build. Retained editor tasks and unrelated workflows remain visible for deliberate
-review. Upgrades never silently re-enable disabled modules.
+disabled module. Disabling LaTeX also stops its managed editor auto-build. Retained
+editor tasks remain visible for deliberate review. Upgrades never silently re-enable disabled modules.
 
 ## Extension contract
 

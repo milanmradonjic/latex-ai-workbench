@@ -3,8 +3,7 @@
 This repository is the working reference and distribution source for the
 [LaTeX AI Workbench](workbench/README.md). The manuscript is configured in
 [.latex-ai.json](.latex-ai.json); agent semantic policy lives in [AGENTS.md](AGENTS.md).
-Workbench 3 supports schema 3 only: this reference is one named document,
-and the public mixed-notes example defines a hosted multi-document acceptance workflow.
+Workbench 3 supports schema 3 only: this reference is one named document.
 
 ```sh
 make help     # the commands this project has
@@ -30,7 +29,7 @@ See the [quickstart](workbench/docs/quickstart.md), the [task finder](workbench/
 [upgrade guide](workbench/docs/upgrading.md), and
 [agent operating skill](workbench/skills/latex-ai-workbench/SKILL.md).
 
-The [current verification record](workbench/docs/maintainers/verification-4.0.0.md) records local
+The [current verification record](workbench/docs/maintainers/verification-4.1.0.md) records local
 test results, preserved files and remaining human setup steps.
 
 The reference deliberately contains no example literature citations. Its
