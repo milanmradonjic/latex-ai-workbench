@@ -14,6 +14,7 @@ are plain text here. The tree is that of the branch head the 3.7.0 record names 
 earlier repository, local folder paths and the name of a private test project were removed from the records; and
 `.github/workflows/workbench-python.yml` runs fewer jobs (see [the cost of the hosted checks](#the-cost-of-the-hosted-checks)).
 
+- [Lessons learned](lessons-learned.md): what building this tool taught, for this project and for others like it.
 - [The minimal scope](minimal-scope.md): what the tool is for, what stays and what goes, decided question by question.
 - [Release notes and release procedure](releases.md): what each release changed, and how a release is cut.
 - [Version 3.0 verification](verification-3.0.md): simplification, retained safety, and remaining environment checks.
