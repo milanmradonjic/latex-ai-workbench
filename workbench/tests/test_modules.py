@@ -22,7 +22,6 @@ import core
 import schema
 import diagnostics
 import guide
-import research
 import runtime as rt
 
 
@@ -49,18 +48,15 @@ class ModuleTests(unittest.TestCase):
         return result
 
     def example(self):
-        shutil.copytree(boot.PACKAGE / "examples/decay", self.project, dirs_exist_ok=True)
-        self.assertEqual(self.cli("init"), 0)
+        """A small LaTeX project with the workbench installed."""
+        (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nExample.\n\\end{document}\n")
+        self.assertEqual(self.cli("init", "--engine", "pdflatex", "--no-lint", "--no-ci", "--skip-editor"), 0)
         return schema.load_config(self.project)
 
 
-    def records(self):
-        return sorted((self.project / "results/runs").glob("*/record.json"))
-
-    def test_core_install_without_tex_editor_or_research(self):
+    def test_core_install_without_tex_or_editor(self):
         self.assertEqual(self.cli("init", "--profile", "core"), 0)
         self.assertFalse((self.project / ".latex-ai/latex.py").exists())
-        self.assertFalse((self.project / ".latex-ai/research.py").exists())
         self.assertFalse((self.project / ".vscode").exists())
         self.assertFalse((self.project / ".github").exists())
         self.command("check")
@@ -75,8 +71,8 @@ class ModuleTests(unittest.TestCase):
     def test_cli_options_before_and_after_project_are_equivalent(self):
         before = self.snapshot()
         reports = []
-        for argv in (["init", "--profile", "notebook", str(self.project), "--dry-run", "--json"],
-                     ["init", str(self.project), "--profile", "notebook", "--dry-run", "--json"]):
+        for argv in (["init", "--profile", "core", str(self.project), "--dry-run", "--json"],
+                     ["init", str(self.project), "--profile", "core", "--dry-run", "--json"]):
             output = io.StringIO()
             with contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(boot.main(argv), 0)
@@ -87,20 +83,20 @@ class ModuleTests(unittest.TestCase):
     def test_disabled_latex_command_fails_before_tool_execution(self):
         self.assertEqual(self.cli("init", "--profile", "core"), 0)
         self.assertIn("Module is disabled: latex", self.command("build", expected=1).stderr)
-        self.assertIn("Module is disabled: numerics", self.command("run", "--task", "any", expected=1).stderr)
 
-    def test_notebook_save_validation_has_no_compiler(self):
-        self.assertEqual(self.cli("init", "--profile", "notebook"), 0)
-        notes = self.project / "notes/session-state.md"
-        notes.write_text(notes.read_text() + "\nA question about physics.\n")
-        self.command("validate", "--files", "notes/session-state.md")
+    def test_saving_a_text_file_validates_without_a_compiler(self):
+        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        notes = self.project / "notes/session.md"
+        notes.parent.mkdir()
+        notes.write_text("A question about physics.\n")
+        self.command("validate", "--files", "notes/session.md")
         before = self.snapshot()
         self.assertEqual(self.cli("upgrade"), 0)
         self.assertEqual(self.cli("audit"), 0)
         self.assertEqual(before, self.snapshot())
 
     def test_missing_history_never_introduces_disabled_modules(self):
-        self.assertEqual(self.cli("init", "--profile", "notebook"), 0)
+        self.assertEqual(self.cli("init", "--profile", "core"), 0)
         plan = json.loads(self.command("plan", "--json").stdout)
         self.assertTrue(plan["fallback"])
         self.assertFalse(plan["manuscript"])
@@ -110,54 +106,20 @@ class ModuleTests(unittest.TestCase):
     def test_core_adapts_existing_make_without_build_target(self):
         make = "local:\n\t@echo local\n"
         (self.project / "GNUmakefile").write_text(make)
-        self.assertEqual(self.cli("init", "--profile", "notebook"), 0)
+        self.assertEqual(self.cli("init", "--profile", "core"), 0)
         self.assertTrue((self.project / "GNUmakefile").read_text().startswith(make))
         self.assertFalse((self.project / "Makefile").exists())
         result = subprocess.run(["make", "check"], cwd=self.project, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_profile_does_not_override_installed_choices(self):
-        self.assertEqual(self.cli("init", "--profile", "notebook"), 0)
+        self.assertEqual(self.cli("init", "--profile", "core"), 0)
         before = self.snapshot()
-        self.assertEqual(self.cli("upgrade", "--profile", "numerical"), 2)
+        self.assertEqual(self.cli("upgrade", "--profile", "core"), 2)
         self.assertEqual(before, self.snapshot())
 
-    def test_explicit_disable_preserves_research_and_does_not_reenable(self):
-        self.example()
-        self.command("run", "--task", "decay")
-        self.command("figure", "--task", "decay")
-        before = {p: data for p, data in self.snapshot().items() if p.startswith(("results/", "figures/", "notes/"))}
-        self.assertEqual(self.cli("configure", "--disable", "numerics", "--disable", "figures", "--disable", "freshness"), 0)
-        self.assertEqual(before, {p: data for p, data in self.snapshot().items() if p in before})
-        self.assertEqual(self.cli("upgrade"), 0)
-        self.assertFalse(core.has_module(schema.load_config(self.project), "numerics"))
-        self.assertIn("Module is disabled", self.command("run", "--task", "decay", expected=1).stderr)
-        self.command("check")
-        self.assertEqual(self.cli("configure", "--enable", "numerics"), 0)
-        self.assertIn("decay", research.tasks(self.project, schema.load_config(self.project), "numerics"))
-
-    def test_module_dependency_error_never_writes(self):
-        self.assertEqual(self.cli("init", "--profile", "numerical"), 0)
-        before = self.snapshot()
-        self.assertEqual(self.cli("configure", "--disable", "provenance"), 2)
-        self.assertEqual(before, self.snapshot())
-
-    def test_notes_paths_are_configurable_and_existing_notes_preserved(self):
-        config = {'schema_version': 3, 'modules': {'notes': {'path': 'research/journal'}}}
-        (self.project / core.CONFIG).write_text(json.dumps(config))
-        path = self.project / "research/journal/index.md"
-        path.parent.mkdir(parents=True)
-        path.write_text("My own notes.\n")
-        self.assertEqual(self.cli("init"), 0)
-        self.assertEqual(path.read_text(), "My own notes.\n")
-        self.command("check")
-        self.assertEqual(self.cli("configure", "--disable", "notes"), 0)
-        self.assertEqual(self.cli("configure", "--enable", "notes"), 0)
-        self.assertEqual(core.module_config(schema.load_config(self.project), "notes")["path"], "research/journal")
-        self.assertFalse((self.project / "notes").exists())
-
-    def test_unknown_module_and_reserved_paths_are_rejected(self):
-        for modules in ({"magic": {}}, {"numerics": {"manifest": "AGENTS.md"}}, {"notes": {"path": ".git"}}, {"notes": {"path": "../outside"}}, {"numerics": {"manifest": "tasks.json"}, "figures": {"manifest": "tasks.json"}}):
+    def test_unknown_modules_and_settings_are_rejected(self):
+        for modules in ({"magic": {}}, {"notes": {}}, {"numerics": {}}, {"bibliography": {"unknown_key": 1}}):
             with self.subTest(modules=modules), self.assertRaises(core.WorkbenchError):
                 schema.validate_config(self.project, {'schema_version': 3, 'modules': modules})
 
@@ -173,7 +135,7 @@ class ModuleTests(unittest.TestCase):
         self.assertFalse(plan["manuscript"])
 
     def test_no_tex_ci_has_no_container_or_pdf_upload(self):
-        self.assertEqual(self.cli("init", "--profile", "notebook", "--ci", "--editor"), 0)
+        self.assertEqual(self.cli("init", "--profile", "core", "--ci", "--editor"), 0)
         workflow = (self.project / ".github/workflows/latex-ai.yml").read_text()
         self.assertNotIn("texlive-action", workflow)
         self.assertNotIn("upload-artifact", workflow)
@@ -194,299 +156,13 @@ class ModuleTests(unittest.TestCase):
         self.assertTrue(core.integrations(restored)["ci"]["pdf_artifact"])
         self.assertEqual(schema.document_settings(restored)["root"], "paper.tex")
 
-    def test_explicit_pipeline_records_recoverable_inputs_outputs_and_environment(self):
-        self.example()
-        self.command("run", "--task", "decay")
-        self.command("figure", "--task", "decay")
-        self.command("check")
-        self.command("freshness")
-        records = self.records()
-        self.assertEqual(len(records), 2)
-        for path in records:
-            record = json.loads(path.read_text())
-            self.assertEqual(record["status"], "success")
-            self.assertEqual(record["environment"]["exit_status"], 0)
-            for name, digest in record["inputs"].items():
-                self.assertEqual(research.sha((path.parent / "inputs" / name).read_bytes()), digest)
-            for name, digest in record["outputs"].items():
-                self.assertEqual(research.sha((path.parent / "outputs" / name).read_bytes()), digest)
-
-    def test_unicode_task_metadata_is_recorded_as_utf8(self):
-        self.example()
-        path = self.project / "experiments.json"
-        data = json.loads(path.read_text())
-        data["tasks"]["decay"]["description"] = "Synthetic γ decay"
-        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-        self.command("run", "--task", "decay")
-        record = self.records()[0]
-        self.assertIn("γ".encode("utf-8"), record.read_bytes())
-        self.assertEqual(json.loads(record.read_text(encoding="utf-8"))["definition"]["description"], "Synthetic γ decay")
-
-    def test_input_change_marks_experiment_and_downstream_figure_stale_without_writes(self):
-        self.example()
-        self.command("run", "--task", "decay")
-        self.command("figure", "--task", "decay")
-        path = self.project / "parameters.json"
-        config = json.loads(path.read_text())
-        config["gamma"] = 2.0
-        path.write_text(json.dumps(config))
-        before = self.snapshot()
-        report = json.loads(self.command("freshness", expected=1).stdout)
-        self.assertTrue(all(item["status"] == "stale" for item in report))
-        self.assertIn("upstream task is stale", " ".join(report[1]["reasons"]))
-        self.assertEqual(before, self.snapshot())
-        self.command("validate", "--files", "parameters.json", expected=1)
-        self.assertEqual(len(self.records()), 2)
-        self.command("run", "--task", "decay")
-        self.command("figure", "--task", "decay")
-        self.command("freshness")
-
-    def test_output_tampering_is_stale(self):
-        self.example()
-        self.command("run", "--task", "decay")
-        (self.project / "results/decay.json").write_text("{}\n")
-        report = json.loads(self.command("freshness", expected=1).stdout)
-        self.assertIn("output content changed or is missing", report[0]["reasons"])
-
-    def test_expensive_check_is_skipped_until_explicit_request(self):
-        config = self.example()
-        path = self.project / "experiments.json"
-        data = json.loads(path.read_text())
-        data["tasks"]["decay"]["checks"].append({"cost": "expensive", "command": [sys.executable, "-c", "raise RuntimeError('expensive fixture')"]})
-        path.write_text(json.dumps(data))
-        self.command("run", "--task", "decay")
-        record = json.loads(self.records()[0].read_text())
-        self.assertEqual(record["checks"][-1]["status"], "skipped")
-        self.command("run", "--task", "decay", "--expensive-checks", expected=1)
-        report = research.freshness(self.project, config)
-        self.assertIn("latest run did not succeed", report[0]["reasons"])
-
-    def test_failed_command_records_failure_and_retains_prior_outputs(self):
-        self.example()
-        self.command("run", "--task", "decay")
-        before = (self.project / "results/decay.json").read_bytes()
-        path = self.project / "scripts/decay.py"
-        path.write_text("raise RuntimeError('failure fixture')\n")
-        self.command("run", "--task", "decay", expected=1)
-        self.assertEqual(before, (self.project / "results/decay.json").read_bytes())
-        latest = max((json.loads(p.read_text()) for p in self.records()), key=lambda r: r["started"])
-        self.assertEqual(latest["status"], "failed")
-        self.assertIn("Command failed", latest["error"])
-
-    def test_exit_zero_without_rewriting_an_existing_output_fails_visibly(self):
-        config = self.example()
-        self.command("run", "--task", "decay")
-        output = self.project / "results/decay.json"
-        before = output.read_bytes()
-        parameters = self.project / "parameters.json"
-        data = json.loads(parameters.read_text())
-        data["gamma"] = 2.0
-        parameters.write_text(json.dumps(data))
-        script = self.project / "scripts/decay.py"
-        script.write_text(script.read_text().replace('Path("results/decay.json")', 'Path("results/elsewhere.json")'))
-        result = self.command("run", "--task", "decay", expected=1)
-        self.assertIn("without rewriting declared outputs: results/decay.json", result.stderr)
-        self.assertEqual(before, output.read_bytes())
-        latest = max((json.loads(p.read_text()) for p in self.records()), key=lambda r: r["started"])
-        self.assertEqual(latest["status"], "failed")
-        self.assertIn("without rewriting", latest["error"])
-        self.assertIn("latest run did not succeed", research.freshness(self.project, config)[0]["reasons"])
-        self.command("check", expected=1)
-
-    def test_rerun_rewriting_identical_bytes_is_still_a_regeneration(self):
-        self.example()
-        self.command("run", "--task", "decay")
-        output = self.project / "results/decay.json"
-        first = output.read_bytes()
-        self.command("run", "--task", "decay")
-        self.assertEqual(first, output.read_bytes())
-        self.assertEqual([json.loads(p.read_text())["status"] for p in self.records()], ["success", "success"])
-
-    def test_skipping_tool_is_accepted_only_while_the_last_record_vouches_for_its_output(self):
-        config = self.example()
-        (self.project / "scripts/lazy.py").write_text(
-            "from pathlib import Path\nout = Path('results/lazy.json')\nout.parent.mkdir(exist_ok=True)\n"
-            "if not out.exists():  # a build tool that skips existing targets\n    out.write_text(Path('parameters.json').read_text())\n")
-        path = self.project / "experiments.json"
-        data = json.loads(path.read_text())
-        data["tasks"]["decay"].update(command=[sys.executable, "scripts/lazy.py"], inputs=["parameters.json"], outputs=["results/lazy.json"], checks=[])
-        path.write_text(json.dumps(data))
-        output = self.project / "results/lazy.json"
-        self.command("run", "--task", "decay")
-        self.command("run", "--task", "decay")  # nothing changed: skipping is correct
-        def newest():
-            return max((json.loads(p.read_text()) for p in self.records()), key=lambda r: r["started"])
-        self.assertEqual((newest()["status"], newest()["unchanged_outputs"]), ("success", ["results/lazy.json"]))
-        self.assertEqual(research.freshness(self.project, config)[0]["status"], "current")
-        output.write_text("tampered\n")  # the recorded result no longer matches
-        self.assertIn("without rewriting declared outputs", self.command("run", "--task", "decay", expected=1).stderr)
-        output.unlink()
-        self.command("run", "--task", "decay")
-        parameters = self.project / "parameters.json"
-        parameters.write_text(parameters.read_text().replace("1.5", "2.5"))  # input changed: skipping is now stale
-        self.assertIn("without rewriting declared outputs", self.command("run", "--task", "decay", expected=1).stderr)
-        self.assertEqual(newest()["status"], "failed")
-
-    def test_directly_executed_project_script_is_an_input_but_interpreters_are_not(self):
-        self.example()
-        script = self.project / "scripts/run.sh"
-        script.write_text("#!/bin/sh\npython3 scripts/decay.py\n")
-        script.chmod(0o755)
-        (self.project / "tools").mkdir()
-        (self.project / "tools/binary").write_bytes(b"\x7fELF not a script")
-        (self.project / "tools/link").symlink_to(sys.executable)
-        base = json.loads((self.project / "experiments.json").read_text())["tasks"]["decay"]
-        for command, expected in ((["scripts/run.sh"], True), (["./scripts/run.sh"], True), (["tools/binary"], False), (["tools/link"], False), (["python3", "scripts/decay.py"], False)):
-            with self.subTest(command=command):
-                inputs = research.task_inputs(self.project, {**base, "command": command})
-                self.assertEqual("scripts/run.sh" in inputs, expected)
-                self.assertNotIn("tools/binary", inputs)
-                self.assertNotIn("tools/link", inputs)
-        path = self.project / "experiments.json"
-        data = json.loads(path.read_text())
-        data["tasks"]["decay"]["command"] = ["scripts/run.sh"]
-        path.write_text(json.dumps(data))
-        self.command("run", "--task", "decay")
-        script.write_text("#!/bin/sh\n# launcher behaviour changed\npython3 scripts/decay.py\n")
-        reasons = json.loads(self.command("freshness", expected=1).stdout)[0]["reasons"]
-        self.assertIn("declared input content changed or is missing", reasons)
-
-    def test_deleted_claim_evidence_selects_the_claims_check(self):
-        self.example()
-        (self.project / "analysis").mkdir()
-        (self.project / "analysis/evidence.md").write_text("Evidence.\n")
-        (self.project / "claims.json").write_text(json.dumps({"schema_version": 1, "claims": [
-            {"id": "c1", "text": "Synthetic statement", "status": "supported", "evidence": ["analysis/evidence.md"]}]}))
-        self.command("claims-check")
-        (self.project / "analysis/evidence.md").unlink()
-        plan = json.loads(self.command("plan", "--files", "analysis/evidence.md", "--json").stdout)
-        self.assertIn("claims", plan["research_modules"])
-        self.assertIn("Missing claim evidence", self.command("validate", "--files", "analysis/evidence.md", expected=1).stderr)
-        unrelated = json.loads(self.command("plan", "--files", "analysis/other.md", "--json").stdout)
-        self.assertNotIn("claims", unrelated["research_modules"])
-
-    def emit_task(self, script, extra=None):
-        """Replace the example's numerics task by one that writes results/emit.txt from in.txt."""
-        (self.project / "in.txt").write_text("one\n")
-        (self.project / "scripts/emit.py").write_text(script)
-        path = self.project / "experiments.json"
-        data = json.loads(path.read_text())
-        data["tasks"]["decay"].update(command=[sys.executable, "scripts/emit.py"], inputs=["in.txt"], outputs=["results/emit.txt"], checks=[], **(extra or {}))
-        path.write_text(json.dumps(data))
-
-    def newest(self):
-        return max((json.loads(p.read_text()) for p in self.records()), key=lambda r: r["started"])
-
-    def test_touch_only_command_cannot_pass_the_examples_attribution_check(self):
-        config = self.example()
-        self.command("run", "--task", "decay")
-        parameters = self.project / "parameters.json"
-        data = json.loads(parameters.read_text())
-        data["gamma"] = 2.0
-        parameters.write_text(json.dumps(data))
-        path = self.project / "experiments.json"
-        manifest = json.loads(path.read_text())
-        manifest["tasks"]["decay"]["command"] = [sys.executable, "-c", "from pathlib import Path; Path('results/decay.json').touch()"]
-        path.write_text(json.dumps(manifest))
-        failure = self.command("run", "--task", "decay", expected=1)  # exit 0 and a fresh mtime, but the content is the old result
-        self.assertIn("was not produced from the current parameters", failure.stdout + failure.stderr)
-        self.assertEqual(self.newest()["status"], "failed")
-        self.assertIn("latest run did not succeed", research.freshness(self.project, config)[0]["reasons"])
-
-    def test_same_bytes_after_an_input_change_are_flagged_not_failed(self):
-        self.example()
-        self.emit_task("from pathlib import Path\nPath('results').mkdir(exist_ok=True)\nPath('results/emit.txt').write_text('fixed\\n')\n")
-        first = self.command("run", "--task", "decay")
-        self.assertNotIn("WARNING", first.stdout)
-        self.assertEqual(self.newest()["warnings"], [])
-        self.command("run", "--task", "decay")  # nothing changed and identical bytes are rewritten: no warning
-        self.assertEqual(self.newest()["warnings"], [])
-        (self.project / "in.txt").write_text("two\n")
-        changed = self.command("run", "--task", "decay")  # input changed, output has the previous bytes
-        self.assertIn("WARNING: results/emit.txt has the same bytes as the previous successful run", changed.stdout)
-        self.assertEqual((self.newest()["status"], len(self.newest()["warnings"])), ("success", 1))
-        (self.project / "scripts/emit.py").write_text("from pathlib import Path\nPath('results/emit.txt').write_text(Path('in.txt').read_text())\n")
-        derived = self.command("run", "--task", "decay")  # bytes now follow the input: nothing to flag
-        self.assertNotIn("WARNING", derived.stdout)
-        self.assertEqual(self.newest()["warnings"], [])
-
-    def test_a_touch_without_a_content_check_is_accepted_but_visibly_flagged(self):
-        # The documented limit: file identity cannot show attribution, so a project without an
-        # output-versus-input check gets a success record, a warning and a current report.
-        config = self.example()
-        self.emit_task("from pathlib import Path\nPath('results').mkdir(exist_ok=True)\nPath('results/emit.txt').write_text(Path('in.txt').read_text())\n")
-        self.command("run", "--task", "decay")
-        (self.project / "in.txt").write_text("two\n")
-        (self.project / "scripts/emit.py").write_text("from pathlib import Path\nPath('results/emit.txt').touch()\n")
-        touched = self.command("run", "--task", "decay")
-        self.assertEqual((self.project / "results/emit.txt").read_text(), "one\n")
-        self.assertIn("WARNING: results/emit.txt has the same bytes", touched.stdout)
-        self.assertEqual(self.newest()["status"], "success")
-        self.assertEqual(research.freshness(self.project, config)[0]["status"], "current")
-
-    def test_concurrent_runs_of_one_task_are_refused_instead_of_misjudged(self):
-        config = self.example()
-        self.emit_task("import time\nfrom pathlib import Path\nPath('started').touch()\ntime.sleep(2)\nPath('results').mkdir(exist_ok=True)\n"
-                       "out = Path('results/emit.txt')\nif not out.exists():\n    out.write_text(Path('in.txt').read_text())\n")
-        self.command("run", "--task", "decay")
-        marker = self.project / "started"
-        marker.unlink()
-
-        def start():
-            return subprocess.Popen([sys.executable, "-B", str(self.project / ".latex-ai/workbench.py"), "run", "--task", "decay"], cwd=self.project,
-                                    env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        first = start()
-        deadline = time.monotonic() + 30
-        while not marker.exists() and time.monotonic() < deadline:
-            time.sleep(0.05)
-        self.assertTrue(marker.exists(), "first run never started")
-        second = start()  # the first still holds the task for about two seconds
-        refused = second.communicate(timeout=30)
-        accepted = first.communicate(timeout=30)
-        self.assertEqual((first.returncode, second.returncode), (0, 1), accepted + refused)
-        self.assertIn("Another run of numerics/decay is in progress", refused[1])
-        self.assertEqual(research.freshness(self.project, config)[0]["status"], "current")  # the refusal left no half-written record
-        marker.unlink()
-        self.command("run", "--task", "decay")  # the lock is released when the first run ends
-
-    def test_interrupted_run_is_recorded_as_interrupted_and_stays_stale(self):
-        config = self.example()
-        path = self.project / "experiments.json"
-        data = json.loads(path.read_text())
-        data["tasks"]["decay"].update(command=[sys.executable, "-c", "import time; open('started', 'w').close(); time.sleep(60)"],
-                                      inputs=["parameters.json"], outputs=["results/never.json"], checks=[])
-        path.write_text(json.dumps(data))
-        marker = self.project / "started"
-        for name in ("SIGINT", "SIGTERM"):
-            with self.subTest(signal=name):
-                marker.unlink(missing_ok=True)
-                process = subprocess.Popen([sys.executable, "-B", str(self.project / ".latex-ai/workbench.py"), "run", "--task", "decay"],
-                                           cwd=self.project, env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-                                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                try:
-                    deadline = time.monotonic() + 30
-                    while not marker.exists() and time.monotonic() < deadline:
-                        time.sleep(0.05)
-                    self.assertTrue(marker.exists(), "task command never started")
-                    process.send_signal(getattr(signal, name))
-                    process.communicate(timeout=30)
-                finally:
-                    process.kill()
-                self.assertNotEqual(process.returncode, 0)
-                latest = max((json.loads(p.read_text()) for p in self.records()), key=lambda r: r["started"])
-                self.assertEqual(latest["status"], "interrupted")
-                self.assertIn("finished", latest)
-                self.assertIn("Interrupted", latest["error"])
-                self.assertIn("latest run did not succeed", research.freshness(self.project, config)[0]["reasons"])
-        self.assertEqual(len(self.records()), 2)
-
     def run_main(self, *arguments):
         errors = io.StringIO()
         with patch.object(sys, "argv", ["workbench", *arguments, "--project", str(self.project)]), contextlib.redirect_stderr(errors), contextlib.redirect_stdout(io.StringIO()):
             return rt.main(), errors.getvalue()
 
     def test_internal_faults_are_labelled_apart_from_ordinary_errors_and_never_written_into_the_project(self):
-        self.assertEqual(self.cli("init", "--profile", "notebook"), 0)
+        self.assertEqual(self.cli("init", "--profile", "core"), 0)
         self.addCleanup(shutil.rmtree, diagnostics.fault_dir(self.project), True)
         before = self.snapshot()
         with patch.object(rt, "full_check", side_effect=AttributeError("boom")):
@@ -506,59 +182,8 @@ class ModuleTests(unittest.TestCase):
             with self.subTest(unexpected=type(unexpected).__name__), patch.object(rt, "full_check", side_effect=unexpected):
                 self.assertEqual(self.run_main("check")[0], 70)
 
-    def test_malformed_project_data_is_reported_never_crashes(self):
-        # Hand-edited manifests, claims and run records must produce a diagnostic, not an exception
-        # that would be labelled a workbench defect. A sweep over every key with seven bad values.
-        config = self.example()
-        self.command("run", "--task", "decay")
-        record = next(iter(self.records()))
-        documents = {path: path.read_text() for path in (self.project / "experiments.json", self.project / "claims.json", record)}
-        (self.project / "claims.json").write_text(json.dumps({"schema_version": 1, "claims": [{"id": "c", "text": "t", "status": "proposed", "evidence": ["parameters.json"], "notes": "n"}]}))
-        documents[self.project / "claims.json"] = (self.project / "claims.json").read_text()
-        replacements = (None, 0, "x", [], {}, True, "DELETE")
-
-        def keys(node, prefix=()):
-            yield prefix
-            if isinstance(node, dict):
-                for key, value in node.items():
-                    yield from keys(value, prefix + (key,))
-            elif isinstance(node, list):
-                for index, value in enumerate(node[:2]):
-                    yield from keys(value, prefix + (index,))
-        problems = []
-        for path, original in documents.items():
-            document = json.loads(original)
-            for key_path in keys(document):
-                for replacement in replacements:
-                    mutated = json.loads(original)
-                    if not key_path:
-                        mutated = None if replacement == "DELETE" else replacement
-                    else:
-                        parent = mutated
-                        for step in key_path[:-1]:
-                            parent = parent[step]
-                        if replacement == "DELETE":
-                            parent.pop(key_path[-1])
-                        else:
-                            parent[key_path[-1]] = replacement
-                    path.write_text(json.dumps(mutated))
-                    try:
-                        for module in ("numerics", "figures"):
-                            research.tasks(self.project, config, module)
-                        with contextlib.redirect_stdout(io.StringIO()):
-                            research.check_claims(self.project, config)
-                        research.freshness(self.project, config)
-                    except (core.WorkbenchError, OSError, ValueError, SyntaxError):
-                        pass  # a diagnostic: exactly the classes the runtime reports as ERROR
-                    except Exception as error:
-                        problems.append((path.name, key_path, replacement, f"{type(error).__name__}: {error}"))
-            path.write_text(original)
-        self.assertEqual(problems, [])
-        self.assertEqual(rt.EXPECTED, (core.WorkbenchError, OSError, ValueError, SyntaxError))  # and the runtime agrees
-
     def test_issue_report_collects_local_evidence_and_nothing_else(self):
         self.example()
-        self.command("run", "--task", "decay")
         before = set(self.snapshot())
         hidden = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "LATEX_AI_CANARY": "secret-value-should-not-appear"}
         done = subprocess.run([sys.executable, "-B", str(self.project / ".latex-ai/workbench.py"), "issue", "--note", "observed X; expected Y", "--command", "make check"],
@@ -576,16 +201,15 @@ class ModuleTests(unittest.TestCase):
         self.assertTrue(report["installation"]["version_matches"])
         self.assertTrue(all(status in ("unmodified", "managed block", "project-owned") for status in report["installation"]["files"].values()), report["installation"]["files"])
         self.assertEqual(report["installation"]["differing"], [])
-        self.assertEqual(report["runs"]["numerics/decay"]["status"], "success")
         self.assertIn("python", report["tools"])
         self.assertEqual(report["configuration"]["schema_version"], 3)
         # A locally edited managed file is exactly what explains an upgrade conflict, so the report names it.
-        with (self.project / ".latex-ai/research.py").open("a") as stream:
+        with (self.project / ".latex-ai/guide.py").open("a") as stream:
             stream.write("\n# local tweak\n")
         self.command("issue")
         newest = json.loads(max((self.project / ".latex-ai/artifacts/issues").glob("report-*.json")).read_text())
-        self.assertEqual(newest["installation"]["files"][".latex-ai/research.py"], "modified locally")
-        self.assertEqual(newest["installation"]["differing"], [".latex-ai/research.py"])
+        self.assertEqual(newest["installation"]["files"][".latex-ai/guide.py"], "modified locally")
+        self.assertEqual(newest["installation"]["differing"], [".latex-ai/guide.py"])
         # It must work precisely when the configuration is broken.
         (self.project / core.CONFIG).write_text("{not json")
         self.command("issue")
@@ -599,22 +223,22 @@ class ModuleTests(unittest.TestCase):
     def test_issue_still_reports_when_the_defect_is_in_shared_code(self):
         # A defect that makes the plan uncomputable must not stop the report that is meant to capture it.
         self.example()
-        with (self.project / ".latex-ai/task_graph.py").open("a") as stream:
-            stream.write("\ndef task_inputs(project, task, **kwargs):\n    raise KeyError('checks')\n")
-        crash = self.command("freshness", expected=rt.INTERNAL_FAULT)
+        with (self.project / ".latex-ai/documents.py").open("a") as stream:
+            stream.write("\ndef dependency_index(project, config, paths=None):\n    raise KeyError('checks')\n")
+        crash = self.command("plan", "--files", "main.tex", expected=rt.INTERNAL_FAULT)
         self.assertIn("INTERNAL ERROR: KeyError: 'checks'", crash.stderr)
-        done = self.command("issue", "--files", "parameters.json", "--note", "freshness crashed")
+        done = self.command("issue", "--files", "main.tex", "--note", "plan crashed")
         self.assertIn("Issue report written", done.stdout)
         report = self.latest_report()
         self.assertIn("KeyError", report["plan"]["unavailable"])
-        self.assertEqual(report["observed_and_expected"], "freshness crashed")
+        self.assertEqual(report["observed_and_expected"], "plan crashed")
         self.assertEqual(report["configuration"]["schema_version"], 3)  # the rest of the evidence is intact
         self.assertEqual(len(report["recent_internal_faults"]), 1)  # and names the fault just seen
 
     def test_issue_report_survives_any_one_section_failing(self):
         self.example()
         sections = {"installation": "installation", "tool_versions": "tools", "git_state": "git",
-                    "recent_faults": "recent_internal_faults", "runs": "runs"}
+                    "recent_faults": "recent_internal_faults"}
         args = argparse.Namespace(files=None, base=None, note="", failed_command="")
         for function, key in sections.items():
             with self.subTest(section=function), patch.object(diagnostics, function, side_effect=RuntimeError("boom")), \
@@ -628,7 +252,7 @@ class ModuleTests(unittest.TestCase):
         self.assertEqual(self.latest_report()["configuration_error"], "TypeError: odd")
 
     def test_issue_make_target_takes_free_text_through_the_environment(self):
-        self.assertEqual(self.cli("init", "--profile", "notebook"), 0)
+        self.assertEqual(self.cli("init", "--profile", "core"), 0)
         hostile = 'observed "quoted"; touch INJECTED; echo "'
         done = subprocess.run(["make", "issue", f"ISSUE_NOTE={hostile}", "ISSUE_COMMAND=make check"], cwd=self.project, capture_output=True, text=True)
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
@@ -681,7 +305,7 @@ class ModuleTests(unittest.TestCase):
         core_help = self.make_output("help")
         for line in ("make check", "make validate", "make status", "make doctor", "make help", "make issue"):
             self.assertIn(line, core_help)
-        for absent in ("make run", "make figure", "make freshness", "make md-check", "make build"):
+        for absent in ("make build", "make pdf-artifact", "make document-check"):
             self.assertNotIn(absent, core_help)
         self.assertIn("Not enabled here", core_help)
         self.assertIn("latex-ai-init configure . --enable", core_help)
@@ -689,7 +313,7 @@ class ModuleTests(unittest.TestCase):
         self.project.mkdir()
         self.example()
         help_text = self.make_output("help")
-        for line in ("make run TASK=", "make figure TASK=", "make freshness", "declared: decay"):
+        for line in ("make build", "make document-check", "Documents: manuscript (default)"):
             self.assertIn(line, help_text)
 
     def test_help_names_the_command_that_reaches_the_workbench_when_the_project_has_its_own(self):
@@ -710,7 +334,7 @@ class ModuleTests(unittest.TestCase):
         self.assertIn("make check", text)
 
     def test_every_installed_make_target_is_described_by_help(self):
-        for profile in ("core", "notebook", "numerical", "research-paper", "writing"):
+        for profile in ("core", "writing"):
             with self.subTest(profile=profile):
                 shutil.rmtree(self.project)
                 self.project.mkdir()
@@ -727,19 +351,8 @@ class ModuleTests(unittest.TestCase):
         text = self.make_output("status")
         self.assertEqual(before, self.snapshot())  # read-only
         self.assertIn(f"{core.VERSION} installed, matches its manifest", text)
-        self.assertIn("numerics", text)
-        self.assertIn("stale", text)  # nothing has been run yet
-        self.assertIn("make run TASK=decay", text)
-        self.command("run", "--task", "decay")
-        self.command("figure", "--task", "decay")
-        text = self.make_output("status")
-        self.assertIn("2 task(s): 2 current", text)
-        self.assertNotIn("make run TASK=decay", text)
-        parameters = self.project / "parameters.json"
-        parameters.write_text(parameters.read_text().replace("1.5", "2.5"))
-        text = self.make_output("status")
-        self.assertIn("make run TASK=decay", text)
-        self.assertIn("make figure TASK=decay", text)
+        self.assertIn("manuscript: missing", text)  # nothing has been built yet
+        self.assertIn("make check", text.split("Next:")[1])
 
     def commit_everything(self, message="base"):
         if not (self.project / ".git").exists():
@@ -785,44 +398,24 @@ class ModuleTests(unittest.TestCase):
         self.assertIn("no workbench installed", errors.getvalue())
         self.assertIn("latex-ai-init init .", errors.getvalue())
         self.assertEqual(self.cli("init", "--profile", "core"), 0)
-        status, errors = run("run", "--task", "decay")
+        status, errors = run("build")
         self.assertEqual(status, 1)
-        self.assertIn("Module is disabled: numerics", errors)
-        self.assertIn("latex-ai-init configure . --enable numerics", errors)
-        shutil.rmtree(self.project)
-        self.project.mkdir()
-        self.example()
-        status, errors = run("run")
-        self.assertEqual(status, 1)
-        self.assertIn("Declared numerics tasks: decay", errors)
-        status, errors = run("figure", "--task", "nope")
-        self.assertEqual((status, "Unknown figures task: nope" in errors, "Declared figures tasks: decay" in errors), (1, True, True))
-        status, errors = run("research-check")  # nothing has been run yet
-        self.assertEqual(status, 1)
-        self.assertIn("Stale research outputs", errors)
-        self.assertIn("make run TASK=decay", errors)
-        self.assertIn("make figure TASK=decay", errors)
+        self.assertIn("Module is disabled: latex", errors)
+        self.assertIn("latex-ai-init configure . --enable latex", errors)
         with patch.object(shutil, "which", return_value=None):
             status, errors = run("doctor")
         self.assertIn("Missing required tools", errors)
         self.assertIn("make doctor", errors)
-        # Through Make the same message is reached: no second, poorer one in the Makefile hides it.
-        for target, module in (("run", "numerics"), ("figure", "figures")):
-            blank = self.make_result(target)
-            self.assertNotEqual(blank.returncode, 0)
-            self.assertIn("Set TASK", blank.stderr)
-            self.assertIn(f"Declared {module} tasks: decay", blank.stderr)
-            self.assertIn(f"make {target} TASK=decay", blank.stderr)
 
     def test_installer_summarises_in_plain_words_and_says_what_comes_next(self):
-        shutil.copytree(boot.PACKAGE / "examples/decay", self.project, dirs_exist_ok=True)
+        (self.project / "main.tex").write_text(self.PAPER)
         status, text = self.cli_output("audit")
         self.assertIn("Audit only: nothing was changed", text)
         self.assertIn("latex-ai-init init", text)
-        status, text = self.cli_output("init", "--dry-run")
+        status, text = self.cli_output("init", "--engine", "pdflatex", "--dry-run")
         self.assertIn("Dry run: nothing was changed", text)
         self.assertFalse((self.project / ".latex-ai/workbench.py").exists())
-        status, text = self.cli_output("init")
+        status, text = self.cli_output("init", "--engine", "pdflatex")
         self.assertEqual(status, 0)
         self.assertRegex(text, r"Done: \d+ file\(s\) added")
         for command in ("make doctor", "make help", "make check"):
@@ -846,11 +439,11 @@ class ModuleTests(unittest.TestCase):
         # GNU Make prefers GNUmakefile, and a wrapper that includes the project's Makefile is a common layout.
         (self.project / "GNUmakefile").write_text("PYTHON ?= python3\ninclude Makefile\n")
         (self.project / "Makefile").write_text("all:\n\t@echo ALL\n")
-        self.assertEqual(self.cli("init", "--profile", "numerical"), 0)
+        self.assertEqual(self.cli("init", "--profile", "core"), 0)
         self.assertIn("latex-ai-help", (self.project / "GNUmakefile").read_text())
         self.assertEqual(guide.active_makefile(self.project), "GNUmakefile")
         text = self.make_output("help")
-        for line in ("make check", "make status", "make run TASK=NAME", "make freshness"):
+        for line in ("make check", "make status", "make help"):
             self.assertIn(line, text)
         self.assertIn("make check", self.make_output("status"))
 
@@ -880,22 +473,14 @@ class ModuleTests(unittest.TestCase):
         self.assertFalse(any((self.project / name).exists() for name in ("PROJECT_HELP_RAN", "PROJECT_STATUS_RAN")))
 
     def test_status_does_not_count_the_projects_own_files_as_changed_installation_files(self):
-        # Seeded manifests and notes belong to the project once created, and editor settings are merged with the
-        # project's own: editing them is the intended use, not a change to the installation.
-        self.assertEqual(self.cli("init", "--modules", "notes,numerics,provenance,freshness", "--editor"), 0)
-        (self.project / "in.txt").write_text("1\n")
-        (self.project / "experiments.json").write_text(json.dumps({"schema_version": 1, "tasks": {
-            "copy": {"command": ["cp", "in.txt", "out.txt"], "inputs": ["in.txt"], "outputs": ["out.txt"]}}}))
-        with (self.project / "notes/session-state.md").open("a") as stream:
-            stream.write("\nA decision.\n")
+        # Editor settings are merged with the project's own: editing them is the intended use, not a change to the installation.
+        self.assertEqual(self.cli("init", "--profile", "core", "--editor"), 0)
         tasks = json.loads((self.project / ".vscode/tasks.json").read_text())
         tasks["tasks"].append({"label": "Mine", "type": "process", "command": "true"})
         (self.project / ".vscode/tasks.json").write_text(json.dumps(tasks))
-        (self.project / "notes/index.md").unlink()  # the installer accepts this too: never recreated
         text = self.make_output("status")
         self.assertIn("0 managed file(s) changed locally", text)
-        for name in ("experiments.json", "session-state.md", "tasks.json", "index.md"):
-            self.assertNotIn(name, text)
+        self.assertNotIn("tasks.json", text)
         self.assertIn("files differing from the manifest: none", self.command("issue").stdout)
         with (self.project / ".latex-ai/core.py").open("a") as stream:
             stream.write("\n# local tweak\n")
@@ -928,10 +513,10 @@ class ModuleTests(unittest.TestCase):
         self.assertEqual(shared, {"check", "lint"})  # build has a receipt-producing reserved target
         (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n")
         (self.project / "Makefile").write_text("PYTHON ?= python3\nbuild:\n\t@echo build\n" + "".join(
-            f"{name}:\n\t@echo MINE\n" for name in ("doctor", "bib-check", "pdf-artifact", "clean", "md-check", "research-validate")))
-        self.assertEqual(self.cli("init", "--modules", "latex,notes,markdown,numerics,provenance,freshness", "--ci", "--engine", "pdflatex"), 0)
+            f"{name}:\n\t@echo MINE\n" for name in ("doctor", "bib-check", "pdf-artifact", "clean")))
+        self.assertEqual(self.cli("init", "--modules", "latex", "--ci", "--engine", "pdflatex"), 0)
         targets = guide.make_targets((self.project / "Makefile").read_text())
-        for name in ("doctor", "bib-check", "pdf-artifact", "md-check", "research-validate"):
+        for name in ("doctor", "bib-check", "pdf-artifact"):
             self.assertIn("latex-ai-" + name, targets)
         self.assertIn("latex-ai-clean", targets)  # the selected document determines whether cleanup is supported
         self.assertEqual(self.make_output("clean").strip(), "MINE")
@@ -939,9 +524,9 @@ class ModuleTests(unittest.TestCase):
 
     def test_generated_ci_only_calls_make_names_the_installer_always_provides(self):
         # CI must run the workbench's checks even where the project keeps a target of the short name.
-        cases = (("adopted paper", "latex,notes,markdown,numerics,provenance,freshness", True),
-                 ("fresh paper", "latex,bibliography,notes,markdown,numerics,provenance,figures,freshness,claims", False),
-                 ("no manuscript", "bibliography,notes,markdown,numerics,provenance,freshness", False))
+        cases = (("adopted paper", "latex", True),
+                 ("fresh paper", "latex,bibliography", False),
+                 ("no manuscript", "bibliography", False))
         for label, modules, adopted in cases:
             with self.subTest(case=label):
                 shutil.rmtree(self.project)
@@ -949,7 +534,7 @@ class ModuleTests(unittest.TestCase):
                 (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n")
                 if adopted:
                     (self.project / "Makefile").write_text("PYTHON ?= python3\nbuild:\n\t@echo build\n" + "".join(
-                        f"{name}:\n\t@echo MINE\n" for name in ("bib-check", "pdf-artifact", "md-check", "research-validate")))
+                        f"{name}:\n\t@echo MINE\n" for name in ("bib-check", "pdf-artifact")))
                 self.assertEqual(self.cli("init", "--modules", modules, "--ci", *(["--engine", "pdflatex"] if adopted else [])), 0)  # an existing build needs the engine named
                 workflow = (self.project / ".github/workflows/latex-ai.yml").read_text()
                 called = re.findall(r"(?m)^\s*(?:run: )?make (?!-C)([\w-]+)", workflow)
@@ -963,23 +548,21 @@ class ModuleTests(unittest.TestCase):
         (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n")
         self.assertEqual(self.cli("init"), 0)
         hint = re.search(r"Turn one on with: (.+)", self.make_output("help")).group(1)
-        words = shlex.split(hint.replace("NAME", "notes"))
+        words = shlex.split(hint.replace("NAME", "bibliography"))
         position = next(index for index, word in enumerate(words) if word.endswith("latex-ai-init"))
         self.assertEqual(words[position + 1:position + 3], ["configure", "."])
         self.assertEqual(self.cli(words[position + 1], *words[position + 3:], "--dry-run"), 0, hint)
-        status, errors = self.run_main("md-check")
-        self.assertIn("--enable markdown", errors)
         shutil.rmtree(self.project)
         self.project.mkdir()
         self.assertEqual(self.cli("init", "--profile", "core"), 0)
         hint = re.search(r"Turn one on with: (.+)", self.make_output("help")).group(1)
         self.assertNotIn("--migrate-config", hint)  # current projects have explicit modules
-        words = shlex.split(hint.replace("NAME", "notes"))
+        words = shlex.split(hint.replace("NAME", "bibliography"))
         position = next(index for index, word in enumerate(words) if word.endswith("latex-ai-init"))
         self.assertEqual(self.cli(words[position + 1], *words[position + 3:], "--dry-run"), 0, hint)
 
     def test_audit_names_the_command_that_applies_what_it_previewed(self):
-        status, text = self.cli_output("audit", "--profile", "numerical", "--ci")
+        status, text = self.cli_output("audit", "--profile", "core", "--ci")
         self.assertEqual(status, 1)
         command = shlex.split(re.search(r"apply with: (.+)", text).group(1))
         self.assertEqual(command[:3], ["python3", str(boot.PACKAGE / "latex-ai-init"), "init"])
@@ -987,7 +570,7 @@ class ModuleTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(boot.main(command[2:]), 0)  # exactly what was printed, and it applies
         config = schema.load_config(self.project)
-        self.assertEqual(sorted(config["modules"]), ["freshness", "numerics", "provenance"])
+        self.assertEqual(sorted(config["modules"]), [])
         self.assertTrue(config["integrations"]["ci"]["enabled"])
         status, text = self.cli_output("audit")
         self.assertEqual(status, 0)
@@ -1063,22 +646,6 @@ class ModuleTests(unittest.TestCase):
         self.assertNotIn("Nothing pending", text)
         self.assertIn("latex-ai-init audit .", text.split("Next:")[1])
 
-    def test_missing_task_example_names_the_command_that_works_here(self):
-        (self.project / "Makefile").write_text("PYTHON ?= python3\nrun:\n\t@echo MINE\n")
-        self.assertEqual(self.cli("init", "--profile", "numerical"), 0)
-        blank = self.make_result("latex-ai-run")
-        self.assertNotEqual(blank.returncode, 0)
-        self.assertIn("no numerics tasks are declared yet", blank.stderr)
-        (self.project / "in.txt").write_text("1\n")
-        (self.project / "experiments.json").write_text(json.dumps({"schema_version": 1, "tasks": {
-            "copy": {"command": ["cp", "in.txt", "out.txt"], "inputs": ["in.txt"], "outputs": ["out.txt"]}}}))
-        blank = self.make_result("latex-ai-run")
-        self.assertIn("make latex-ai-run TASK=copy", blank.stderr)
-        (self.project / "experiments.json").write_text("{not json")
-        blank = self.make_result("latex-ai-run")  # a broken manifest is reported as such, not as "no tasks"
-        self.assertNotIn("no numerics tasks are declared yet", blank.stderr)
-        self.assertIn("ERROR:", blank.stderr)
-
     def test_help_and_status_explain_a_missing_configuration_in_plain_words(self):
         self.assertEqual(self.cli("init", "--profile", "core"), 0)
         (self.project / core.CONFIG).unlink()
@@ -1125,20 +692,16 @@ class ModuleTests(unittest.TestCase):
 
     def test_a_broken_json_file_is_named_in_the_error(self):
         self.example()
-        self.command("run", "--task", "decay")
-        self.command("figure", "--task", "decay")
-        for name in ("experiments.json", "figures/manifest.json", "claims.json", core.CONFIG):
-            path = self.project / name
-            original = path.read_text()
-            path.write_text('{"schema_version": 1,,}')
-            status, errors = self.run_main("check")
-            path.write_text(original)
-            with self.subTest(file=name):
-                self.assertEqual(status, 1)
-                self.assertIn(f"ERROR: {name} is not valid JSON", errors)
-                self.assertIn("Hint:", errors)
-        (self.project / "data.json").write_text("{broken")  # an ordinary project file, found by the file checks
+        path = self.project / core.CONFIG
+        original = path.read_text()
+        path.write_text('{"schema_version": 1,,}')
         status, errors = self.run_main("check")
+        path.write_text(original)
+        self.assertEqual(status, 1)
+        self.assertIn(f"ERROR: {core.CONFIG} is not valid JSON", errors)
+        self.assertIn("Hint:", errors)
+        (self.project / "data.json").write_text("{broken")  # an ordinary project file, found by the file checks
+        status, errors = self.run_main("validate", "--files", "data.json")
         self.assertEqual(status, 1)
         self.assertIn("data.json", errors)
 
@@ -1204,7 +767,7 @@ class ModuleTests(unittest.TestCase):
         self.assertIn("+.DEFAULT_GOAL := build", text)  # files the project will own or read are still shown in full
 
     def test_validation_without_git_history_says_so_in_plain_words(self):
-        self.assertEqual(self.cli("init", "--profile", "notebook"), 0)
+        self.assertEqual(self.cli("init", "--profile", "core"), 0)
         text = self.make_output("validation-plan")
         self.assertIn("full validation selected", text)
         self.assertIn("not a Git repository", text)
@@ -1216,48 +779,10 @@ class ModuleTests(unittest.TestCase):
             self.assertIn("no commit", text)
             self.assertNotIn("fatal:", text)
 
-    def test_errors_follow_the_output_that_explains_them_when_both_streams_share_a_pipe(self):
-        self.example()
-        done = self.combined("research-check")
-        self.assertEqual(done.returncode, 1)
-        self.assertLess(done.stdout.index("numerics/decay: stale"), done.stdout.index("ERROR:"), done.stdout)
-
-    def test_a_failing_task_check_names_the_task_and_what_to_run(self):
-        self.example()
-        self.command("run", "--task", "decay")
-        self.command("figure", "--task", "decay")
-        parameters = self.project / "parameters.json"
-        parameters.write_text(parameters.read_text().replace("1.5", "2.5"))
-        out = self.combined("research-check")
-        self.assertEqual(out.returncode, 1)
-        self.assertLess(out.stdout.index("numerics/decay: stale"), out.stdout.index("Traceback"), out.stdout)  # the report comes first
-        error = out.stdout.split("ERROR:")[1]
-        self.assertIn("Check of numerics/decay failed", error)
-        self.assertIn("scripts/check_decay.py", error)  # the whole command, not only its first word
-        self.assertRegex(error, r"Hint: .*make run TASK=decay")
-        built = self.combined("figure", "--task", "decay")  # runs by design, but says what it is built from
-        self.assertEqual(built.returncode, 0, built.stdout)
-        self.assertRegex(built.stdout, r"WARNING: .*numerics/decay is stale")
-        figures = [record for record in map(json.loads, (path.read_text() for path in self.records())) if record["module"] == "figures"]
-        self.assertEqual(max(figures, key=lambda record: record["started"])["stale_upstream"], ["numerics/decay"])
-
-    def test_task_manifest_errors_name_the_file_the_task_and_the_expected_form(self):
-        self.assertEqual(self.cli("init", "--profile", "numerical"), 0)
-        status, errors = self.run_main("run")
-        self.assertIn("experiments.json", errors)
-        self.assertIn("docs/research.md", errors)
-        self.assertIn("experiments.json", self.make_output("status"))  # with no task yet, status says where one is declared
-        (self.project / "experiments.json").write_text(json.dumps({"schema_version": 1, "tasks": {"sim": {"command": "python3 sim.py", "inputs": ["sim.py"]}}}))
-        status, errors = self.run_main("run", "--task", "sim")
-        self.assertEqual(status, 1)
-        for phrase in ("experiments.json", "sim", '["python3", "analysis/run.py"]', "docs/research.md"):
-            self.assertIn(phrase, errors)
-        self.assertIn("experiments.json", self.make_output("status"))
-
     def test_targets_in_an_included_makefile_are_the_projects_own(self):
         (self.project / "GNUmakefile").write_text("include Makefile\n")
         (self.project / "Makefile").write_text("PYTHON ?= python3\nall:\n\t@echo ALL\nhelp:\n\t@echo MY-HELP\n")
-        status, text = self.cli_output("init", "--profile", "notebook")
+        status, text = self.cli_output("init", "--profile", "core")
         self.assertEqual(status, 0)
         self.assertIn("kept your Makefile target `help`; the workbench command is `make latex-ai-help`", text)
         self.assertEqual(self.make_output("help").strip(), "MY-HELP")
@@ -1312,15 +837,13 @@ class ModuleTests(unittest.TestCase):
         self.assertIn("configure", hint)
 
     def test_small_print_of_everyday_commands(self):
-        self.assertEqual(self.cli("init", "--modules", "notes,markdown"), 0)
+        self.assertEqual(self.cli("init", "--profile", "core"), 0)
         env = {name: value for name, value in os.environ.items() if name not in {"MAKEFLAGS", "MFLAGS", "MAKELEVEL", "MAKEOVERRIDES", "TASK", "LATEX_AI_BASE"}}
         shown = subprocess.run(["make", "help"], cwd=self.project, capture_output=True, text=True, env=env)  # no -s: the recipe itself is quiet
         self.assertTrue(shown.stdout.startswith("LaTeX AI Workbench"), shown.stdout[:120])
-        with patch.object(shutil, "which", side_effect=lambda name: None if name == "pandoc" else "/usr/bin/" + Path(name).name):
+        with patch.object(shutil, "which", side_effect=lambda name: None if name == "chktex" else "/usr/bin/" + Path(name).name):
             status, errors = self.run_main("doctor")
-        self.assertEqual(status, 1)
-        self.assertIn("Pandoc", errors.split("Hint:")[1])
-        self.assertNotIn("TeX distribution", errors)
+        self.assertNotIn("TeX distribution", errors)  # a core project does not need one
         self.assertNotIn("citation keys", next(command.description for command in guide.COMMANDS if command.short == "bib-check"))
         self.fresh_project()
         self.assertEqual(self.cli("init", "--profile", "core"), 0)
@@ -1350,9 +873,7 @@ class ModuleTests(unittest.TestCase):
         self.assertEqual(config["modules"]["latex"]["documents"]["manuscript"]["backend"], "bibtex")
         self.assertTrue(config["integrations"]["editor"] and config["integrations"]["ci"]["enabled"])  # the defaults are unchanged
         self.assertTrue((self.project / ".vscode/settings.json").is_file() and (self.project / ".github/workflows/latex-ai.yml").is_file())
-        hint = re.search(r"Turn one on with: (.+)", self.make_output("help")).group(1)
-        self.assertNotIn("--migrate-config", hint)
-        self.assertEqual(self.cli("configure", "--enable", "notes", "--dry-run"), 0)  # no migration step for a new project
+        self.assertEqual(self.cli("configure", "--disable", "bibliography", "--dry-run"), 0)  # no migration step for a new project
         before = self.snapshot()
         self.assertEqual(self.cli("upgrade"), 0)
         self.assertEqual(self.cli("audit"), 0)
@@ -1374,7 +895,7 @@ class ModuleTests(unittest.TestCase):
             with self.subTest(text=name):
                 self.assertEqual(set(re.findall(r"\bmake (latex-ai-[a-z-]+)", text)) - reserved - internal, set())
         # The Makefile of every profile holds exactly the reserved targets its modules enable.
-        for profile in ("core", "notebook", "numerical", "writing", "research-paper"):
+        for profile in ("core", "writing"):
             with self.subTest(profile=profile):
                 self.fresh_project()
                 (self.project / "main.tex").write_text(self.PAPER)
@@ -1470,33 +991,9 @@ class ModuleTests(unittest.TestCase):
         self.assertEqual(status, 2)
         self.assertIn("--engine", errors)
 
-    @unittest.skipUnless(shutil.which("git"), "needs git")
-    def test_status_lists_what_to_do_in_the_order_it_has_to_be_done(self):
-        self.assertEqual(self.cli("init", "--profile", "numerical"), 0)
-        text = self.make_output("status")
-        self.assertRegex(text.split("Next:")[1], r"declare .*experiments\.json")  # nothing to run or validate before a task exists
-        self.fresh_project()
-        self.example()
-        self.commit_everything()
-        (self.project / "parameters.json").write_text((self.project / "parameters.json").read_text().replace("1.5", "2.5"))
-        following = self.make_output("status").split("Next:")[1]
-        self.assertLess(following.index("make run TASK=decay"), following.index("make validate"))  # validating stale results can only fail
-        self.command("run", "--task", "decay")
-        self.command("figure", "--task", "decay")
-        plan = self.make_output("validation-plan")
-        self.assertEqual(len([line for line in plan.splitlines() if "results/runs/" in line]), 1, plan)  # run records are one line, not dozens
-        self.assertRegex(plan, r"results/runs/: \d+ run-record file")
-
     def test_small_print_from_the_blind_trial(self):
-        self.assertEqual(self.cli("init", "--profile", "numerical"), 0)
+        self.assertEqual(self.cli("init", "--profile", "core"), 0)
         self.assertIn("All required tools found", self.command("doctor").stdout)
-        manifest = json.loads((self.project / "experiments.json").read_text())
-        self.assertEqual(manifest["tasks"], {})
-        self.assertEqual(research.tasks(self.project, schema.load_config(self.project), "numerics"), {})  # the example is not a task
-        manifest["tasks"]["mine"] = manifest["example"]["task"]  # and it is a valid one once copied under a name
-        (self.project / "experiments.json").write_text(json.dumps(manifest))
-        self.assertEqual(list(research.tasks(self.project, schema.load_config(self.project), "numerics")), ["mine"])
-        self.assertIn("declared: mine", self.make_output("help"))
         self.fresh_project()
         (self.project / "main.tex").write_text(self.PAPER)
         (self.project / "Makefile").write_text("build:\n\t@echo build\n")
@@ -1515,161 +1012,14 @@ class ModuleTests(unittest.TestCase):
         self.assertIn(f"python: {sys.executable}", report)
         self.assertNotIn("python3:", report)  # the PATH lookup could name a different interpreter
 
-    def test_deleted_seed_files_are_project_decisions_not_upgrade_conflicts(self):
-        self.assertEqual(self.cli("init", "--profile", "notebook"), 0)
-        (self.project / "notes/session-state.md").unlink()
-        self.assertEqual(self.cli("upgrade"), 0)
-        self.assertEqual(self.cli("audit"), 0)
-        self.assertEqual(self.cli("configure", "--enable", "markdown", "--dry-run"), 0)
-        self.assertFalse((self.project / "notes/session-state.md").exists())  # never recreated
-        failure = self.command("check", expected=1).stderr
-        self.assertIn("Missing notes file", failure)
-        self.assertIn("configure --disable notes", failure)
-        self.assertEqual(self.cli("configure", "--disable", "notes"), 0)
-        self.assertIn("Broken local Markdown link", self.command("check", expected=1).stderr)  # index.md still links to it
-        (self.project / "notes/index.md").write_text("# Notes\n")
-        self.command("check")
-
-    def test_deleted_manifest_seed_does_not_block_upgrade(self):
-        self.assertEqual(self.cli("init", "--profile", "numerical"), 0)
-        (self.project / "experiments.json").unlink()
-        before = self.snapshot()
-        self.assertEqual(self.cli("upgrade"), 0)
-        self.assertEqual(before, self.snapshot())
-
-    def test_task_name_is_never_interpreted_as_shell_syntax_by_make(self):
-        self.example()
-        self.assertIn("export TASK", (self.project / "Makefile").read_text())
-        hostile = 'decay"; touch INJECTED; echo "'
-        result = subprocess.run(["make", "run", f"TASK={hostile}"], cwd=self.project, capture_output=True, text=True)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Unknown numerics task", result.stderr)
-        self.assertFalse((self.project / "INJECTED").exists())
-        for target in ("run", "figure"):
-            blank = subprocess.run(["make", target], cwd=self.project, capture_output=True, text=True, env={k: v for k, v in os.environ.items() if k != "TASK"})
-            self.assertNotEqual(blank.returncode, 0)
-            self.assertIn("Set TASK", blank.stdout + blank.stderr)
-        ok = subprocess.run(["make", "run", "TASK=decay"], cwd=self.project, capture_output=True, text=True)
-        self.assertEqual(ok.returncode, 0, ok.stdout + ok.stderr)
-
-    def test_copy_preserving_timestamps_counts_as_rewriting_an_output(self):
-        self.example()
-        path = self.project / "experiments.json"
-        data = json.loads(path.read_text())
-        data["tasks"]["decay"].update(command=[sys.executable, "-c", "import shutil; shutil.copy2('parameters.json', 'results/copy.json')"],
-                                      inputs=["parameters.json"], outputs=["results/copy.json"], checks=[])
-        path.write_text(json.dumps(data))
-        (self.project / "results").mkdir(exist_ok=True)
-        self.command("run", "--task", "decay")
-        self.command("run", "--task", "decay")
-        self.assertEqual(len(self.records()), 2)
-
-    def test_validation_never_runs_scientific_or_plot_commands(self):
-        config = self.example()
-        with patch.object(research, "run", side_effect=AssertionError("Any command invoked")):
-            report = research.freshness(self.project, config)
-            self.assertTrue(report)
-        self.command("check", expected=1)
-        self.assertFalse((self.project / "results/decay.json").exists())
-        self.assertEqual(self.records(), [])
-
-    def test_missing_and_escaping_inputs_prevent_execution(self):
-        self.example()
-        (self.project / "parameters.json").unlink()
-        self.assertIn("Missing declared inputs", self.command("run", "--task", "decay", expected=1).stderr)
-        path = self.project / "experiments.json"
-        data = json.loads(path.read_text())
-        data["tasks"]["decay"]["inputs"] = ["../outside.json"]
-        path.write_text(json.dumps(data))
-        self.command("run", "--task", "decay", expected=1)
-        self.assertEqual(self.records(), [])
-
-    def test_claims_need_real_links_and_review_status_is_not_inferred(self):
-        self.example()
-        path = self.project / "claims.json"
-        data = {"schema_version": 1, "claims": [{"id": "c1", "text": "Synthetic statement", "status": "supported", "evidence": ["missing.json"]}]}
-        path.write_text(json.dumps(data))
-        self.command("claims-check", expected=1)
-        data["claims"][0].update(status="proposed", evidence=[])
-        path.write_text(json.dumps(data))
-        self.command("claims-check")
-        self.assertEqual(json.loads(path.read_text())["claims"][0]["status"], "proposed")
-
-    def test_installed_pipeline_survives_relocation_without_distribution(self):
-        self.example()
-        with tempfile.TemporaryDirectory(prefix="workbench-relocated-") as directory:
-            relocated = Path(directory) / "project with spaces"
-            shutil.copytree(self.project, relocated)
-            result = subprocess.run([sys.executable, "-B", str(relocated / ".latex-ai/workbench.py"), "run", "--project", str(relocated), "--task", "decay"], cwd=directory,
-                                    env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}, capture_output=True, text=True)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertTrue((relocated / "results/decay.json").exists())
-
-    def test_figures_can_consume_external_results_without_numerics(self):
-        self.example()
-        self.command("run", "--task", "decay")
-        self.assertEqual(self.cli("configure", "--disable", "numerics"), 0)
-        self.command("figure", "--task", "decay")
-        report = json.loads(self.command("freshness").stdout)
-        self.assertEqual([(r["module"], r["status"]) for r in report], [("figures", "current")])
-
-    def test_cyclic_and_ambiguous_producers_fail_freshness(self):
-        config = self.example()
-        path = self.project / "figures/manifest.json"
-        data = json.loads(path.read_text())
-        data["tasks"]["decay"]["outputs"] = ["results/decay.json"]
-        data["tasks"]["decay"]["inputs"] = ["parameters.json"]
-        path.write_text(json.dumps(data))
-        self.assertIn("Multiple producers", self.command("freshness", expected=1).stderr)
-        data["tasks"]["decay"]["outputs"] = ["figures/decay.svg"]
-        path.write_text(json.dumps(data))
-        experiment = self.project / "experiments.json"
-        numeric = json.loads(experiment.read_text())
-        numeric["tasks"]["decay"]["inputs"].append("figures/decay.svg")
-        experiment.write_text(json.dumps(numeric))
-        data["tasks"]["decay"]["inputs"] = ["results/decay.json"]
-        path.write_text(json.dumps(data))
-        self.assertIn("Cyclic research", self.command("freshness", expected=1).stderr)
-
-    def test_declared_relative_executable_works_from_another_cwd(self):
-        self.example()
-        wrapper = self.project / "tools/python"
-        wrapper.parent.mkdir()
-        wrapper.symlink_to(sys.executable)
-        path = self.project / "experiments.json"
-        data = json.loads(path.read_text())
-        data["tasks"]["decay"]["command"][0] = "tools/python"
-        path.write_text(json.dumps(data))
-        result = subprocess.run([sys.executable, "-B", str(self.project / ".latex-ai/workbench.py"), "run", "--project", str(self.project), "--task", "decay"], cwd=self.project.parent,
-                                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}, capture_output=True, text=True)
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-
-    def test_provenance_symlink_escape_cannot_write_outside_project(self):
-        self.example()
-        (self.project / "results").mkdir()
-        with tempfile.TemporaryDirectory(prefix="workbench-external-") as directory:
-            (self.project / "results/runs").symlink_to(directory)
-            self.command("run", "--task", "decay", expected=1)
-            self.assertEqual(list(Path(directory).iterdir()), [])
-
     def test_configure_and_profile_dry_runs_never_write(self):
         before = self.snapshot()
-        self.assertEqual(self.cli("init", "--profile", "numerical", "--dry-run"), 0)
+        self.assertEqual(self.cli("init", "--profile", "core", "--dry-run"), 0)
         self.assertEqual(before, self.snapshot())
-        self.assertEqual(self.cli("init", "--profile", "numerical"), 0)
+        self.assertEqual(self.cli("init", "--profile", "core"), 0)
         before = self.snapshot()
-        self.assertEqual(self.cli("configure", "--disable", "numerics", "--dry-run"), 0)
+        self.assertEqual(self.cli("configure", "--enable", "bibliography", "--dry-run"), 0)
         self.assertEqual(before, self.snapshot())
-
-    def test_notes_only_edits_do_not_run_numerical_checks_or_require_fresh_results(self):
-        self.example()
-        path = self.project / "notes/session-state.md"
-        path.write_text(path.read_text() + "\nA new question.\n")
-        plan = json.loads(self.command("plan", "--files", "notes/session-state.md", "--json").stdout)
-        self.assertEqual(plan["research_modules"], ["notes"])
-        result = self.command("validate", "--files", "notes/session-state.md")
-        self.assertNotIn("check_decay.py", result.stdout)
-        self.assertEqual(self.records(), [])
 
 
 if __name__ == "__main__":

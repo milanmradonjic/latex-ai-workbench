@@ -16,11 +16,11 @@ import sys
 import tempfile
 import traceback
 
-from core import VERSION, git_output, has_module, local_path
+from core import VERSION, git_output, local_path
 
 REPORTS = ".latex-ai/artifacts/issues"
 KEEP = 20
-TOOLS = ("make", "git", "latexmk", "pdflatex", "lualatex", "xelatex", "chktex", "bibtex", "biber", "pandoc")
+TOOLS = ("make", "git", "latexmk", "pdflatex", "lualatex", "xelatex", "chktex", "bibtex", "biber")
 
 
 def stamp():
@@ -118,7 +118,7 @@ def installation(project):
     """Installed files against the manifest baselines: modified or missing files explain upgrade conflicts.
 
     Only a whole file the installer owns can differ. A managed block sits inside a file the project owns,
-    editor settings are merged with the project's own, and seeded notes and manifests belong to the
+    editor settings are merged with the project's own, and seeded files belong to the
     project once created (it may edit or delete them), so none of those is compared. A Makefile, policy or
     ignore file installed whole may be added to around the installed text.
     """
@@ -180,22 +180,6 @@ def git_state(project):
         return None
 
 
-def runs(project, config):
-    if config is None or not has_module(config, "provenance") or not (has_module(config, "numerics") or has_module(config, "figures")):
-        return None
-    try:
-        import research
-        records = research.load_records(project, config)
-        summary = {}
-        for module in ("numerics", "figures"):
-            for name in research.tasks(project, config, module):
-                latest = research.latest_record(records, module, name)
-                summary[f"{module}/{name}"] = None if latest is None else {key: latest.get(key) for key in ("status", "started", "error", "warnings", "unchanged_outputs")}
-        return summary
-    except Exception as error:
-        return {"unavailable": f"{type(error).__name__}: {error}"}
-
-
 def collect(function, *args):
     """One evidence section; a defect in it is recorded in the report instead of stopping the report."""
     try:
@@ -215,7 +199,7 @@ def write_report(project, config, config_error, plan, note="", command=""):
               "privacy": "Local file; nothing is sent anywhere. It holds project paths and configuration, so review it before sharing.",
               "observed_and_expected": note, "command": command,
               "installation": collect(installation, project), "configuration": config, "configuration_error": config_error,
-              "plan": plan, "runs": collect(runs, project, config), "git": collect(git_state, project),
+              "plan": plan, "git": collect(git_state, project),
               "tools": collect(tool_versions), "recent_internal_faults": collect(recent_faults, project)}
     path = directory / f"report-{report['created']}.json"
     path.write_text(json.dumps(report, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")

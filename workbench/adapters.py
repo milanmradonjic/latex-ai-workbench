@@ -189,14 +189,9 @@ def make_adapter(current, config, project=None):
     # The build is verified before the style checker runs; one closing line says the workbench's part passed,
     # since an adapted `check` is assembled from Make prerequisites and may be followed by the project's own recipe.
     parts = ["latex-ai-integrity", "lint"]
-    if any(has_module(original_config, name) for name in guide.RESEARCH):
-        parts.append("latex-ai-research-check")
-    if has_module(original_config, "markdown"):
-        parts.append("latex-ai-md-check")
     result.extend(["latex-ai-integrity: latex-ai-build", "\t@$(PYTHON) .latex-ai/workbench.py verify",
                    "latex-ai-check-passed: " + " ".join(parts),
-                   '\t@echo "Workbench checks passed: build, integrity, lint' + (", research" if "latex-ai-research-check" in parts else "")
-                   + (", Markdown" if "latex-ai-md-check" in parts else "") + '"',
+                   '\t@echo "Workbench checks passed: build, integrity, lint"',
                    "check: latex-ai-check-passed"])
     if not phased:
         result.extend([".PHONY: latex-ai-build", "latex-ai-build:",
@@ -233,7 +228,7 @@ def make_adapter(current, config, project=None):
 
 def integration_text(name, upstream):
     if name == "AGENTS.md":
-        return "## Workbench integration\n\nRead `.latex-ai.json` for enabled modules and project commands. The Makefile is canonical.\nChoose validation by changed files: `make latex-ai-plan` previews the selection;\n`make latex-ai-validate` runs it. Ordinary docs, notes and policy edits do not\nneed a manuscript build unless consumed by LaTeX. Use task-specific tests for\nunrelated code; `make check` checks enabled modules, including full manuscript\nvalidation when LaTeX is enabled. Research execution is explicit through\n`make latex-ai-run TASK=name` / `make latex-ai-figure TASK=name`; freshness never runs these tasks.\n`make latex-ai-help` lists this project's commands by the names that work here: where the\nMakefile already had a target of a short name, that recipe was kept and the workbench\ncommand is the `latex-ai-` form. `make latex-ai-status` says where the project stands.\nA lint baseline (`.chktex-baseline.json`, written by `make latex-ai-lint-baseline`) lists style\nwarnings the owner accepted; creating or refreshing that baseline is the owner's decision.\nRespect stricter local validation policy. Inspect `git diff` / `git status`.\nGit mutations require explicit user approval; preserve all user changes.\nChanges reach the default branch (`main` or `master`) only through a pull request\nfrom a topic branch; never push, merge or fast-forward to it directly.\nAgents open pull requests; only the owner merges them.\nNever invent bibliography metadata or edit declared Zotero exports by hand.\nSuspected workbench defects (`INTERNAL ERROR`, or a result that\ncontradicts its inputs): do not edit `.latex-ai/` or weaken a check; capture\nevidence with `make latex-ai-issue ISSUE_NOTE=\"observed ... expected ...\"` and tell the user.\n"
+        return "## Workbench integration\n\nRead `.latex-ai.json` for enabled modules and project commands. The Makefile is canonical.\nChoose validation by changed files: `make latex-ai-plan` previews the selection;\n`make latex-ai-validate` runs it. Ordinary docs, notes and policy edits do not\nneed a manuscript build unless consumed by LaTeX. Use task-specific tests for\nunrelated code; `make check` checks enabled modules, including full manuscript\nvalidation when LaTeX is enabled.\n`make latex-ai-help` lists this project's commands by the names that work here: where the\nMakefile already had a target of a short name, that recipe was kept and the workbench\ncommand is the `latex-ai-` form. `make latex-ai-status` says where the project stands.\nA lint baseline (`.chktex-baseline.json`, written by `make latex-ai-lint-baseline`) lists style\nwarnings the owner accepted; creating or refreshing that baseline is the owner's decision.\nRespect stricter local validation policy. Inspect `git diff` / `git status`.\nGit mutations require explicit user approval; preserve all user changes.\nChanges reach the default branch (`main` or `master`) only through a pull request\nfrom a topic branch; never push, merge or fast-forward to it directly.\nAgents open pull requests; only the owner merges them.\nNever invent bibliography metadata or edit declared Zotero exports by hand.\nSuspected workbench defects (`INTERNAL ERROR`, or a result that\ncontradicts its inputs): do not edit `.latex-ai/` or weaken a check; capture\nevidence with `make latex-ai-issue ISSUE_NOTE=\"observed ... expected ...\"` and tell the user.\n"
     if name == "CLAUDE.md":
         return "Read and follow `AGENTS.md`, the canonical semantic policy.\n"
     return upstream
@@ -244,14 +239,12 @@ def module_make_targets(config, existing=(), omitted=()):
     name, plus the short alias where the project has no target of that name. Guidance, hints and CI can therefore
     always name a command that reaches the workbench, and no command is named in a second place."""
     commands = [command for command in guide.COMMANDS if command.reserved and command.reserved not in omitted and guide.enabled(command, config)]
-    # TASK reaches recipes through the environment ("$$TASK"), never as Make text
-    # spliced into a shell line, so its value cannot be interpreted as shell syntax.
-    result = ["export TASK"] if any(command.selects == "task" for command in commands) else []
-    result.append("export ISSUE_NOTE ISSUE_COMMAND")  # the same rule for the issue report's free text
-    result.append("export DOC TOPIC")  # selectors, handled like TASK
+    # DOC and TOPIC reach recipes through the environment ("$$DOC"), never as Make text
+    # spliced into a shell line, so their value cannot be interpreted as shell syntax.
+    result = ["export ISSUE_NOTE ISSUE_COMMAND"]  # the same rule for the issue report's free text
+    result.append("export DOC TOPIC")  # selectors
     for command in commands:
         result.extend([f".PHONY: {command.reserved}", f"{command.reserved}:"])
-        # An empty TASK is answered by the runtime, which can name the declared tasks.
         result.append(f"\t@$(PYTHON) .latex-ai/workbench.py {command.action}{RECIPE_ARGUMENTS[command.selects]}")
         if command.short not in existing:
             result.extend([f".PHONY: {command.short}", f"{command.short}: {command.reserved}"])
@@ -259,7 +252,7 @@ def module_make_targets(config, existing=(), omitted=()):
 
 
 def core_makefile(config):
-    return "# Project-local core checks; research execution is explicit.\nPYTHON ?= python3\n.DEFAULT_GOAL := check\n.PHONY: check\ncheck:\n\t@$(PYTHON) .latex-ai/workbench.py check\n"
+    return "# Project-local core checks.\nPYTHON ?= python3\n.DEFAULT_GOAL := check\n.PHONY: check\ncheck:\n\t@$(PYTHON) .latex-ai/workbench.py check\n"
 
 
 def core_make_adapter(current, config, project=None):
@@ -272,7 +265,7 @@ def core_make_adapter(current, config, project=None):
 
 def core_workflow(config):
     disabled = "    if: ${{ false }}\n" if not integrations(config)["ci"].get("enabled", False) else ""
-    return """name: Research AI Workbench
+    return """name: AI Workbench
 on:
   push:
   pull_request:
@@ -294,18 +287,7 @@ jobs:
         run: python3 -B .latex-ai/workbench.py plan --github-output "$GITHUB_OUTPUT"
       - name: Check changed files and policy
         run: python3 -B .latex-ai/workbench.py validate --files-only
-""" + markdown_ci(config) + ci_host_checks(config)
-
-
-def markdown_ci(config):
-    return """      - name: Install Markdown check tool
-        if: steps.plan.outputs.markdown == 'true' || steps.plan.outputs.unit == 'true'
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends pandoc
-"""
-
-
-def research_ci(config):
-    return ci_action("research", config) if any(has_module(config, name) for name in guide.RESEARCH) else ""
+""" + ci_host_checks(config)
 
 
 def document_workflow(config):
@@ -334,9 +316,8 @@ jobs:
         run: python3 -B .latex-ai/workbench.py plan --github-output "$GITHUB_OUTPUT"
       - name: Check changed files and policy
         run: python3 -B .latex-ai/workbench.py validate --files-only
-""" + markdown_ci(config)
+"""
     result += ci_host_checks(config)
-    pandoc = " pandoc" if has_module(config, "markdown") else ""
     result += ("" if not package_routed(config) else
                "      - name: Test compiler portability\n"
                "        if: steps.plan.outputs.check_portability == 'true'\n"
@@ -345,14 +326,14 @@ jobs:
                f"          texlive_version: {ci.get('texlive_version', '2026')}\n"
                "          os: debian\n          run: |\n"
                "            apt-get update -qq\n"
-               f"            apt-get install -y --no-install-recommends python3 make{pandoc}\n"
+               f"            apt-get install -y --no-install-recommends python3 make\n"
                f"            {ci_command('portability', config)}\n")
     result += ("      - name: Check project Make rules\n        id: project_check\n"
                "        if: ${{ !cancelled() && steps.plan.outcome == 'success' && steps.plan.outputs.check_full == 'true' && steps.plan.outputs.project_check == 'true' }}\n"
                "        uses: xu-cheng/texlive-action@v3\n        with:\n"
                f"          texlive_version: {ci.get('texlive_version', '2026')}\n          os: debian\n          run: |\n"
                "            apt-get update -qq\n"
-               f"            apt-get install -y --no-install-recommends python3 make{pandoc}\n"
+               f"            apt-get install -y --no-install-recommends python3 make\n"
                "            make check\n")
     if ci.get('pdf_artifact', False):
         # Keep verification/export in the TeX container that owns the compiler
@@ -366,7 +347,7 @@ jobs:
                    f"        if: {individual}\n        uses: xu-cheng/texlive-action@v3\n        with:\n"
                    f"          texlive_version: {ci.get('texlive_version', '2026')}\n          os: debian\n          run: |\n"
                    "            apt-get update -qq\n"
-                   f"            apt-get install -y --no-install-recommends python3 make{pandoc}\n"
+                   f"            apt-get install -y --no-install-recommends python3 make\n"
                    f"            make latex-ai-document-check DOC={document.name}\n")
         if ci.get("pdf_artifact", False):
             export = ("${{ !cancelled() && steps.plan.outcome == 'success' && contains(fromJSON(steps.plan.outputs.document_ids), '"

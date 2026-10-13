@@ -225,7 +225,7 @@ class Repairs(ProjectCase):
             "latex": lambda c: c["modules"]["latex"].update(documnts={}),
             "core": lambda c: c.update(moduls={}),
             "integrations": lambda c: c.update(integrations={"cii": {}}),
-            "module": lambda c: c["modules"].update(notes={"pth": "notes"}),
+            "module": lambda c: c["modules"].update(bibliography={"pth": "refs.bib"}),
             "validation": lambda c: c.update(validation={"manuscript_input": []}),
         }
         for label, edit in cases.items():

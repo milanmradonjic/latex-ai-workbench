@@ -18,7 +18,6 @@ that exist in this project, and `make latex-ai-guide` explains how the parts fit
 | Interrupted installation | Inspect `.latex-ai/transaction.json`, then use installer `recover`. Recovery preserves subsequent local edits. |
 | Upgrade conflict | Inspect the dry-run diff and reconcile the named property or managed block. Never delete the manifest to force an overwrite. |
 | Unsupported configuration schema | Workbench 3 accepts schema 3 only. Preserve authored files and prepare a reviewed current configuration; there is no migration flag. |
-| Scientific result is stale | Inspect freshness and explicitly run the indicated producer/task. Validation never launches it. |
 | Internal error or false success | Capture `make latex-ai-issue ISSUE_NOTE="observed ... expected ..."` and report it; distrust the affected verdict. |
 
 For custom builders, check `output_dir` and that the command writes both PDF and
@@ -65,5 +64,4 @@ it records a new attempt and handles interrupted output recovery.
 These inspection commands are POSIX guidance. macOS acceptance and Windows
 process behavior still require platform testing.
 
-Agent permissions are soft guardrails. Freshness, receipts, and evidence links
-do not replace scientific review.
+Agent permissions are soft guardrails. Receipts do not replace scientific review.

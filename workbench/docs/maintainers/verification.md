@@ -186,7 +186,7 @@ and output snapshots, including both parameter values. An initial manuscript
 draft failed ChkTeX's caption/label whitespace check; the source was corrected
 and lint remained enabled. Its failed log is retained in the pilot.
 
-The practical follow-up is the [research loop guide](../research-loop.md). These
+The practical follow-up is the research loop guide. These
 documentation updates were committed locally on the owner's instruction; the
 published runtime implementation is unchanged. Validation of the synthetic model
 establishes this tested workflow and its specified numerical checks, not

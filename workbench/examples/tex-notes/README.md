@@ -1,8 +1,7 @@
-# Mixed Markdown and TeX notes
+# Several TeX documents in one project
 
 This synthetic example has a paper, an independent TeX derivation, a TeX
-notebook, a shared macro file and a Markdown navigation index. It does not need
-Pandoc because the optional Markdown rendering module is not enabled.
+notebook, a shared macro file and a Markdown navigation index.
 
 Copy this directory into a fresh project, then run:
 

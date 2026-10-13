@@ -101,9 +101,8 @@ A document whose last build failed or was interrupted stays selected until it
 builds, even when its sources are back to the committed text.
 
 With schema-3 named documents, validation checks only the selected documents.
-Selected research and Markdown checks stay explicit in the shared action list
-when full TeX validation runs as individual document checks. A project-wide
-`make check` already covers enabled modules and subsumes those actions.
+A project-wide `make check` already covers enabled modules and subsumes the
+selected bibliography check.
 If the project's own Makefile gives `check` prerequisites or a recipe of its own
 (outside the workbench block), `make validate` runs `make check` instead, so
 those project-owned checks are never skipped. The JSON plan includes
@@ -138,16 +137,11 @@ Without LaTeX, `make check` applies the same file checks to every ordinary
 project file: Git's view (tracked plus untracked and not ignored, so
 `.gitignore` applies) when available, otherwise a directory walk. Both skip VCS
 and workbench state, caches, `node_modules`, installed packages
-(`site-packages`), Python virtual/conda environments (detected by `pyvenv.cfg` or
-`conda-meta`, whatever the directory is called) and the run archive.
+(`site-packages`) and Python virtual/conda environments (detected by `pyvenv.cfg` or
+`conda-meta`, whatever the directory is called).
 
-With the optional [Markdown module](markdown.md) enabled, declared notes use
-Pandoc for local/reference-style links, Markdown anchors and citation-key checks.
-Validation checks that document set after project changes so incoming links also
-catch deleted targets. Planning requires no Pandoc invocation; validation does
-not render HTML or run numerical snippets. Other Markdown retains the core's
-lightweight inline-link check. Missing comparison history checks all enabled
-modules. The plan's `markdown` flag also controls CI's Pandoc/Markdown step.
+Markdown files get the core's lightweight inline-link check. Missing comparison history
+checks all enabled modules.
 
 ## CI
 
@@ -166,38 +160,25 @@ upload. CI selection does not affect local save behavior.
 
 To run every selected check regardless of what changed (for example to confirm a release after
 pushes that each selected only part of it), start the workflow by hand: **Actions, LaTeX AI
-Workbench (Research AI Workbench in a project without LaTeX), Run workflow** (or `gh workflow run`, naming the workflow file). A manual run has no
+Workbench (AI Workbench in a project without LaTeX), Run workflow** (or `gh workflow run`, naming the workflow file). A manual run has no
 previous revision, so the comparison base is empty and the runtime falls back to full checks, the
 same as for a branch's first push. Ordinary pushes stay change-aware.
 
 ## Optional modules
 
 A disabled module is never selected. Missing comparison history selects
-all enabled checks, without introducing a TeX dependency into notes/numerics-only
-projects. Module/control changes select their relevant full checks; package
+all enabled checks, without introducing a TeX dependency into projects
+without LaTeX. Module/control changes select their relevant full checks; package
 compiler portability is selected only in a LaTeX-enabled distribution project.
 
-Research manifests declare file dependencies and check cost. Changes to a task's
-inputs/outputs select its module's cheap checks and freshness (when enabled).
-Notes-only edits select notes structure/file checks; they do not run scientific
-checks or require previously generated results to be current. Claims-only edits
-check claim structure/links, and so do changes or deletions of a file cited as
-evidence by any claim. Core routing includes `research_modules` so local
-validation and CI's `make latex-ai-research-validate` use the same selection. Explicit
-`make research-check` checks all enabled research modules.
-
-`make run TASK=name` and `make figure TASK=name` are execution commands and are
-never invoked by validation/freshness. A stale report fails a selected check and
-leaves recomputation to an explicit task command. No new filesystem watcher or
-save hook is installed. See [module configuration](modules.md) and
-[records/freshness](research.md) for the limits of declared dependency checks.
+No filesystem watcher or save hook is installed. See [module configuration](modules.md).
 
 
 ## Local and CI execution contract
 
 The JSON plan now includes an ordered `actions` list. The shared action table
 in `core.py` defines package tests, compiler portability, full project checks,
-and selected bibliography/research/Markdown checks. GitHub outputs named
+and the selected bibliography check. GitHub outputs named
 `check_<action>` select those same actions; the original routing booleans remain
 available for tool installation and artifact decisions. Full checks subsume the
 individual module checks, preventing duplicate execution. Package unit tests and

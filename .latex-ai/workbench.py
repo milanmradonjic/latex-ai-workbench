@@ -85,16 +85,6 @@ def bibliography_checks(project, config, document=None):
     return rows
 
 
-def research_enabled(config):
-    return bool(module_names(config, "research"))
-
-
-def research_checks(project, config, cheap=True, modules=None):
-    if research_enabled(config):
-        import research
-        research.inspect(project, config, run_checks=cheap, modules=modules)
-
-
 def document_checks(project, config, names=None):
     targets = [resolve(config, name) for name in names] if names is not None else specifications(config)
     rows, failures, hints = [], [], []
@@ -122,18 +112,13 @@ def document_checks(project, config, names=None):
 def full_check(project, config, documents=None):
     config = effective_config(config)
     results = []
-    if has_module(config, "markdown"):
-        import markdown
-        markdown.check(project, config)
-    research_checks(project, config)
     if has_module(config, "latex"):
         results = document_checks(project, config, documents)
     elif has_module(config, "bibliography"):
         bibliography_check(project, document_settings(config))
-    # Include all ordinary files for a no-TeX full check; skip generated/run trees.
+    # Include all ordinary files for a no-TeX full check; skip generated trees.
     if not has_module(config, "latex"):
-        provenance = local_path(project, module_config(config, "provenance")["path"]) if has_module(config, "provenance") else None
-        file_checks(project, {"paths": project_files(project, provenance), "policy": True, "full": True})
+        file_checks(project, {"paths": project_files(project), "policy": True, "full": True})
     print("Full check passed: " + (", ".join(name for name in MODULES if has_module(config, name)) or "core files and policy"))
     return results
 
@@ -143,13 +128,12 @@ def environment_root(path):
     return (path / "pyvenv.cfg").is_file() or (path / "conda-meta").is_dir()
 
 
-def project_files(project, provenance=None):
+def project_files(project):
     """Ordinary files of a project for a full check.
 
     Git's view (tracked plus untracked and not ignored) honours .gitignore;
-    without Git a walk is used. Both skip GENERATED_TREES, environments and the run archive.
+    without Git a walk is used. Both skip GENERATED_TREES and environments.
     """
-    archive = provenance.relative_to(project).as_posix() + "/" if provenance else None
     try:
         names = sorted(set(git_names(project, "ls-files", "-z") + git_names(project, "ls-files", "--others", "--exclude-standard", "-z")))
     except (OSError, WorkbenchError):
@@ -167,13 +151,12 @@ def project_files(project, provenance=None):
         return [name for name in names
                 if not set(PurePosixPath(name).parts[:-1]) & GENERATED_TREES
                 and not inside_environment(PurePosixPath(name).parts)
-                and not (archive and name.startswith(archive))
                 and not (project / name).is_symlink()]
     names = []
     for directory, folders, files in os.walk(project, followlinks=False):
         here = Path(directory)
         folders[:] = [n for n in folders if n not in GENERATED_TREES and not (here / n).is_symlink()
-                      and not environment_root(here / n) and (here / n).resolve() != provenance]
+                      and not environment_root(here / n)]
         names.extend((here / n).relative_to(project).as_posix() for n in files if not (here / n).is_symlink())
     return names
 
@@ -297,7 +280,7 @@ def validation_plan(project, config, paths=None, base=None):
     templates, skills = (f"{directory}/templates/", f"{directory}/skills/") if package else ("\0", "\0")
     plan = {"paths": paths, "files": bool(paths), "policy": False, "package": directory,
             "unit": False, "portability": False, "manuscript": False,
-            "fallback": fallback, "reasons": {}, "research": False, "bibliography": False, "research_modules": [], "markdown": False}
+            "fallback": fallback, "reasons": {}, "bibliography": False}
     for name in paths:
         suffix = Path(name).suffix.lower()
         control = (Path(name).name in {"Makefile", "makefile", "GNUmakefile", "latexmkrc", ".latexmkrc", ".chktexrc", ".chktex-baseline.json"}
@@ -308,7 +291,7 @@ def validation_plan(project, config, paths=None, base=None):
         declared = input_identity(project, name) in dependency_ids or matches(name, validation.get("manuscript_inputs", []))
         ignored = matches(name, validation.get("ignore", []))  # but never what the build reads or the owner declared: those come first
         if control:
-            plan.update(manuscript=has_module(config, "latex"), unit=package, portability=package and has_module(config, "latex"), policy=True, research=research_enabled(config), bibliography=has_module(config, "bibliography"))
+            plan.update(manuscript=has_module(config, "latex"), unit=package, portability=package and has_module(config, "latex"), policy=True, bibliography=has_module(config, "bibliography"))
             reason = "build/configuration: full validation"
         elif declared or (not ignored and suffix in MANUSCRIPT_SUFFIXES):
             plan["manuscript"] = has_module(config, "latex")
@@ -338,18 +321,8 @@ def validation_plan(project, config, paths=None, base=None):
                 names.update(target.view.get("bibliography", {}).get("files", []))
         if {path_name(project, name) for name in names} & set(paths):
             plan["bibliography"] = True
-    if research_enabled(config):
-        import research
-        plan["research_modules"] = research.affected(project, config, paths)
-        plan["research"] |= bool(plan["research_modules"])
     if fallback:
-        plan.update(manuscript=has_module(config, "latex"), unit=package, portability=package and has_module(config, "latex"), policy=True, research=research_enabled(config), bibliography=has_module(config, "bibliography"))
-    if fallback or any(reason == "build/configuration: full validation" for reason in plan["reasons"].values()):
-        plan["research_modules"] = [name for name in ("notes", "numerics", "figures", "freshness", "claims") if has_module(config, name)]
-    if has_module(config, "markdown"):
-        # Any ordinary project file can be the target of a Markdown link. Check
-        # the declared document set after changes, including target deletion.
-        plan["markdown"] = bool(paths) or bool(fallback)
+        plan.update(manuscript=has_module(config, "latex"), unit=package, portability=package and has_module(config, "latex"), policy=True, bibliography=has_module(config, "bibliography"))
     selected_documents = set()
     document_reasons = {}
     if has_module(config, "latex"):
@@ -400,11 +373,6 @@ def broken_markdown_link(project, path, text):
 
 
 def file_checks(project, plan):
-    config = load_config(project) if (project / CONFIG).is_file() else {}
-    parsed_markdown = set()
-    if has_module(config, "markdown"):
-        import markdown
-        parsed_markdown = {p.relative_to(project).as_posix() for p in markdown.documents(project, config)}
     for name in plan["paths"]:
         try:
             path = local_path(project, name)
@@ -426,7 +394,7 @@ def file_checks(project, plan):
                 raise WorkbenchError(f"{name} is not valid JSON: {error}")
         if extension in {".py", ".rules"}:
             ast.parse(text, filename=name)
-        if extension in {".md", ".markdown"} and name not in parsed_markdown:
+        if extension in {".md", ".markdown"}:
             broken = broken_markdown_link(project, path, text)
             if broken is not None:
                 raise WorkbenchError(f"Broken local Markdown link in {name}: {broken}")
@@ -448,14 +416,8 @@ def validate_changes(project, plan, files_only=False):
         raise WorkbenchError("Recursive validation: make check must not depend on make validate")
     env = {**os.environ, "LATEX_AI_VALIDATE_ACTIVE": str(project), "PYTHONDONTWRITEBYTECODE": "1"}
     for action in validation_actions(plan):
-        # Research selection uses the exact supplied paths/base rather than rediscovering them.
-        if action == "research":
-            research_checks(project, load_config(project), modules=plan.get("research_modules"))
-        elif action == "bibliography":
+        if action == "bibliography":
             bibliography_checks(project, load_config(project))
-        elif action == "markdown":
-            import markdown
-            markdown.check(project, load_config(project))
         elif action == "full" and has_module(load_config(project), "latex"):
             if plan.get("project_check"):
                 # The project's own check rule may run anything; selecting documents would skip it.
@@ -527,16 +489,6 @@ def describe(error):
     return str(error) if isinstance(error, WorkbenchError) else f"{type(error).__name__}: {error}"
 
 
-def declared_names(project, config, module):
-    if not research_enabled(config):
-        return []
-    import research
-    try:
-        return list(research.tasks(project, config, module))
-    except EXPECTED:
-        return []  # a broken manifest is reported by the commands that read it
-
-
 def missing_config(project):
     return WorkbenchError(f"No {CONFIG} in {project}: no workbench installed here",
                           hint="run it from the project root (the folder with .latex-ai.json), or install with: " + guide.installer("init ."))
@@ -580,30 +532,17 @@ def orient(project, args):
     """help and status: read-only orientation that keeps working when the configuration is broken or missing."""
     config, problem = orientation_config(project)
     if args.action == "help":
-        declared = {}
-        if config is not None and research_enabled(config):
-            for action, module in (("run", "numerics"), ("figure", "figures")):
-                names = declared_names(project, config, module)
-                if names:
-                    declared[action] = names
-        print(guide.help_text(project, config, problem, declared))
+        print(guide.help_text(project, config, problem))
         return 0
-    plan = plan_error = fresh = fresh_error = None
+    plan = plan_error = None
     if config is not None:
         try:
             plan = validation_plan(project, config, args.files, args.base)
         except EXPECTED as error:
             plan_error = describe(error)
-        if has_module(config, "freshness"):
-            try:
-                import research
-                fresh = research.freshness(project, config)
-            except EXPECTED as error:
-                fresh_error = describe(error)
     installed, git = diagnostics.installation(project), diagnostics.git_state(project)
     args.result = {"configuration": effective_config(config) if config else None, "configuration_error": problem,
-                   "installation": installed, "git": git, "validation_plan": plan, "plan_error": plan_error,
-                   "freshness": fresh, "freshness_error": fresh_error}
+                   "installation": installed, "git": git, "validation_plan": plan, "plan_error": plan_error}
     rows = None
     if config is not None and has_module(config, "latex"):
         from documents import report
@@ -611,7 +550,7 @@ def orient(project, args):
             rows = args.result["documents"] = report(project, config)
         except EXPECTED as error:
             plan_error = plan_error or describe(error)
-    print(guide.status_text(project, config, problem, installed, git, plan, plan_error, fresh, fresh_error, rows))
+    print(guide.status_text(project, config, problem, installed, git, plan, plan_error, rows))
     return 0
 
 
@@ -622,7 +561,6 @@ ACTIONS = commands.NAMES  # every action, from the registry
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=ACTIONS)
-    parser.add_argument("--task", help="Declared experiment/figure task name")
     parser.add_argument("--document", help="Named LaTeX document; omitted uses the default for document operations")
     parser.add_argument("--build-owner", type=int, help=argparse.SUPPRESS)
     parser.add_argument("--shell", help=argparse.SUPPRESS)
@@ -630,12 +568,10 @@ def main():
     parser.add_argument("--topic", default="", help="guide: show one part of the guide (default: the front page)")
     parser.add_argument("--note", default="", help="issue: what you observed and what you expected")
     parser.add_argument("--command", dest="failed_command", default="", help="issue: the command that misbehaved")
-    parser.add_argument("--changed", action="store_true", help="Select research checks by changed files")
-    parser.add_argument("--expensive-checks", action="store_true", help="Also execute expensive checks during an explicit run/figure command")
     parser.add_argument("--project", type=Path, default=Path.cwd(), help="Project root (default: current directory); an installed runtime belongs to its own project")
     parser.add_argument("--base", default=os.environ.get("LATEX_AI_BASE"), help="Git revision to compare; default HEAD plus local/untracked changes")
     parser.add_argument("--files", nargs="*", help="Explicit changed paths, including deleted paths")
-    parser.add_argument("--json", action="store_true", help="Print structured results; plan/modules/freshness retain their native JSON formats")
+    parser.add_argument("--json", action="store_true", help="Print structured results; plan/modules retain their native JSON formats")
     parser.add_argument("--github-output", type=Path, help="Append boolean routing outputs for GitHub Actions")
     parser.add_argument("--files-only", action="store_true", help="Run lightweight file/policy checks only (CI runs selected jobs separately)")
     args = parser.parse_args()
@@ -707,16 +643,10 @@ def selected_checks(project, config, args):
     if args.json:
         print(json.dumps(plan, indent=2))
     else:
-        selected = ", ".join(key for key in ("files", "policy", "unit", "portability", "manuscript", "bibliography", "research", "markdown") if plan[key])
+        selected = ", ".join(key for key in ("files", "policy", "unit", "portability", "manuscript", "bibliography") if plan[key])
         print("Selected checks: " + (selected or "none (no changes; use make check for a full manuscript check)"))
-        # Run records arrive by the dozen with every run and all route alike: one line for the archive.
-        archive = module_config(config, "provenance")["path"].rstrip("/") + "/" if has_module(config, "provenance") else None
-        records = [name for name in plan["reasons"] if archive and name.startswith(archive)]
         for name, reason in plan["reasons"].items():
-            if name not in records:
-                print(f"  {name}: {reason}")
-        if records:
-            print(f"  {archive}: {len(records)} run-record file(s): {plan['reasons'][records[0]]}")
+            print(f"  {name}: {reason}")
         if plan["documents"]:
             print("Documents: " + ", ".join(plan["documents"]))
             for name in plan["documents"]:
@@ -729,7 +659,7 @@ def selected_checks(project, config, args):
                   f"To check one document use make {guide.command_name(project, 'document-check') or 'latex-ai-document-check'} DOC={os.environ['DOC']}")
     if args.github_output:
         with args.github_output.open("a", encoding="utf-8") as stream:
-            for key in ("unit", "portability", "manuscript", "bibliography", "research", "markdown"):
+            for key in ("unit", "portability", "manuscript", "bibliography"):
                 stream.write(f"{key}={str(plan[key]).lower()}\n")
             for action in VALIDATION_ACTIONS:
                 stream.write(f"check_{action}={str(action in plan['actions']).lower()}\n")
@@ -751,64 +681,6 @@ def do_modules(project, config, persisted, args):
     print(json.dumps(report, indent=2))
 
 
-def do_md_check(project, config, persisted, args):
-    import markdown
-    markdown.check(project, config)
-
-
-def do_md_render(project, config, persisted, args):
-    import markdown
-    markdown.render(project, config)
-
-
-def run_task(project, config, args, module):
-    import research
-    if not args.task:  # also how an empty TASK arrives from the Makefile
-        names = list(research.tasks(project, config, module))  # a broken manifest reports itself here
-        command = guide.command_name(project, args.action) or args.action
-        raise WorkbenchError(f"Set TASK to a declared {module} task (direct use: --task NAME)",
-                             hint=f"Declared {module} tasks: {', '.join(names)}. Example: make {command} TASK={names[0]}" if names
-                             else f"no {module} tasks are declared yet; declare one in {module_config(config, module)['manifest']} ({research.FORMAT})")
-    args.result = research.execute(project, config, module, args.task, args.expensive_checks)
-
-
-def do_run(project, config, persisted, args):
-    run_task(project, config, args, "numerics")
-
-
-def do_figure(project, config, persisted, args):
-    run_task(project, config, args, "figures")
-
-
-def do_freshness(project, config, persisted, args):
-    import research
-    report = research.freshness(project, config)
-    print(json.dumps(report, indent=2))
-    if any(item["status"] == "stale" for item in report):
-        return 1
-
-
-def do_claims_check(project, config, persisted, args):
-    import research
-    research.check_claims(project, config)
-
-
-def do_history(project, config, persisted, args):
-    import research
-    args.result = research.history(project, config)
-    if not args.result:
-        print("No archived runs")
-    for row in args.result:
-        print(f"{row['started']} {row['module']}/{row['task']}: {row['status']} — {row['record']}")
-
-
-def do_research_check(project, config, persisted, args):
-    if not research_enabled(config):
-        raise WorkbenchError("No research modules are enabled")
-    modules = validation_plan(project, config, args.files, args.base)["research_modules"] if args.changed else None
-    research_checks(project, config, modules=modules)
-
-
 def do_documents(project, config, persisted, args):
     from documents import report
     args.result = report(project, config)
@@ -823,7 +695,7 @@ def do_document_check(project, config, persisted, args):
 
 def do_check(project, config, persisted, args):
     checked = full_check(project, config, [args.document] if args.document else None)
-    args.result = {"modules": list(module_names(config)), "documents": checked, "expensive_checks_executed": False}
+    args.result = {"modules": list(module_names(config)), "documents": checked}
 
 
 def do_build(project, config, persisted, args):
@@ -891,9 +763,6 @@ def do_clean(project, config, persisted, args):
 def do_doctor(project, config, persisted, args):
     print(f"python: {sys.executable} ({sys.version.split()[0]}, the interpreter running this check)")
     required = required_tools(config)
-    if research_enabled(config):
-        import research
-        required += research.tools(project, config)
     missing = []
     for name in required:
         executable = str(project / name) if not Path(name).is_absolute() and "/" in name else name
@@ -910,10 +779,9 @@ def do_doctor(project, config, persisted, args):
         print("All required tools found")
     if missing:
         tex = [name for name in missing if name in {"latexmk", "pdflatex", "lualatex", "xelatex", "chktex", "bibtex", "biber"}]
-        others = [name for name in missing if name not in tex and name != "pandoc"]
+        others = [name for name in missing if name not in tex]
         advice = ([f"a TeX distribution (TeX Live, MacTeX, MiKTeX) provides {', '.join(tex)}"] if tex else []) + (
-            ["Pandoc 2.17 or later provides pandoc"] if "pandoc" in missing else []) + (
-            [f"{', '.join(others)}: needed by this project's commands or declared tasks"] if others else [])
+            [f"{', '.join(others)}: needed by this project's commands"] if others else [])
         raise WorkbenchError("Missing required tools: " + ", ".join(missing),
                              hint="; ".join(advice) + f". Install what is missing, then run make {guide.command_name(project, 'doctor') or 'doctor'} again")
 

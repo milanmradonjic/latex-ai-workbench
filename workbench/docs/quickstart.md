@@ -13,21 +13,20 @@ holds a paper:
 python3 /path/to/workbench/latex-ai-init init /path/to/project --dry-run
 ```
 
-For an empty folder, or a project without a manuscript, say what it is for:
+For a folder without a manuscript, that needs only the file checks and the agent rules:
 
 ```sh
-python3 /path/to/workbench/latex-ai-init init /path/to/project --profile notebook --dry-run
+python3 /path/to/workbench/latex-ai-init init /path/to/project --profile core --dry-run
 ```
 
 Add `--diff` to read the content of the files your project will own; the summary comes last.
 Then apply it by running the same command without `--dry-run`.
 
-The profiles are `core`, `notebook`, `tex-notebook`, `numerical`, `writing` and `research-paper`; an explicit
+The profiles are `core` and `writing`; an explicit
 `--modules` list also works. A LaTeX project needs its main `.tex` file to exist already: a single
 one is detected, otherwise pass `--root`. Without a profile, a paper gets the manuscript checks
 (and bibliography checks when it has one), plus VS Code settings and a GitHub Actions workflow;
-`--skip-editor` and `--no-ci` leave those two out. Notes, simulations and figures are not tracked
-unless you ask: `--profile research-paper` adds them, and a module can be turned on later. A paper
+`--skip-editor` and `--no-ci` leave those two out. A module can be turned on later. A paper
 with its own Makefile also needs the command that builds it, for example
 `--build-command '["make", "pdf"]'`; the installer says so, and reads the TeX engine from your
 build line when it names one.
@@ -84,23 +83,6 @@ files with the last commit, so it needs the project to be a Git repository with 
 commit; without one, every check is selected and `make status` says so. Commit the installed
 files first, so that later edits are compared with them. Run `make check` before sharing. Review with `git diff`; commits are yours to make, and agents are set up to ask first.
 See [daily use](daily-use.md).
-
-## 5. Research projects
-
-Nothing runs by accident, so start with `make status`: it lists results that are stale or were
-never produced, with the exact commands that refresh them. `make check` fails until they are
-current. Tasks are declared in the project's manifests (`experiments.json`,
-`figures/manifest.json`); a new manifest holds an example to copy, and the format is in
-[research commands](research.md). Every run leaves a record under `results/runs/`: commit the
-small ones or add an ignore rule, as that page discusses.
-
-```sh
-make run TASK=name       # one declared numerics task
-make figure TASK=name    # one declared figure
-make freshness           # current or stale, and why
-```
-
-See [research commands](research.md) and the [research loop](research-loop.md).
 
 ## When something goes wrong
 

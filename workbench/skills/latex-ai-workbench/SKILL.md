@@ -1,6 +1,6 @@
 ---
 name: latex-ai-workbench
-description: Bootstrap, audit, upgrade, edit, and review projects using the local modular LaTeX AI Workbench. Use for its manuscript, notes, numerical and figure workflows; follow enabled modules, canonical Make commands, provenance and project policy. Preserve human approval for Git mutations.
+description: Bootstrap, audit, upgrade, edit, and review projects using the local modular LaTeX AI Workbench. Use for its manuscript workflows; follow enabled modules, canonical Make commands and project policy. Preserve human approval for Git mutations.
 ---
 
 # LaTeX AI Workbench operating skill
@@ -34,37 +34,22 @@ For committed review changes use `LATEX_AI_BASE=<verified revision>`; for a full
 manuscript check use `make check`. Read the package's
 [validation guide](../../docs/validation.md) for comparison and CI behavior.
 
-## Optional research modules
+## Named documents and modules
 
-For schema-3 named documents, TeX notebook setup and mixed-format note entry
-points, read [TeX notes](../../docs/tex-notes.md). `make check` covers every declared
+For schema-3 named documents, read [TeX notes](../../docs/tex-notes.md). `make check` covers every declared
 document. Use `make latex-ai-document-check DOC=NAME` for one document and
-`make latex-ai-pdf-artifact DOC=NAME` for its verified export. Entry-point TeX
+`make latex-ai-pdf-artifact DOC=NAME` for its verified export. Included TeX
 fragments are checked through their consuming document. Preserve handwritten
 sources and existing build ownership; ambiguous overlapping
 adopted Make graphs require an explicit adapter.
 
 For profiles, module selection/disable, and adapter choices,
-read [modules](../../docs/modules.md). For experiment/figure tasks, provenance,
-freshness, notes and claim ledgers, read [research commands](../../docs/research.md).
-Use the project's declared paths and tool environment; LaTeX is optional.
+read [modules](../../docs/modules.md). Use the project's declared paths and tool environment; LaTeX is optional.
 
-Preview change-aware checks. Notes-only changes do not need scientific checks
-or regeneration. `make check` includes enabled cheap scientific checks/freshness
-and full manuscript checks only when LaTeX is enabled. Inspection/freshness must
-never invoke `make run` or `make figure`; execute a selected declared task only
-when requested or necessary within the user's authorized research task.
-Review complete dependency/environment declarations, model-specific observables,
-units, tolerances and convergence; input hashes and green checks do not prove
-scientific validity. Preserve records, outputs and notes when disabling modules.
-Do not infer that a matching evidence link establishes support for a claim.
-
-For an enabled Markdown module, read [Markdown checks and export](../../docs/markdown.md).
-Use `make md-check` for the declared note set and `make md-render` only for an
-explicitly needed HTML export. Pandoc owns parsing/identifiers/citations; do not
-add another parser or execution layer. Preserve source notes and handwritten
-TeX. Validation never renders or executes displayed code. Plain notes work
-without this module or Pandoc; do not silently enable it during an upgrade.
+Preview change-aware checks. Notes-only changes do not need a manuscript build.
+`make check` runs full manuscript checks only when LaTeX is enabled. Review units,
+tolerances and assumptions yourself; input hashes and green checks do not prove
+scientific validity. Preserve sources when disabling modules.
 
 ## Manuscript editing workflow (LaTeX enabled)
 

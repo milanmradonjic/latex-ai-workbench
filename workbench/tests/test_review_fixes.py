@@ -17,7 +17,6 @@ import bootstrap
 import core
 import schema
 import latex
-import research
 import runtime
 
 
@@ -33,114 +32,6 @@ class ReviewFixes(unittest.TestCase):
     def install(self, *arguments, env=None):
         return subprocess.run([sys.executable, "-B", str(bootstrap.PACKAGE / "latex-ai-init"),
                                "init", str(self.project), *arguments], env=env, capture_output=True, text=True)
-
-    def task_project(self, tasks, freshness=True):
-        config = {'schema_version': 3, 'modules': {'numerics': {}, 'provenance': {}}}
-        if freshness:
-            config["modules"]["freshness"] = {}
-        (self.project / core.CONFIG).write_text(json.dumps(config))
-        (self.project / "experiments.json").write_text(json.dumps({"schema_version": 1, "tasks": tasks}))
-        return config
-
-    def test_deleted_inferred_dependencies_select_and_fail_validation(self):
-        p = self.project
-        (p / "input").write_text("one")
-        for name in ("runner.py", "check.py", "env.py"):
-            (p / name).write_text("from pathlib import Path\nPath('result').write_text('result')\n")
-        task = {"command": [sys.executable, "runner.py"], "inputs": ["input"], "outputs": ["result"],
-                "checks": [{"command": [sys.executable, "check.py"], "cost": "cheap"}],
-                "environment": {"command": [sys.executable, "env.py"]}}
-        config = self.task_project({"calculate": task})
-        with contextlib.redirect_stdout(io.StringIO()):
-            research.execute(p, config, "numerics", "calculate")
-        for name in ("runner.py", "check.py", "env.py"):
-            with self.subTest(dependency=name):
-                original = (p / name).read_bytes()
-                (p / name).unlink()
-                plan = runtime.validation_plan(p, config, [name])
-                self.assertIn("research", plan["actions"])
-                with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(core.WorkbenchError):
-                    runtime.validate_changes(p, plan)
-                (p / name).write_bytes(original)
-
-    def test_deleted_extensionless_launcher_is_still_affected(self):
-        p = self.project
-        (p / "input").write_text("input")
-        (p / "runner").write_text("#!/usr/bin/env python3\n")
-        config = self.task_project({"run": {"command": ["./runner"], "inputs": ["input"], "outputs": ["out"]}})
-        (p / "runner").unlink()
-        self.assertIn("numerics", research.affected(p, config, ["runner"]))
-
-    def test_deleted_arbitrary_file_argument_is_preserved_from_history(self):
-        p = self.project
-        (p / "input").write_text("input")
-        (p / "settings").write_text("config")
-        (p / "runner.py").write_text("from pathlib import Path\nPath('out').write_text('result')\n")
-        config = self.task_project({"calculate": {"command": [sys.executable, "runner.py", "settings"],
-                                                "inputs": ["input"], "outputs": ["out"]}})
-        with contextlib.redirect_stdout(io.StringIO()):
-            research.execute(p, config, "numerics", "calculate")
-        (p / "settings").unlink()
-        self.assertIn("numerics", research.affected(p, config, ["settings"]))
-        self.assertEqual(research.freshness(p, config)[0]["status"], "stale")
-
-    def test_script_shaped_option_value_is_not_a_missing_dependency(self):
-        p = self.project
-        (p / "input").write_text("input")
-        (p / "runner.py").write_text("import argparse\nfrom pathlib import Path\np = argparse.ArgumentParser()\np.add_argument('--tag')\np.parse_args()\nPath('out').write_text('result')\n")
-        config = self.task_project({"calculate": {"command": [sys.executable, "runner.py", "--tag", "study.py"],
-                                                "inputs": ["input"], "outputs": ["out"]}})
-        with contextlib.redirect_stdout(io.StringIO()):
-            research.execute(p, config, "numerics", "calculate")
-        self.assertEqual(research.freshness(p, config)[0]["status"], "current")
-
-
-    def test_status_guidance_orders_cross_module_producers_first(self):
-        p = self.project
-        (p / "input").write_text("input")
-        config = self.task_project({"consumer": {"command": ["true"], "inputs": ["plot"], "outputs": ["out"]}})
-        config["modules"]["figures"] = {}
-        (p / core.CONFIG).write_text(json.dumps(config))
-        (p / "figures").mkdir()
-        (p / "figures/manifest.json").write_text(json.dumps({"schema_version": 1, "tasks": {
-            "producer": {"command": ["true"], "inputs": ["input"], "outputs": ["plot"]}}}))
-        self.assertEqual(self.install().returncode, 0)
-        result = subprocess.run(["make", "status"], cwd=p, capture_output=True, text=True)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        steps = result.stdout.split("Next:")[1]
-        self.assertLess(steps.index("make figure TASK=producer"), steps.index("make run TASK=consumer"))
-
-    def test_invalid_graph_fails_before_execution_with_or_without_freshness(self):
-        p = self.project
-        (p / "input").write_text("input")
-        command = [sys.executable, "-c", "from pathlib import Path; Path('out').write_text('written')"]
-        task = {"command": command, "inputs": ["input"], "outputs": ["out"]}
-        for freshness in (True, False):
-            with self.subTest(freshness=freshness):
-                config = self.task_project({"a": task, "b": task}, freshness)
-                with self.assertRaisesRegex(core.WorkbenchError, "Multiple producers"):
-                    research.execute(p, config, "numerics", "a")
-                self.assertFalse((p / "out").exists())
-                self.assertFalse((p / "results").exists())
-
-    def test_cycles_fail_before_execution_without_freshness(self):
-        p = self.project
-        (p / "one").write_text("old"); (p / "two").write_text("old")
-        tasks = {"a": {"command": ["true"], "inputs": ["two"], "outputs": ["one"]},
-                 "b": {"command": ["true"], "inputs": ["one"], "outputs": ["two"]}}
-        config = self.task_project(tasks, False)
-        with self.assertRaisesRegex(core.WorkbenchError, "Cyclic"):
-            research.execute(p, config, "numerics", "a")
-
-    def test_refresh_guidance_is_topological_across_modules(self):
-        p = self.project
-        (p / "input").write_text("input")
-        tasks = {"consumer": {"command": ["true"], "inputs": ["middle"], "outputs": ["last"]},
-                 "producer": {"command": ["true"], "inputs": ["input"], "outputs": ["middle"]}}
-        config = self.task_project(tasks)
-        (p / "Makefile").write_text("latex-ai-run:\n\t@true\nrun: latex-ai-run\n")
-        self.assertEqual(research.refresh_commands(p, research.freshness(p, config)),
-                         ["make run TASK=producer", "make run TASK=consumer"])
 
     def test_installation_and_audit_without_git(self):
         tools = self.project / "tools"; tools.mkdir()
@@ -158,30 +49,25 @@ class ReviewFixes(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Git is not installed", result.stdout)
 
-    def test_json_results_capture_child_output_and_preserve_exit_status(self):
+    def test_json_results_wrap_the_output_and_preserve_exit_status(self):
         p = self.project
-        self.assertEqual(self.install("--profile", "numerical").returncode, 0)
-        (p / "input").write_text("input")
-        task = {"command": [sys.executable, "-c", "import sys; from pathlib import Path; sys.stdout.buffer.write(b'child output \\xff\\n'); Path('out').write_text('value')"],
-                "inputs": ["input"], "outputs": ["out"]}
-        (p / "experiments.json").write_text(json.dumps({"schema_version": 1, "tasks": {"calculate": task}}))
-        for action, extra in (("run", ["--task", "calculate"]), ("status", []), ("check", [])):
-            result = subprocess.run([sys.executable, str(p / ".latex-ai/workbench.py"), action, "--project", str(p), "--json", *extra],
+        self.assertEqual(self.install("--profile", "core").returncode, 0)
+        for action in ("status", "check"):
+            result = subprocess.run([sys.executable, str(p / ".latex-ai/workbench.py"), action, "--project", str(p), "--json"],
                                     capture_output=True, text=True)
             data = json.loads(result.stdout)
             self.assertEqual(result.returncode, 0, data)
             self.assertEqual(data["exit_status"], 0)
+            self.assertEqual(data["status"], "success")
             self.assertIsInstance(data["result"], dict)
-            if action == "run":
-                self.assertIn("child output", data["stdout"])
-                self.assertEqual(data["result"]["status"], "success")
-        (p / "input").write_text("changed")
+        (p / "broken.json").write_text("{invalid}")
         result = subprocess.run([sys.executable, str(p / ".latex-ai/workbench.py"), "check", "--project", str(p), "--json"],
                                 capture_output=True, text=True)
         data = json.loads(result.stdout)
         self.assertEqual(result.returncode, 1)
         self.assertEqual(data["status"], "failed")
-        self.assertIn("Stale", data["stderr"])
+        self.assertEqual(data["exit_status"], 1)
+        self.assertIn("broken.json", data["stderr"])
 
     def test_portability_preflight_has_a_report_without_a_traceback(self):
         tools = self.project / "tools"; tools.mkdir()

@@ -1,29 +1,8 @@
 # TeX notes and multiple documents
 
-Schema 3 supports named LaTeX documents alongside TeX fragments and Markdown
-notes. Each declared document has its own configuration, compiler outputs,
+Schema 3 supports named LaTeX documents alongside TeX fragments. Each declared document has its own configuration, compiler outputs,
 verified build receipt and exported PDF. A fragment included by a document is
 checked with that document; it does not need its own document entry.
-
-## Start a TeX notebook
-
-Create the project directory, then preview and apply setup:
-
-```sh
-mkdir -p /path/to/notebook
-python3 /path/to/workbench/latex-ai-init init /path/to/notebook --profile tex-notebook --dry-run --diff
-python3 /path/to/workbench/latex-ai-init init /path/to/notebook --profile tex-notebook
-cd /path/to/notebook
-make latex-ai-doctor
-make check
-```
-
-This creates `notes/index.tex` as the `notebook` document and includes
-`notes/session-state.tex` as an editable fragment. The profile enables LaTeX and
-notes, without Pandoc. It uses pdfLaTeX unless you select `--engine lualatex` or
-`--engine xelatex`. ChkTeX is enabled by default. Editor and CI integration are
-explicit options (`--editor`, `--ci`). An unrelated existing Make `build` recipe
-is retained; the new notebook uses its own compiler wrapper.
 
 ## Add an independent note
 
@@ -86,14 +65,6 @@ merge field by field. Roots, custom build commands and input declarations belong
 to individual documents. Explicit `inputs` are project-relative paths/globs;
 each declaration must match an existing file when building. Declare resources
 that static traversal or the compiler recorder cannot discover.
-
-The notes module independently selects `path`, `index` and `session_state`.
-Entry-point paths resolve inside `path`; defaults remain `index.md` and
-`session-state.md`. They can have different formats, for example a Markdown
-index and a TeX session-state fragment. New `.md` and `.tex` files have seed
-templates; other text formats must already exist. Existing notes remain
-project-owned through upgrade and module disable/re-enable. LaTeX checks apply
-to declared documents; Markdown checks require the optional Markdown module.
 
 ## Validation and integrations
 

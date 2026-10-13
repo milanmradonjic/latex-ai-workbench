@@ -18,8 +18,8 @@ recovery journal to bypass ownership checks.
 Within the supported model, upgrades retain project configuration and enabled
 modules. Named document receipts and exported PDFs have one layout. Unsupported
 or malformed receipts require rebuilding; they never certify a PDF. Current
-installation journals, task manifests, and scientific records have independently
-versioned formats; their schema numbers are not project configuration versions.
+installation journals have an independently
+versioned format; their schema numbers are not project configuration versions.
 
 Current document receipts use format 3, which certifies recorder-context handling
 and protected first-build dependency discovery. Previous receipts are invalidated,

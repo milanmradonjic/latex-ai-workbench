@@ -215,28 +215,6 @@ class DocumentTests(unittest.TestCase):
         self.assertFalse((self.project / ".latex-ai/artifacts/documents/paper/build-receipt.json").exists())
         self.assertTrue((self.project / ".latex-ai/artifacts/documents/note/build-receipt.json").exists())
 
-    def test_tex_notebook_dry_run_seeds_no_files(self):
-        before = self.snapshot()
-        result = self.install("init", "--profile", "tex-notebook", "--dry-run", "--json")
-        self.assertEqual(before, self.snapshot())
-        self.assertFalse(json.loads(result.stdout)["applied"])
-        self.install("init", "--profile", "tex-notebook", "--no-lint")
-        self.assertIn("\\documentclass", (self.project / "notes/index.tex").read_text())
-        self.assertNotIn("\\documentclass", (self.project / "notes/session-state.tex").read_text())
-        self.assertNotIn("pandoc", self.command("doctor", expected=0 if shutil.which("latexmk") else 1).stdout)
-        self.command("research-check")
-
-    def test_mixed_note_entry_points_and_source_ownership(self):
-        config = self.configuration()
-        config["modules"]["notes"] = {"path": "notes", "index": "index.md", "session_state": "state.tex"}
-        (self.project / core.CONFIG).write_text(json.dumps(config))
-        self.install("init")
-        state = self.project / "notes/state.tex"
-        state.write_text("Project-owned session state.\n")
-        self.command("research-check")
-        self.install("upgrade")
-        self.assertEqual(state.read_text(), "Project-owned session state.\n")
-
     def test_notes_paths_cannot_escape_the_notes_directory(self):
         for name in ("../state.tex", "/tmp/state.tex", "", "../../.latex-ai/state.tex"):
             config = {"schema_version": 3, "modules": {"notes": {"session_state": name}}}
@@ -288,13 +266,6 @@ class DocumentTests(unittest.TestCase):
         result = self.command("build", "--document", "note", expected=1)
         self.assertIn("Missing declared document input", result.stderr)
 
-    def test_nested_note_index_links_to_the_actual_session_file(self):
-        config = {"schema_version": 3, "modules": {"notes": {"index": "sub/index.md", "session_state": "state.md"}}}
-        (self.project / core.CONFIG).write_text(json.dumps(config))
-        self.install("init")
-        self.assertIn("(../state.md)", (self.project / "notes/sub/index.md").read_text())
-        self.command("validate", "--files", "notes/sub/index.md")
-
     def test_fresh_disabled_documents_vendor_their_config_validator(self):
         config = self.configuration()
         saved = config["modules"].pop("latex")
@@ -339,14 +310,6 @@ class DocumentTests(unittest.TestCase):
                 values["documents"]["note"]["build_command"] = ["make", "check" if change == "recursive" else {}]
             with self.subTest(change=change), self.assertRaises(core.WorkbenchError):
                 schema.validate_config(self.project, config)
-
-    @unittest.skipUnless(shutil.which("latexmk") and shutil.which("pdflatex"), "real TeX tools required")
-    def test_tex_notebook_does_not_adopt_unrelated_existing_build(self):
-        (self.project / "Makefile").write_text(".PHONY: build\nbuild:\n\t@echo unrelated > unrelated-marker\n")
-        self.install("init", "--profile", "tex-notebook", "--no-lint")
-        self.make("latex-ai-build")
-        self.assertFalse((self.project / "unrelated-marker").exists())
-        self.assertTrue((self.project / ".latex-ai/artifacts/documents/notebook/build/index.pdf").exists())
 
     def test_adopted_multi_document_make_compiles_paper_once(self):
         config = self.configuration()

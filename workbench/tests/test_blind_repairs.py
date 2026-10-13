@@ -181,7 +181,7 @@ class BlindRepairTests(unittest.TestCase):
     def test_foreign_installed_runtime_reports_project_context_not_internal_fault(self):
         notebook = self.project / "notebook"
         notebook.mkdir()
-        self.install("init", str(notebook), "--profile", "notebook")
+        self.install("init", str(notebook), "--profile", "core")
         self.fixture()
         script = notebook / ".latex-ai/workbench.py"
         result = self.command(sys.executable, str(script), "status", "--json", expected=1)
@@ -222,22 +222,6 @@ class BlindRepairTests(unittest.TestCase):
         result = self.command("make", "latex-ai-bib-check")
         self.assertIn("paper: paper.bib", result.stdout)
         self.assertIn("note: note.bib", result.stdout)
-
-    def test_history_is_read_only_and_includes_disabled_task_archives(self):
-        config = {"schema_version": 3, "modules": {"provenance": {}}}
-        (self.project / core.CONFIG).write_text(json.dumps(config))
-        for index, status in enumerate(("success", "failed", "interrupted")):
-            path = self.project / f"results/runs/run-{index}/record.json"
-            path.parent.mkdir(parents=True)
-            path.write_text(json.dumps({"schema_version": 1, "module": "numerics", "task": "old-task", "started": f"2026-10-11T10:00:0{index}Z", "status": status, "inputs": {}, "outputs": {}}))
-        self.install("init", str(self.project))
-        before = {p.relative_to(self.project).as_posix(): p.read_bytes() for p in self.project.rglob("*") if p.is_file()}
-        result = self.command("make", "latex-ai-history")
-        self.assertIn("interrupted", result.stdout)
-        self.assertIn("results/runs/run-2/record.json", result.stdout)
-        data = json.loads(self.command(sys.executable, ".latex-ai/workbench.py", "history", "--json").stdout)
-        self.assertEqual([r["status"] for r in data["result"]], ["interrupted", "failed", "success"])
-        self.assertEqual(before, {p.relative_to(self.project).as_posix(): p.read_bytes() for p in self.project.rglob("*") if p.is_file()})
 
     def test_live_orphan_compiler_is_visible_in_document_status(self):
         config = self.fixture()

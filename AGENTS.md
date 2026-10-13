@@ -55,17 +55,9 @@ Use `LATEX_AI_BASE=<revision> make latex-ai-validate` to include already committ
 schema 3 checks every declared root. Document build/export commands accept
 `DOC=name`; without it they use the default. Included TeX fragments are inputs
 to their consuming documents, not independent build targets.
-Other modules run declared cheap checks and inspect freshness. `make latex-ai-modules`
-reports the selection. Scientific commands are explicit: `make latex-ai-run TASK=name`
-and `make latex-ai-figure TASK=name`; validation and freshness never launch a declared
-task. A project's own build command may still regenerate files it depends on; that is
-part of the build, and it leaves no run record.
-Freshness compares declared inputs/outputs; it does not establish scientific
-validity. Record complete input/environment dependencies and inspect scientific
-checks, assumptions and tolerances. Expensive checks require explicit execution.
-With Markdown enabled, `make latex-ai-md-check` checks declared notes, links, anchors and
-citation keys. `make latex-ai-md-render` explicitly exports local HTML. Validation never
-renders notes or executes displayed code; handwritten TeX remains authoritative.
+`make latex-ai-modules` reports the enabled modules. A project's own build command may
+still regenerate files it depends on; that is part of the build. The workbench does not
+establish scientific validity: inspect assumptions, units and tolerances yourself.
 
 After edits inspect `git diff` and `git status`, and report selected validation,
 results, relevant warnings, and unresolved issues. Diagnose
@@ -103,8 +95,7 @@ the same Make commands; CI builds exclusively from repository contents.
 
 The workbench is shared infrastructure. Its failures are not yours to hide, nor to repair in passing.
 
-- Ordinary outcomes are not defects: a stale freshness report, a failing scientific, Markdown
-  or lint check, a missing citation. Fix the work, not the checker.
+- Ordinary outcomes are not defects: a failing lint check, a missing citation. Fix the work, not the checker.
 - Treat as a suspected defect: `INTERNAL ERROR` output (the workbench exits 70, which `make`
   reports as `Error 70` while exiting 2 itself, so go by the label); a "current" or
   "success" result that contradicts the declared inputs or outputs; a check that passes or

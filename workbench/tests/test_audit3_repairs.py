@@ -119,7 +119,8 @@ class Audit3Repairs(unittest.TestCase):
         (self.project / 'main.tex').write_text(
             '\\documentclass{article}\n\\usepackage{verbatim}\n\\begin{document}\\verbatiminput{Makefile}\\end{document}\n')
         self.command('document-check', '--document', 'paper')
-        self.install('configure', '--enable', 'notes')
+        makefile = self.project / 'Makefile'
+        makefile.write_text(makefile.read_text().replace('# END LATEX AI WORKBENCH', '# a change inside the managed block\n# END LATEX AI WORKBENCH'))
         self.command('verify', '--document', 'paper', expected=1)
         self.command('artifact', '--document', 'paper', expected=1)
 

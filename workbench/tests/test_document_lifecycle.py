@@ -284,7 +284,9 @@ class DocumentLifecycleTests(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("latexmk") and shutil.which("pdflatex"), "real TeX tools required")
     def test_compiler_failure_names_the_tex_error(self):
-        self.install("init", "--profile", "tex-notebook", "--no-lint")
+        (self.project / "main.tex").write_text(SOURCE)
+        self.install("init", "--engine", "pdflatex", "--no-lint", "--no-ci", "--skip-editor")
+        (self.project / "notes").mkdir()
         (self.project / "notes/derivation.tex").write_text("\\documentclass{article}\n\\begin{document}\n\\undefinedfixturemacro\n\\end{document}\n")
         self.install("configure", "--document", "derivation", "--root", "notes/derivation.tex", "--no-lint")
         result = self.command("document-check", "--document", "derivation", expected=1)

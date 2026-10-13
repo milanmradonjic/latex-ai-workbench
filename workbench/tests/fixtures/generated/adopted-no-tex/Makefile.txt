@@ -3,7 +3,6 @@ PYTHON ?= python3
 latex-ai-core-check:
 	@$(PYTHON) .latex-ai/workbench.py check
 check: latex-ai-core-check
-export TASK
 export ISSUE_NOTE ISSUE_COMMAND
 export DOC TOPIC
 .PHONY: latex-ai-validate
@@ -41,31 +40,6 @@ latex-ai-guide-html:
 	@$(PYTHON) .latex-ai/workbench.py guide-html
 .PHONY: guide-html
 guide-html: latex-ai-guide-html
-.PHONY: latex-ai-run
-latex-ai-run:
-	@$(PYTHON) .latex-ai/workbench.py run --task "$$TASK"
-.PHONY: run
-run: latex-ai-run
-.PHONY: latex-ai-freshness
-latex-ai-freshness:
-	@$(PYTHON) .latex-ai/workbench.py freshness
-.PHONY: freshness
-freshness: latex-ai-freshness
-.PHONY: latex-ai-history
-latex-ai-history:
-	@$(PYTHON) .latex-ai/workbench.py history
-.PHONY: history
-history: latex-ai-history
-.PHONY: latex-ai-research-check
-latex-ai-research-check:
-	@$(PYTHON) .latex-ai/workbench.py research-check
-.PHONY: research-check
-research-check: latex-ai-research-check
-.PHONY: latex-ai-research-validate
-latex-ai-research-validate:
-	@$(PYTHON) .latex-ai/workbench.py research-check --changed
-.PHONY: research-validate
-research-validate: latex-ai-research-validate
 .PHONY: latex-ai-modules
 latex-ai-modules:
 	@$(PYTHON) .latex-ai/workbench.py modules

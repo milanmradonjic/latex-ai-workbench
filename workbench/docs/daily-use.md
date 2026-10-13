@@ -48,8 +48,7 @@ Use `make latex-ai-document-check DOC=NAME` to check one document and
 `make latex-ai-pdf-artifact DOC=NAME` to export its verified PDF. `make check`
 covers all declared documents. See [TeX notes](tex-notes.md).
 
-With provenance enabled, `make latex-ai-history` lists archived run attempts and
-their record paths without changing state. For live or abandoned builds, status
+For live or abandoned builds, status
 shows the owner and compiler groups; follow [recovery guidance](troubleshooting.md)
 before stopping processes. Use each project's own Makefile/runtime from its root.
 

@@ -18,10 +18,8 @@ sys.path.insert(0, str(PACKAGE))
 import bootstrap
 import commands
 import core
-import markdown
 import runtime
 import schema
-import task_graph
 from test_support import ProjectCase
 
 OLD_RECURSIVE_GOALS = {"latex-ai-build", "latex-ai-document-check", "latex-ai-validate", "check", "document-check", "validate"}
@@ -88,31 +86,6 @@ class GeneratedTrees(unittest.TestCase):
             for members in set_literals(path):
                 with self.subTest(module=path.name, members=sorted(members)):
                     self.assertFalse({".git", ".venv"} <= members or {".latex-ai", "node_modules"} <= members)
-
-    def test_the_markdown_walk_skips_them_all(self):
-        with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory).resolve()
-            for folder in ("notes", *sorted(core.GENERATED_TREES - {".git"})):
-                (project / folder).mkdir()
-                (project / folder / "page.md").write_text("# Page\n")
-            config = {"schema_version": 3, "modules": {"markdown": {"files": ["**/*.md"]}}}
-            self.assertEqual([path.relative_to(project).as_posix() for path in markdown.documents(project, config)], ["notes/page.md"])
-
-    def test_markdown_inputs_cannot_start_in_them(self):
-        with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory).resolve()
-            for folder in sorted(core.GENERATED_TREES):
-                config = {"schema_version": 3, "modules": {"markdown": {"files": [folder + "/*.md"]}}}
-                with self.subTest(folder=folder), self.assertRaisesRegex(schema.WorkbenchError, "generated/infrastructure trees"):
-                    schema.validate_config(project, config)
-
-    def test_task_paths_cannot_start_in_them(self):
-        with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory).resolve()
-            for folder in sorted(core.GENERATED_TREES):
-                data = {"schema_version": 1, "tasks": {"t": {"command": ["python3", "t.py"], "inputs": [folder + "/data.csv"], "outputs": ["out/r.csv"]}}}
-                with self.subTest(folder=folder), self.assertRaisesRegex(schema.WorkbenchError, "Reserved or non-file task path"):
-                    task_graph.checked_tasks(project, {"schema_version": 3, "modules": {"numerics": {}}}, data)
 
     def test_a_walk_without_git_skips_them(self):
         with tempfile.TemporaryDirectory() as directory:

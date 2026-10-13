@@ -1,5 +1,5 @@
 <!-- Generated from handbook.py by `make -C workbench handbook`; do not edit it by hand. -->
-# LaTeX AI Workbench 3.7.0: guide
+# LaTeX AI Workbench 4.0.0: guide
 
 This is the printable copy of the guide that `make guide` shows in a project and `make guide-html` writes as a web page. In a project the commands are shown under the names that work there.
 
@@ -25,7 +25,6 @@ Type commands in the project folder, the one that holds `.latex-ai.json`. If a c
 - [The everyday loop](#the-everyday-loop): What to run, in what order, while you work
 - [What runs when](#what-runs-when): Why `make validate` runs less than `make check`
 - [Document states](#document-states): What current, stale, failed, running and missing mean
-- [Numerical tasks and figures](#numerical-tasks-and-figures): How runs, results, figures and the paper depend on each other
 - [Command names](#command-names): Why a command can have two names, and the variables it takes
 
 **Do something**
@@ -37,7 +36,6 @@ Type commands in the project folder, the one that holds `.latex-ai.json`. If a c
 - [I see stale, failed or missing in the status. What now?](#i-see-stale-failed-or-missing-in-the-status-what-now): Find out why, rebuild that one document
 - [I already had a paper, and ChkTeX warnings fail the check](#i-already-had-a-paper-and-chktex-warnings-fail-the-check): Fix them, or record today's as accepted
 - [I want a second TeX document next to my paper](#i-want-a-second-tex-document-next-to-my-paper): Register another root file as a named document
-- [I want to run a numerical task and plot the result](#i-want-to-run-a-numerical-task-and-plot-the-result): Declare it, run it, draw it, see what is stale
 - [I want to turn a module on or off](#i-want-to-turn-a-module-on-or-off): Modules are optional capabilities; switch them with the installer
 - [I want to move to a newer release](#i-want-to-move-to-a-newer-release): Preview with the new package, read the plan, apply
 - [I want an AI assistant to work on this project](#i-want-an-ai-assistant-to-work-on-this-project): What to tell it, and what it will ask you
@@ -68,7 +66,6 @@ your project folder
 │ WHAT IT RECORDS: written by the commands                               │
 │   .latex-ai/artifacts/   build receipts, exported PDFs, reports        │
 │                          (Git ignores this folder)                     │
-│   results/runs/          one record per numerical run (if enabled)     │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -153,28 +150,6 @@ A build that is in progress shows as                       running
 
 > **Note.** An exported PDF (`make pdf-artifact`) is a copy. Rebuilding does not update it; export again.
 
-## Numerical tasks and figures
-
-```text
-experiments.json                  figures/manifest.json
-(tasks you declared)              (figures you declared)
-      │ make run TASK=x                 │ make figure TASK=y
-      ▼                                 ▼
-┌───────────┐         ┌───────────┐             ┌───────┐
-│  results  ├─feeds──▶│  figures  ├─included in▶│ paper │
-└─────┬─────┘         └───────────┘             └───────┘
-      │ every run leaves a record in results/runs/
-      ▼
-make freshness and make status say which results are stale and name the
-command that refreshes each. Nothing is ever run for you.
-```
-
-*Runs produce results, figures are drawn from results, and the paper includes figures.*
-
-Tasks are declared in manifest files: `experiments.json` for runs and `figures/manifest.json` for figures. A new manifest holds an example to copy, and the format is in docs/research.md in the workbench package.
-
-`make validate` and `make check` never start a run. They only fail while a result is stale and name the command that refreshes it. You decide when to run it.
-
 ## Command names
 
 ```text
@@ -193,7 +168,6 @@ Every workbench command has a long name that starts with `latex-ai-` and always 
 Some commands take a variable after the command, for example `make build DOC=notes`:
 
 - **`DOC=name`**: Choose a document. Without it, the default document is used.
-- **`TASK=name`**: Choose a declared numerical or figure task.
 - **`TOPIC=name`**: Choose a part of this guide, for example `make guide TOPIC=loop`.
 - **`ISSUE_NOTE="..."`**: What you saw and what you expected, for `make latex-ai-issue`.
 
@@ -207,7 +181,7 @@ Some commands take a variable after the command, for example `make build DOC=not
    python3 /path/to/workbench/latex-ai-init init /path/to/project \
        --dry-run --diff
    ```
-2. A folder with one main `.tex` file needs nothing more (with several, add `--root thesis.tex`). For an empty folder, or one without a manuscript, say what it is for: add `--profile notebook` (the others are `core`, `tex-notebook`, `numerical`, `writing` and `research-paper`).
+2. A folder with one main `.tex` file needs nothing more (with several, add `--root thesis.tex`). For an empty folder, or one without a manuscript, say what it is for: add `--profile core` (the other is `writing`).
 3. If the preview is right, run the same command without `--dry-run --diff`.
 4. Then, in the project folder:
 
@@ -354,27 +328,6 @@ ChkTeX warnings fail `make check`, and a paper that already exists usually has s
 
 > **Note.** Each document has its own build record and PDF. `make check` covers all of them, and `make build` without `DOC` uses the default document.
 
-## I want to run a numerical task and plot the result
-
-1. Declare the task in its manifest: `experiments.json` for runs, `figures/manifest.json` for figures. A new manifest holds an example to copy; the format is in docs/research.md in the workbench package.
-2. Run the task:
-
-   ```sh
-   make run TASK=name
-   ```
-3. Draw the figure from its results:
-
-   ```sh
-   make figure TASK=name
-   ```
-4. See which results are current and which are stale:
-
-   ```sh
-   make freshness
-   ```
-
-> **Note.** Nothing runs by itself. `make validate` and `make check` fail while a result is stale and name the command that refreshes it. These commands need the numerics and figures modules (topic `module`).
-
 ## I want to turn a module on or off
 
 `make help` lists the modules that are not enabled here and prints the command that enables one.
@@ -386,7 +339,7 @@ ChkTeX warnings fail `make check`, and a paper that already exists usually has s
        --enable NAME --dry-run --diff
    ```
 2. If the preview is what you want, run the same command without `--dry-run --diff`.
-3. To turn one off, use `--disable NAME` the same way. Your notes and run records are kept.
+3. To turn one off, use `--disable NAME` the same way. Your files are kept.
 
 > **Note.** `latex-ai-init` is a file in the workbench package, not a command on your PATH: run it as `python3 /path/to/workbench/latex-ai-init`.
 
@@ -454,22 +407,19 @@ docs/troubleshooting.md in the workbench package has a table of symptoms and the
 - **Baseline (lint)**: A recorded list of ChkTeX warnings you chose to accept. Only new warnings fail.
 - **Build receipt**: The record of one build: what was compiled, with which settings, from which file contents, producing which outputs. It is what lets the workbench say a PDF is current.
 - **Check and validate**: `make check` runs everything. `make validate` runs only what your changed files need.
-- **Claim**: A statement in your research tied to its evidence (the claims module).
 - **Configuration**: `.latex-ai.json`: which modules are on and which documents exist.
-- **Document**: A LaTeX file the workbench builds under a name of its own, with its own receipt and PDF. Your paper is one; notes can be more.
+- **Document**: A LaTeX file the workbench builds under a name of its own, with its own receipt and PDF. Your paper is one; a supplement or notes can be more.
 - **Doctor**: `make doctor` checks that the tools the project needs are installed.
-- **Evidence**: What the commands record about what happened: build receipts and run records. It does not prove that your science is right.
-- **Freshness**: Whether a result is still up to date with its inputs. A result that is not is stale.
+- **Evidence**: What the commands record about what happened: build receipts. It does not prove that your science is right.
 - **Installer**: `latex-ai-init`, a file in the workbench package that installs, upgrades, audits and reconfigures a project. Run it as `python3 /path/to/workbench/latex-ai-init`.
-- **Manifest**: Two kinds. The installation manifest `.latex-ai/installation.json` records what was installed. A task manifest declares your numerical runs or figures.
-- **Module**: An optional capability: latex, bibliography, notes, markdown, numerics, figures, provenance, freshness, claims.
+- **Manifest**: The installation manifest `.latex-ai/installation.json` records what was installed.
+- **Module**: An optional capability: latex, bibliography, markdown.
 - **Plan**: The preview of which checks your changes need (`make validation-plan`).
 - **Profile**: A starting choice of modules made at install time. It is not a lasting policy.
-- **Provenance**: The record kept of every numerical run, by default in `results/runs/`.
 - **Reserved name**: The long `latex-ai-` name of a command, which works in every project.
 - **Root**: The main `.tex` file of a document.
 - **Runtime**: The workbench code installed in `.latex-ai/`. It belongs to the workbench: do not edit it.
 - **Schema**: The version of the configuration format. Workbench 3 reads schema 3 only.
-- **Stale**: Out of date: a document whose sources or settings changed since its verified build, or a result whose inputs changed since it was produced.
+- **Stale**: Out of date: a document whose sources or settings changed since its verified build.
 - **Verified**: Said of a PDF whose build receipt matches the sources and settings as they are now.
 - **Workbench**: This tool: the commands, their checks and the records they keep.

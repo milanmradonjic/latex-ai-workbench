@@ -1,4 +1,4 @@
-# Project-local core checks; research execution is explicit.
+# Project-local core checks.
 PYTHON ?= python3
 .DEFAULT_GOAL := check
 .PHONY: check
