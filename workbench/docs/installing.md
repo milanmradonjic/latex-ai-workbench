@@ -1,4 +1,4 @@
-# Installing, auditing and limits
+# Installing and limits
 
 The full reference for putting the workbench into a project. For the short version, start with the [quickstart](quickstart.md).
 
@@ -29,25 +29,24 @@ For new projects choose `--profile core` or `writing`, or an explicit `--modules
 The editor adapter is opt-in for modular projects. Read
 [module configuration and profiles](modules.md).
 
-Every installation uses schema 3. Older project schemas are unsupported and are
-never automatically converted. Upgrades retain supported project choices. The reference
-uses LaTeX and bibliography.
+Every installation uses schema 3. Older project schemas are refused and never converted.
+The reference uses LaTeX and bibliography.
 
 ## Package and installed project
 
 | Layer | Location | Responsibility |
 |---|---|---|
 | Reusable templates | `templates/` | Agent policy, Make, editor, permissions |
-| Setup/audit/upgrade | `latex-ai-init`, `bootstrap.py` | Detect conventions, plan safe changes, manage installation |
+| Create and refresh | `latex-ai-init`, `bootstrap.py` | `init` creates a project (detects conventions, merges into the files it has); `diff` shows how a project differs from this release; `runtime` refreshes `.latex-ai/` |
 | Runtime/core | `runtime.py`, `core.py`, `guide.py`, `diagnostics.py` | Vendored to `.latex-ai/`; dispatcher, config and file checks, help/status/guide, local defect reports |
 | Optional backends | `latex.py`, `documents.py` | Installed when LaTeX or bibliography is enabled |
 | Configuration | Project `.latex-ai.json` | Enabled modules, paths, commands, optional adapters; schema 3 only |
-| Upgrade state | Project `.latex-ai/installation.json` | Release and merge baselines (digests for files installed whole, text where a merge needs it); keep in version control |
-| Operating skill | `skills/latex-ai-workbench/` | Bootstrap, writing, independent review, upgrades |
+| Installation record | Project `.latex-ai/installation.json` | The release, and a digest of each runtime file so that a local edit shows; keep in version control |
+| Operating skill | `skills/latex-ai-workbench/` | Bootstrap, writing, independent review, updates |
 
 The entire `workbench/` directory is relocatable. Keep it together: the CLI
 needs its sibling templates and backend files. Installed projects need only their
-configuration, runtime, manifest and project files; builds do not depend on
+configuration, runtime, record and project files; builds do not depend on
 the distribution's location. Adding this CLI to a global PATH or installing
 the skill globally is optional and is outside bootstrap's scope.
 
@@ -80,7 +79,6 @@ engine settings. Preserve dirty user files. Setup may safely add to a dirty
 repository; dirtiness is reported and never automatically discarded.
 
 ```sh
-python3 /path/to/workbench/latex-ai-init audit /path/to/project --engine lualatex --json
 python3 /path/to/workbench/latex-ai-init init /path/to/project --engine lualatex --dry-run --diff
 ```
 
@@ -109,9 +107,7 @@ permission files with conflicting content are preserved and block setup for
 manual reconciliation. GitHub workflows are never written, and any a project has are left as they are.
 
 The active Makefile follows GNU Make's filename order (`GNUmakefile`,
-`makefile`, `Makefile`). Its existing filename is retained. A new file that
-shadows the registered Makefile blocks an upgrade until reconciled, and a
-locally removed managed block is treated as a conflict rather than re-added.
+`makefile`, `Makefile`). Its existing filename is retained.
 [GNU Make filename rules](https://www.gnu.org/software/make/manual/make.html#Makefile-Names).
 
 No file is changed when any conflict blocks the plan. Review `--diff` to see
@@ -119,22 +115,16 @@ proposed concrete content; new runtime files under `.latex-ai/` are listed by
 name and size instead of printed, and the summary is printed last. Targets
 defined in makefiles your Makefile includes by name count as existing targets.
 
-## Audit, upgrades and limitations
+## After installing, and limitations
 
-```sh
-python3 /path/to/workbench/latex-ai-init audit /path/to/project
-python3 /path/to/new-workbench/latex-ai-init upgrade /path/to/project --dry-run --diff
-```
+`init` is for a new project: it refuses one that already has `.latex-ai/installation.json`. To see how an installed project
+differs from a release run `latex-ai-init diff PROJECT --diff`; to refresh its runtime files, `latex-ai-init runtime PROJECT`.
+[Updating](upgrading.md) is the recipe an agent follows, [configuration](configuration.md) lists the supported fields, and
+[bibliography](bibliography.md) covers Better BibTeX setup.
 
-See [upgrades](upgrading.md) for backups, conflict recovery and release
-rules, [configuration](configuration.md) for supported fields, and
-[bibliography](bibliography.md) for Better BibTeX setup.
-
-Exit status: 0 means current/applied/safe dry-run; audit returns 1 for missing
-components or pending updates; 2 means ambiguity, conflicts or invalid input
-(an `ERROR:` line, with a `Hint:` where there is a next step); 70 marks an
-`INTERNAL ERROR`, a defect in the installer itself. An audit ends with the exact
-command that applies what it previewed, including the options it was given.
+Exit status: 0 means done, current or a safe dry-run; `diff` returns 1 when a runtime file differs; 2 means ambiguity, conflicts or
+invalid input (an `ERROR:` line, with a `Hint:` where there is a next step); 70 marks an `INTERNAL ERROR`, a defect in the installer
+itself. `diff` and dry-runs make no project writes and never execute project builds.
 
 Every workbench command has a reserved Make name (`latex-ai-doctor`,
 `latex-ai-bib-check`, `latex-ai-help`, ...). The short name (`doctor`,
@@ -143,15 +133,11 @@ of that name, so an existing recipe is never replaced and the installer notes
 each name it kept. The shared targets are `check`, which runs workbench and
 project checks, and `lint`, which keeps the project's convention. An existing
 `build` recipe stays intact; `latex-ai-build` establishes its receipt.
-Audit and dry-run make no project writes and never execute project builds.
-They report inventory, Git state, detection and planned changes. Audit compares
-against this package version; it is not a security scanner or a CI run.
 
 Literal include/resource detection is conservative. Macro-generated resources,
 custom import layouts, external shared libraries, unusual Make target syntax,
 or changed job names need explicit adaptation.
-Schemas 1/2 support one configured root. Schema 3 supports explicit named roots;
-see [TeX notes](tex-notes.md). Multiple adopted Make graphs with shared or
+Schema 3 supports explicit named roots; see [TeX notes](tex-notes.md). Multiple adopted Make graphs with shared or
 unresolved prerequisites require an explicit adapter. TeX root paths with spaces
 or TeX-special characters are rejected; directories containing ordinary spaces
 are handled through argv. Sources outside the project are not installed or

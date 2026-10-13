@@ -63,93 +63,58 @@ def recent_faults(project, limit=5):
 
 
 DIFFERING = ("modified locally", "missing", "unreadable")
-# Whole files the project is expected to add to: what it writes above or below the installed text is its own
-# and is kept on upgrade. Runtime and guardrail files are not in this set.
-EXTENDABLE = frozenset({"AGENTS.md", "CLAUDE.md", ".gitignore", "Makefile", "makefile", "GNUmakefile"})
-
-
-MANIFEST_SCHEMA = 2  # 2: files installed whole are recorded by digest; 1 (still read) kept their full text twice
 
 
 def sha256_text(text):
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def managed_text(record):
-    """The text the installer wrote, where the record keeps it: merged and extendable files only."""
-    return record.get("upstream", record.get("installed"))
+def read_state(project):
+    """(record, None) of the record init and runtime leave (.latex-ai/installation.json), or (None, why not)."""
+    try:
+        record = json.loads((project / ".latex-ai/installation.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        return None, f"unreadable: {error}"
+    if (not isinstance(record, dict) or not isinstance(record.get("files"), dict)
+            or not isinstance(record.get("version"), (str, type(None)))
+            or any(not isinstance(entry, (str, dict)) for entry in record["files"].values())):
+        return None, "unreadable: not an installation record (a version, and a \"files\" object, are expected)"
+    return record, None
 
 
-def is_installed(record, text):
-    """Whether a file still holds exactly what the installer wrote."""
-    if "installed_sha256" in record:
-        return sha256_text(text) == record["installed_sha256"]
-    return text == record.get("installed")
-
-
-def file_record(name, strategy, installed, upstream):
-    """A manifest record that keeps text only where a later merge needs it: a managed block and merged settings
-    need the previous text for three-way merging, an extendable file the installed text to find within the project's.
-    A file installed whole is compared, never merged, so its digest is enough; a seeded file belongs to the project."""
-    if strategy == "seed":
-        return {"strategy": "seed"}
-    if strategy == "full":
-        record = {"strategy": "full", "installed_sha256": sha256_text(installed)}
-        if name in EXTENDABLE:
-            record["upstream"] = upstream
-        return record
-    return {"strategy": strategy, "installed": installed, "upstream": upstream}
-
-
-def current_record(name, record):
-    """A record of either manifest schema in the form the current one writes."""
-    if record.get("strategy") == "full" and "installed_sha256" not in record and isinstance(record.get("installed"), str):
-        return file_record(name, "full", record["installed"], managed_text(record))
-    return file_record(name, "seed", None, None) if record.get("strategy") == "seed" else record
-
-
-def extends(name, record, current):
-    """True when an extendable file still holds the text the installer wrote, intact and exactly once."""
-    managed = managed_text(record)
-    return name in EXTENDABLE and isinstance(managed, str) and bool(managed) and current.count(managed) == 1
+def recorded_digests(project):
+    """{runtime file: sha256 of what the workbench wrote}, or None. Records of earlier releases are read too."""
+    record, _ = read_state(project)
+    if record is None:
+        return None
+    digests = {}
+    for name, entry in record["files"].items():
+        digest = entry if isinstance(entry, str) else entry.get("installed_sha256") if isinstance(entry, dict) else None
+        if isinstance(digest, str) and name.startswith(".latex-ai/"):
+            digests[name] = digest
+    return digests
 
 
 def installation(project):
-    """Installed files against the manifest baselines: modified or missing files explain upgrade conflicts.
+    """The runtime files against the digests recorded when they were written: an edited or missing one explains odd behaviour.
 
-    Only a whole file the installer owns can differ. A managed block sits inside a file the project owns,
-    editor settings are merged with the project's own, and seeded files belong to the
-    project once created (it may edit or delete them), so none of those is compared. A Makefile, policy or
-    ignore file installed whole may be added to around the installed text.
+    Only the workbench's own runtime files are compared; policy, Makefile and editor files are the project's.
     """
-    try:
-        manifest = json.loads((project / ".latex-ai/installation.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError) as error:
-        return {"manifest": f"unreadable: {error}"}
-    records = manifest.get("files") if isinstance(manifest, dict) else None
-    if (not isinstance(records, dict) or not isinstance(manifest.get("version"), (str, type(None)))
-            or any(not isinstance(record, dict) or not isinstance(record.get("strategy"), str) for record in records.values())):
-        return {"manifest": "unreadable: not an installation record (version, and a \"files\" object of file records, are expected)"}
+    record, problem = read_state(project)
+    if record is None:
+        return {"record": problem}
     files = {}
-    for name, record in records.items():
+    for name, digest in (recorded_digests(project) or {}).items():
         path = project / name
-        strategy = record["strategy"]
-        if strategy == "seed":
-            files[name] = "project-owned" if path.is_file() else "project-owned (deleted)"
-        elif not path.is_file():
+        if not path.is_file():
             files[name] = "missing"
-        elif strategy == "block":
-            files[name] = "managed block"
-        elif strategy == "json":
-            files[name] = "merged settings"
-        else:
-            try:
-                current = path.read_text(encoding="utf-8")
-                files[name] = "unmodified" if is_installed(record, current) else "extended by the project" if extends(name, record, current) else "modified locally"
-            except (OSError, ValueError):
-                files[name] = "unreadable"
-    return {"manifest_version": manifest.get("version"), "runtime_version": VERSION,
-            "version_matches": manifest.get("version") == VERSION, "files": files,
+            continue
+        try:
+            files[name] = "unmodified" if sha256_text(path.read_text(encoding="utf-8")) == digest else "modified locally"
+        except (OSError, ValueError):
+            files[name] = "unreadable"
+    return {"record_version": record.get("version"), "runtime_version": VERSION,
+            "version_matches": record.get("version") == VERSION, "files": files,
             "differing": sorted(name for name, state in files.items() if state in DIFFERING)}
 
 

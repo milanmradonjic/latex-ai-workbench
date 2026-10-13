@@ -59,6 +59,16 @@ class ProjectCase(unittest.TestCase):
     def install(self, *args, expected=0):
         return self.run_command(sys.executable, "-B", str(PACKAGE / "latex-ai-init"), *args, str(self.project), expected=expected)
 
+    def edit_config(self, change):
+        """Change .latex-ai.json directly: since 4.3 the configuration is edited by hand (or by an agent), not by a command."""
+        path = self.project / core.CONFIG
+        data = json.loads(path.read_text(encoding="utf-8"))
+        change(data)
+        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+    def add_document(self, name, root, **fields):
+        self.edit_config(lambda data: data["modules"]["latex"]["documents"].setdefault(name, {}).update(root=root, **fields))
+
     def command(self, *args, **kwargs):
         return self.run_command(sys.executable, "-B", ".latex-ai/workbench.py", *args, **kwargs)
 

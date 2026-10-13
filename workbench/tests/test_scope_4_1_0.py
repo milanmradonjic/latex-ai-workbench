@@ -53,23 +53,8 @@ class NoGeneratedCI(ProjectCase):
         self.install("init", "--engine", "pdflatex", "--no-lint")
         self.assertEqual(sorted(p.name for p in workflow.parent.iterdir()), ["mine.yml"])
         self.assertEqual(workflow.read_text(), "name: mine\non: workflow_dispatch\n")
-        self.install("upgrade")
+        self.install("runtime")
         self.assertEqual(workflow.read_text(), "name: mine\non: workflow_dispatch\n")
-
-    def test_an_upgrade_drops_the_ci_setting_of_an_older_install_and_says_so(self):
-        (self.project / "main.tex").write_text("\\documentclass{article}\\begin{document}x\\end{document}\n")
-        self.install("init", "--engine", "pdflatex", "--no-lint", "--skip-editor")
-        path = self.project / core.CONFIG
-        config = json.loads(path.read_text())
-        config["integrations"]["ci"] = {"enabled": True, "pdf_artifact": True, "texlive_version": "2026"}
-        path.write_text(json.dumps(config))
-        preview = self.install("upgrade", "--dry-run")
-        self.assertIn("removed integrations.ci", preview.stdout)
-        self.assertIn("ci", json.loads(path.read_text())["integrations"])  # a dry run writes nothing
-        done = self.install("upgrade")
-        self.assertIn("removed integrations.ci", done.stdout)
-        self.assertNotIn("ci", json.loads(path.read_text())["integrations"])
-        self.command("status")  # and the runtime accepts what the installer wrote
 
     def test_the_documents_of_a_project_carry_no_ci_settings(self):
         (self.project / "main.tex").write_text("\\documentclass{article}\\begin{document}x\\end{document}\n")

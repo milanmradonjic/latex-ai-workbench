@@ -478,8 +478,8 @@ def issue(project, args):
     state, faults = report["installation"], report["recent_internal_faults"]
     modified = state.get("differing", [])
     print(f"Issue report written to {path.relative_to(project)}")
-    print(f"Workbench {report['workbench_version']}; manifest {state.get('manifest_version')}; "
-          f"{len(faults) if isinstance(faults, list) else 'unknown'} recent internal fault(s); files differing from the manifest: {', '.join(modified) or 'none'}")
+    print(f"Workbench {report['workbench_version']}; record {state.get('record_version')}; "
+          f"{len(faults) if isinstance(faults, list) else 'unknown'} recent internal fault(s); files differing from the record: {', '.join(modified) or 'none'}")
     print("Local file; nothing is sent anywhere. Review it, then share it with whoever maintains the workbench.")
     return 0
 
@@ -502,7 +502,7 @@ def orientation_config(project):
     try:
         return load_config(project), None
     except EXPECTED as error:
-        return None, (describe(error), f"fix {CONFIG} (version control has the last good copy), or get a diagnosis with: " + guide.installer("audit ."))
+        return None, (describe(error), f"fix {CONFIG} (version control has the last good copy), or get a diagnosis with: " + guide.installer("diff ."))
 
 
 def explain(project, args):

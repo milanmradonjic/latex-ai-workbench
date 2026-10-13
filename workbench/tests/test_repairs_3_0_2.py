@@ -175,36 +175,15 @@ class Repairs(ProjectCase):
 
     # --- F6: the installation record keeps text only where a merge needs it -----------------------------
 
-    def test_manifest_keeps_digests_for_files_installed_whole(self):
+    def test_the_record_keeps_a_digest_for_each_runtime_file_and_nothing_else(self):
         (self.project / "main.tex").write_text(SOURCE)
         self.install("init", "--skip-editor")
-        manifest = json.loads((self.project / ".latex-ai/installation.json").read_text())
-        self.assertEqual(manifest["schema_version"], 2)
-        runtime = manifest["files"][".latex-ai/core.py"]
-        self.assertNotIn("installed", runtime)
-        self.assertNotIn("upstream", runtime)
-        self.assertEqual(runtime["installed_sha256"], diagnostics.sha256_text((self.project / ".latex-ai/core.py").read_text()))
-        self.assertIn("upstream", manifest["files"]["AGENTS.md"])  # extendable: the text is what is searched for
-        self.assertLess(len(json.dumps(manifest)), 60_000)
-
-    def test_upgrade_reads_a_version_1_manifest(self):
-        (self.project / "main.tex").write_text(SOURCE)
-        self.install("init", "--skip-editor")
-        path = self.project / ".latex-ai/installation.json"
-        manifest = json.loads(path.read_text())
-        for name, record in manifest["files"].items():
-            text = (self.project / name).read_text() if (self.project / name).is_file() else ""
-            manifest["files"][name] = {"strategy": record["strategy"], "installed": record.get("installed", text),
-                                       "upstream": record.get("upstream", text)}
-        path.write_text(json.dumps({**manifest, "schema_version": 1}, indent=2) + "\n")
-        self.assertIn("unmodified", json.dumps(diagnostics.installation(self.project)))
-        self.install("upgrade")
-        self.assertEqual(json.loads(path.read_text())["schema_version"], 2)
-        (self.project / ".latex-ai/core.py").write_text((self.project / ".latex-ai/core.py").read_text() + "# local\n")
-        self.assertEqual(diagnostics.installation(self.project)["differing"], [".latex-ai/core.py"])
-        conflict = self.install("upgrade", "--diff", expected=2)
-        self.assertIn("Locally modified managed file", conflict.stdout)
-        self.assertIn("+# local", conflict.stdout)
+        record = json.loads((self.project / ".latex-ai/installation.json").read_text())
+        self.assertEqual(set(record), {"schema_version", "version", "files"})
+        digest = record["files"][".latex-ai/core.py"]
+        self.assertEqual(digest, diagnostics.sha256_text((self.project / ".latex-ai/core.py").read_text()))
+        self.assertTrue(all(name.startswith(".latex-ai/") for name in record["files"]))
+        self.assertLess(len(json.dumps(record)), 4_000)
 
     # --- F14: CI steps that can never be selected are not generated ---------------------------------
 

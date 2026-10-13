@@ -64,8 +64,7 @@ class ModuleTests(unittest.TestCase):
         self.assertNotIn("latexmk", doctor)
         self.assertEqual(schema.load_config(self.project)["modules"], {})
         before = self.snapshot()
-        self.assertEqual(self.cli("upgrade"), 0)
-        self.assertEqual(self.cli("audit"), 0)
+        self.assertEqual(self.cli("diff"), 0)  # read-only, and the runtime is this release's
         self.assertEqual(before, self.snapshot())
 
     def test_cli_options_before_and_after_project_are_equivalent(self):
@@ -91,8 +90,7 @@ class ModuleTests(unittest.TestCase):
         notes.write_text("A question about physics.\n")
         self.command("validate", "--files", "notes/session.md")
         before = self.snapshot()
-        self.assertEqual(self.cli("upgrade"), 0)
-        self.assertEqual(self.cli("audit"), 0)
+        self.assertEqual(self.cli("diff"), 0)  # read-only, and the runtime is this release's
         self.assertEqual(before, self.snapshot())
 
     def test_missing_history_never_introduces_disabled_modules(self):
@@ -115,7 +113,7 @@ class ModuleTests(unittest.TestCase):
     def test_profile_does_not_override_installed_choices(self):
         self.assertEqual(self.cli("init", "--profile", "core"), 0)
         before = self.snapshot()
-        self.assertEqual(self.cli("upgrade", "--profile", "core"), 2)
+        self.assertEqual(self.cli("init", "--profile", "core"), 2)  # a project that has the workbench is not created again
         self.assertEqual(before, self.snapshot())
 
     def test_unknown_modules_and_settings_are_rejected(self):
@@ -133,19 +131,6 @@ class ModuleTests(unittest.TestCase):
         plan = json.loads(self.command("plan", "--files", "refs.bib", "--json").stdout)
         self.assertTrue(plan["bibliography"])
         self.assertFalse(plan["manuscript"])
-
-
-    def test_disable_latex_stops_managed_editor_autobuild(self):
-        (self.project / "paper.tex").write_text("\\documentclass{article}\n\\begin{document}Test.\\end{document}\n")
-        self.assertEqual(self.cli("init"), 0)
-        self.assertEqual(self.cli("configure", "--disable", "latex"), 0)
-        self.assertEqual(json.loads((self.project / ".vscode/settings.json").read_text())["latex-workshop.latex.autoBuild.run"], "never")
-        self.command("check")
-        self.assertTrue((self.project / "paper.tex").exists())
-        self.assertIn("*.aux", (self.project / ".gitignore").read_text())
-        self.assertEqual(self.cli("configure", "--enable", "latex"), 0)
-        restored = schema.load_config(self.project)
-        self.assertEqual(schema.document_settings(restored)["root"], "paper.tex")
 
     def run_main(self, *arguments):
         errors = io.StringIO()
@@ -299,7 +284,7 @@ class ModuleTests(unittest.TestCase):
         for absent in ("make build", "make pdf-artifact", "make document-check"):
             self.assertNotIn(absent, core_help)
         self.assertIn("Not enabled here", core_help)
-        self.assertIn("latex-ai-init configure . --enable", core_help)
+        self.assertIn('"modules" in .latex-ai.json', core_help)
         shutil.rmtree(self.project)
         self.project.mkdir()
         self.example()
@@ -341,7 +326,7 @@ class ModuleTests(unittest.TestCase):
         before = self.snapshot()
         text = self.make_output("status")
         self.assertEqual(before, self.snapshot())  # read-only
-        self.assertIn(f"{core.VERSION} installed, matches its manifest", text)
+        self.assertIn(f"{core.VERSION} installed, matches its record", text)
         self.assertIn("manuscript: missing", text)  # nothing has been built yet
         self.assertIn("make check", text.split("Next:")[1])
 
@@ -392,7 +377,7 @@ class ModuleTests(unittest.TestCase):
         status, errors = run("build")
         self.assertEqual(status, 1)
         self.assertIn("Module is disabled: latex", errors)
-        self.assertIn("latex-ai-init configure . --enable latex", errors)
+        self.assertIn('"modules" in .latex-ai.json', errors)
         with patch.object(shutil, "which", return_value=None):
             status, errors = run("doctor")
         self.assertIn("Missing required tools", errors)
@@ -400,9 +385,6 @@ class ModuleTests(unittest.TestCase):
 
     def test_installer_summarises_in_plain_words_and_says_what_comes_next(self):
         (self.project / "main.tex").write_text(self.PAPER)
-        status, text = self.cli_output("audit")
-        self.assertIn("Audit only: nothing was changed", text)
-        self.assertIn("latex-ai-init init", text)
         status, text = self.cli_output("init", "--engine", "pdflatex", "--dry-run")
         self.assertIn("Dry run: nothing was changed", text)
         self.assertFalse((self.project / ".latex-ai/workbench.py").exists())
@@ -411,9 +393,10 @@ class ModuleTests(unittest.TestCase):
         self.assertRegex(text, r"Done: \d+ file\(s\) added")
         for command in ("make doctor", "make help", "make check"):
             self.assertIn(command, text)
-        status, text = self.cli_output("upgrade")
-        self.assertIn("Already current", text)
-        self.assertNotIn("Next:", text)  # nothing was done, so nothing is suggested
+        status, _, errors = self.cli_result("init", "--engine", "pdflatex")
+        self.assertEqual(status, 2)
+        self.assertIn("already has the workbench installed", errors)
+        self.assertRegex(errors, r"Hint: .*runtime.*diff")
 
     def test_installer_says_when_it_kept_a_project_target_the_workbench_would_have_used(self):
         (self.project / "Makefile").write_text("PYTHON ?= python3\nhelp:\n\t@echo MINE\nissue:\n\t@echo MINE\n")
@@ -472,13 +455,13 @@ class ModuleTests(unittest.TestCase):
         text = self.make_output("status")
         self.assertIn("0 managed file(s) changed locally", text)
         self.assertNotIn("tasks.json", text)
-        self.assertIn("files differing from the manifest: none", self.command("issue").stdout)
+        self.assertIn("files differing from the record: none", self.command("issue").stdout)
         with (self.project / ".latex-ai/core.py").open("a") as stream:
             stream.write("\n# local tweak\n")
         text = self.make_output("status")
         self.assertIn("1 managed file(s) changed locally", text)
         self.assertIn(".latex-ai/core.py: modified locally", text)
-        self.assertIn("files differing from the manifest: .latex-ai/core.py", self.command("issue").stdout)
+        self.assertIn("files differing from the record: .latex-ai/core.py", self.command("issue").stdout)
 
     def test_a_projects_own_target_is_never_presented_as_the_workbench_command(self):
         (self.project / "Makefile").write_text("PYTHON ?= python3\ndoctor:\n\t@touch PROJECT_DOCTOR_RAN\nclean:\n\t@touch PROJECT_CLEAN_RAN\n"
@@ -513,57 +496,6 @@ class ModuleTests(unittest.TestCase):
         self.assertEqual(self.make_output("clean").strip(), "MINE")
         self.assertEqual(self.make_output("doctor").strip(), "MINE")  # and the project's recipes are still its own
 
-    def test_enable_hint_is_a_command_that_works_for_this_configuration(self):
-        (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n")
-        self.assertEqual(self.cli("init"), 0)
-        hint = re.search(r"Turn one on with: (.+)", self.make_output("help")).group(1)
-        words = shlex.split(hint.replace("NAME", "bibliography"))
-        position = next(index for index, word in enumerate(words) if word.endswith("latex-ai-init"))
-        self.assertEqual(words[position + 1:position + 3], ["configure", "."])
-        self.assertEqual(self.cli(words[position + 1], *words[position + 3:], "--dry-run"), 0, hint)
-        shutil.rmtree(self.project)
-        self.project.mkdir()
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
-        hint = re.search(r"Turn one on with: (.+)", self.make_output("help")).group(1)
-        self.assertNotIn("--migrate-config", hint)  # current projects have explicit modules
-        words = shlex.split(hint.replace("NAME", "bibliography"))
-        position = next(index for index, word in enumerate(words) if word.endswith("latex-ai-init"))
-        self.assertEqual(self.cli(words[position + 1], *words[position + 3:], "--dry-run"), 0, hint)
-
-    def test_audit_names_the_command_that_applies_what_it_previewed(self):
-        status, text = self.cli_output("audit", "--profile", "core", "--editor")
-        self.assertEqual(status, 1)
-        command = shlex.split(re.search(r"apply with: (.+)", text).group(1))
-        self.assertEqual(command[:3], ["python3", str(boot.PACKAGE / "latex-ai-init"), "init"])
-        self.assertEqual(Path(command[3]), self.project)
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            self.assertEqual(boot.main(command[2:]), 0)  # exactly what was printed, and it applies
-        config = schema.load_config(self.project)
-        self.assertEqual(sorted(config["modules"]), [])
-        self.assertTrue(config["integrations"]["editor"])
-        status, text = self.cli_output("audit")
-        self.assertEqual(status, 0)
-        self.assertIn("the installation is current", text)
-
-    def test_summary_is_honest_when_only_the_installation_record_would_change(self):
-        (self.project / "Makefile").write_text("PYTHON ?= python3\nmine:\n\t@echo MINE\n")
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
-        with (self.project / "Makefile").open("a") as stream:
-            stream.write("\nextra:\n\t@echo extra\n")  # outside the managed block: an ordinary, allowed edit
-        status, text = self.cli_output("audit")
-        self.assertEqual(status, 1)
-        self.assertNotIn("installation is current", text)
-        self.assertIn("installation record", text)
-        self.assertIn("latex-ai-init upgrade", text)
-        status, text = self.cli_output("upgrade")
-        self.assertEqual(status, 0)
-        self.assertIn("installation record", text)
-        self.assertNotIn("0 file(s) added", text)
-        self.assertNotIn("Next:", text)
-        status, text = self.cli_output("audit")
-        self.assertEqual(status, 0)
-        self.assertIn("the installation is current", text)
-
     def test_installer_errors_say_what_to_do_next(self):
         status, _, errors = self.cli_result("init")  # the quickstart's first command, on an empty folder
         self.assertEqual(status, 2)
@@ -594,10 +526,10 @@ class ModuleTests(unittest.TestCase):
                 self.assertIn("installation.json", done.stdout)
                 self.assertNotIn("Nothing pending", done.stdout)
                 self.command("issue")  # and the report can still be written
-                status, _, errors = self.cli_result("audit")
-                self.assertEqual(status, 2, errors)
+                status, _, errors = self.cli_result("runtime")  # writes the record again
+                self.assertEqual(status, 0, errors)
                 self.assertNotIn("INTERNAL ERROR", errors)
-                self.assertIn("installation", errors)
+                self.assertEqual(json.loads((self.project / boot.STATE).read_text())["version"], core.VERSION)
 
     @unittest.skipUnless(shutil.which("git"), "needs git")
     def test_status_only_says_nothing_is_pending_when_that_is_known(self):
@@ -613,7 +545,7 @@ class ModuleTests(unittest.TestCase):
         text = self.make_output("status")  # a clean tree, but the installed runtime is not what was installed
         self.assertIn("1 managed file(s) changed locally", text)
         self.assertNotIn("Nothing pending", text)
-        self.assertIn("latex-ai-init audit .", text.split("Next:")[1])
+        self.assertIn("latex-ai-init diff .", text.split("Next:")[1])
 
     def test_help_and_status_explain_a_missing_configuration_in_plain_words(self):
         self.assertEqual(self.cli("init", "--profile", "core"), 0)
@@ -684,45 +616,6 @@ class ModuleTests(unittest.TestCase):
                 files[name] += line
             return files
         return patch.object(boot, "desired_files", desired)
-
-    def test_additions_around_the_installed_text_survive_an_upgrade(self):
-        # A fresh project's Makefile, policy and ignore file are installed whole. Adding a target, a rule or an
-        # ignore line is ordinary use and must not block every later upgrade.
-        (self.project / "main.tex").write_text(self.PAPER)
-        self.assertEqual(self.cli("init", "--profile", "writing"), 0)
-        additions = {"Makefile": "\nwordcount:\n\ttexcount main.tex\n", "AGENTS.md": "\n# Project rules\n\nUse SI units.\n", ".gitignore": "scratch/\n"}
-        for name, text in additions.items():
-            with (self.project / name).open("a") as stream:
-                stream.write(text)
-        makefile = self.project / "Makefile"
-        makefile.write_text("# my header\n" + makefile.read_text())  # above the installed text as well as below it
-        self.assertIn("0 managed file(s) changed locally", self.make_output("status"))
-        with self.newer_package():
-            status, text = self.cli_output("upgrade")
-            self.assertEqual(status, 0, text)
-            for name, line in (("Makefile", "# a later release"), ("AGENTS.md", "A later policy line."), (".gitignore", "later-ignore/")):
-                content = (self.project / name).read_text()
-                self.assertIn(line, content)
-                self.assertIn(additions[name], content)
-            self.assertTrue(makefile.read_text().startswith("# my header\n"))
-            status, text = self.cli_output("upgrade")
-            self.assertEqual(status, 0)
-            self.assertIn("Already current", text)
-            # A change inside the installed text is still a conflict, now with what to do and the change itself.
-            makefile.write_text(makefile.read_text().replace(".DEFAULT_GOAL := build", ".DEFAULT_GOAL := check"))
-            status, text, errors = self.cli_result("upgrade", "--diff")
-            self.assertEqual(status, 2)
-            self.assertIn("CONFLICT: Makefile: ", text)
-            self.assertIn("inside the text the workbench installed", text)
-            self.assertIn("-.DEFAULT_GOAL := build", text)
-            self.assertIn("+.DEFAULT_GOAL := check", text)
-            makefile.write_text(makefile.read_text().replace(".DEFAULT_GOAL := check", ".DEFAULT_GOAL := build"))
-            # Runtime files stay strict: nothing may be added to them.
-            with (self.project / ".latex-ai/core.py").open("a") as stream:
-                stream.write("\n# local tweak\n")
-            status, text = self.cli_output("upgrade")
-            self.assertEqual(status, 2)
-            self.assertIn("CONFLICT: .latex-ai/core.py", text)
 
     def test_the_look_first_output_is_short_and_ends_with_the_summary(self):
         (self.project / "main.tex").write_text(self.PAPER)
@@ -801,8 +694,8 @@ class ModuleTests(unittest.TestCase):
         status, errors = attempt("init", str(self.project), "--profile", "writing")
         self.assertEqual(status, 2)
         hint = errors.split("Hint:")[1]
-        self.assertIn("upgrade", hint)
-        self.assertIn("configure", hint)
+        self.assertIn("runtime", hint)
+        self.assertIn("diff", hint)
 
     def test_small_print_of_everyday_commands(self):
         self.assertEqual(self.cli("init", "--profile", "core"), 0)
@@ -841,12 +734,9 @@ class ModuleTests(unittest.TestCase):
         self.assertEqual(config["modules"]["latex"]["documents"]["manuscript"]["backend"], "bibtex")
         self.assertTrue(config["integrations"]["editor"])  # the default is unchanged
         self.assertTrue((self.project / ".vscode/settings.json").is_file())
-        self.assertEqual(self.cli("configure", "--disable", "bibliography", "--dry-run"), 0)  # no migration step for a new project
         before = self.snapshot()
-        self.assertEqual(self.cli("upgrade"), 0)
-        self.assertEqual(self.cli("audit"), 0)
+        self.assertEqual(self.cli("diff"), 0)
         self.assertEqual(before, self.snapshot())
-        self.assertEqual(self.cli("audit"), 0)
         self.assertEqual(schema.load_config(self.project)["schema_version"], 3)
 
     def test_one_command_table_drives_targets_actions_and_every_name_shown_to_readers(self):
@@ -978,13 +868,14 @@ class ModuleTests(unittest.TestCase):
         self.assertIn(f"python: {sys.executable}", report)
         self.assertNotIn("python3:", report)  # the PATH lookup could name a different interpreter
 
-    def test_configure_and_profile_dry_runs_never_write(self):
+    def test_dry_runs_and_diff_never_write(self):
         before = self.snapshot()
         self.assertEqual(self.cli("init", "--profile", "core", "--dry-run"), 0)
         self.assertEqual(before, self.snapshot())
         self.assertEqual(self.cli("init", "--profile", "core"), 0)
         before = self.snapshot()
-        self.assertEqual(self.cli("configure", "--enable", "bibliography", "--dry-run"), 0)
+        self.assertEqual(self.cli("diff"), 0)
+        self.assertEqual(self.cli("runtime", "--dry-run"), 0)
         self.assertEqual(before, self.snapshot())
 
 

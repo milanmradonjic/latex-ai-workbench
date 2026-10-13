@@ -154,7 +154,6 @@ class BlindRepairTests(unittest.TestCase):
             "(out/'paper.fls').write_text('PWD '+str(Path.cwd())+'\\nINPUT hidden.txt\\nINPUT tex/nested/paper.tex\\n')\n"
             "if count==2: Path('hidden.txt').write_text('changed during protected rebuild')\n")
         (self.project / core.CONFIG).write_text(json.dumps(config))
-        self.install("upgrade", str(self.project))
         self.command("make", "latex-ai-build", expected=2)
         self.assertEqual((self.project / "count").read_text(), "2")
         self.assertEqual(documents.report(self.project, config)[0]["state"], "failed")
@@ -191,21 +190,6 @@ class BlindRepairTests(unittest.TestCase):
         (notebook / core.CONFIG).write_text("{broken")
         self.command(sys.executable, str(script), "status", cwd=notebook)
 
-    def test_configure_reports_resolved_policy_and_missing_root_recovery(self):
-        (self.project / "main.tex").write_text(SOURCE)
-        self.install("init", str(self.project), "--no-lint", "--skip-editor")
-        (self.project / "note.tex").write_text(SOURCE)
-        result = self.install("configure", str(self.project), "--document", "note", "--root", "note.tex", "--dry-run")
-        self.assertIn("lint: enabled", result.stdout)
-        self.assertIn("output: .latex-ai/artifacts/documents/note/build", result.stdout)
-        self.assertIn("defaults", result.stdout)
-        result = self.install("configure", str(self.project), "--document", "note", "--root", "note.tex", "--no-lint", "--dry-run", "--json")
-        data = json.loads(result.stdout)
-        self.assertFalse(data["document"]["lint"]["enabled"])
-        self.assertEqual(data["document"]["name"], "note")
-        result = self.install("configure", str(self.project), "--document", "absent", "--root", "missing.tex", expected=2)
-        self.assertIn("Hint:", result.stderr)
-
     def test_bibliography_success_names_actual_documents_and_files(self):
         config = self.fixture()
         (self.project / "note.tex").write_text(SOURCE)
@@ -214,7 +198,6 @@ class BlindRepairTests(unittest.TestCase):
         config["modules"]["latex"]["documents"]["paper"]["bibliography_files"] = ["paper.bib"]
         config["modules"]["latex"]["documents"]["note"] = {"root": "note.tex", "bibliography_files": ["note.bib"], "lint": {"enabled": False}}
         (self.project / core.CONFIG).write_text(json.dumps(config))
-        self.install("upgrade", str(self.project))
         result = self.command(sys.executable, ".latex-ai/workbench.py", "bib-check", "--document", "note", "--json")
         data = json.loads(result.stdout)
         self.assertEqual(data["result"]["bibliographies"], [{"document": "note", "files": ["note.bib"]}])

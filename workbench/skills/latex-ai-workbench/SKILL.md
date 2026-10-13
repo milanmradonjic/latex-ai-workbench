@@ -1,6 +1,6 @@
 ---
 name: latex-ai-workbench
-description: Bootstrap, audit, upgrade, edit, and review projects using the local modular LaTeX AI Workbench. Use for its manuscript workflows; follow enabled modules, canonical Make commands and project policy. Preserve human approval for Git mutations.
+description: Bootstrap, review, update, edit, and review projects using the local modular LaTeX AI Workbench. Use for its manuscript workflows; follow enabled modules, canonical Make commands and project policy. Preserve human approval for Git mutations.
 ---
 
 # LaTeX AI Workbench operating skill
@@ -17,7 +17,7 @@ desktop applications, or changing Git state.
 
 ## Route by task
 
-- For setup, audit or upgrade, read [installation procedures](references/installation.md).
+- For setup, review or update, read [installation procedures](references/installation.md).
 - For independent or cross-model review, worktree coordination, or preparing
   human approval, read [review procedures](references/review.md).
 - For normal manuscript edits, follow the workflow below. Load the other

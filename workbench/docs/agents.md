@@ -90,7 +90,7 @@ configuration was fuzzed so that bad data gives a diagnostic and not this label.
 `make latex-ai-issue ISSUE_NOTE="observed ... expected ..." ISSUE_COMMAND="the command"` (or
 `python3 .latex-ai/workbench.py issue --note ...`) writes one local file,
 `.latex-ai/artifacts/issues/report-*.json` (ignored by Git), holding the version, how the
-installed files compare with the manifest, the configuration, the validation plan,
+installed files compare with the record, the configuration, the validation plan,
 tool versions, Git branch and head, and recent internal faults. It works even when
 the configuration is broken or the defect lies in the code that gathers part of the evidence (that
 section then records the failure and the rest of the report is still written), never includes

@@ -101,12 +101,11 @@ def installer(arguments):
     return f"python3 /path/to/workbench/latex-ai-init {arguments}"
 
 
-def enable_command(config, name="NAME"):
-    return installer(f"configure . --enable {name}")
+ENABLE = 'add it to "modules" in .latex-ai.json (docs/modules.md in the workbench package says how)'
 
 
 def module_disabled(config, name):
-    return WorkbenchError(f"Module is disabled: {name}", hint="turn it on with: " + enable_command(config, name))
+    return WorkbenchError(f"Module is disabled: {name}", hint="to turn it on, " + ENABLE)
 
 
 def help_text(project, config, problem):
@@ -133,7 +132,7 @@ def help_text(project, config, problem):
     disabled = [name for name in MODULES if name not in enabled and config is not None]
     if disabled:
         lines += ["", "Not enabled here: " + "; ".join(f"{name} ({PURPOSE[name]})" for name in disabled),
-                  "  Turn one on with: " + enable_command(config)]
+                  "  To turn one on, " + ENABLE + "."]
     if config and has_module(config, "latex"):
         lines += ["", "Documents: " + ", ".join(document.name + (" (default)" if document.default else "") for document in specifications(config)),
                   "  make check checks all documents; build/export without DOC uses the default."]
@@ -193,22 +192,22 @@ def status_text(project, config, problem, installed, git, plan, plan_error, docu
     def row(label, value):
         lines.append(f"  {label:<11}{value}")
 
-    if "manifest" in installed:
-        row("Workbench", f"installation record .latex-ai/installation.json is {installed['manifest']}")
-        next_steps.append("restore .latex-ai/installation.json from version control, or see what is installed with: " + installer("audit ."))
+    if "record" in installed:
+        row("Workbench", f"installation record .latex-ai/installation.json is {installed['record']}")
+        next_steps.append("restore .latex-ai/installation.json from version control, or write it again with: " + installer("runtime . --force"))
     else:
         files, changed = installed.get("files", {}), installed.get("differing", [])
         if installed.get("version_matches"):
-            row("Workbench", f"{installed['runtime_version']} installed, matches its manifest; {len(changed)} managed file(s) changed locally")
+            row("Workbench", f"{installed['runtime_version']} installed, matches its record; {len(changed)} managed file(s) changed locally")
         else:
-            row("Workbench", f"runtime {installed.get('runtime_version')} but manifest {installed.get('manifest_version')}; {len(changed)} managed file(s) changed locally")
-            next_steps.append(installer("upgrade . --dry-run --diff") + "   (then without --dry-run)")
+            row("Workbench", f"runtime {installed.get('runtime_version')} but its record says {installed.get('record_version')}; {len(changed)} managed file(s) changed locally")
+            next_steps.append(installer("diff . --diff") + "   (how the project differs from this release; docs/upgrading.md says what to do)")
         for name in changed[:5]:
             lines.append(f"               {name}: {files[name]}")
         if len(changed) > 5:
             lines.append(f"               and {len(changed) - 5} more")
         if changed and installed.get("version_matches"):
-            next_steps.append(installer("audit .") + "   (shows what differs from the files that were installed)")
+            next_steps.append(installer("diff . --diff") + "   (shows what differs from the files that were installed)")
     if problem:
         row("Config", f"Configuration problem: {problem[0]}")
         next_steps.insert(0, problem[1])

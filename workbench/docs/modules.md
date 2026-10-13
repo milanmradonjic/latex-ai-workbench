@@ -1,7 +1,7 @@
 # Core, modules and profiles
 
-The core needs Python 3.10+ and Make. It supplies configuration, safe installation
-and upgrades, agent policies, file checks and command routing. TeX, Zotero, GUI
+The core needs Python 3.10+ and Make. It supplies configuration, installation,
+agent policies, file checks and command routing. TeX, Zotero, GUI
 applications and CI are optional. Installed projects run from their own `.latex-ai/`
 files, independently of the distribution directory. All projects use schema 3. A TeX
 manuscript is optional.
@@ -26,7 +26,7 @@ the bibliography capability and records those paths. TeX selection still needs
 a real root and any explicit engine choice required by existing build conventions.
 Without either option a paper gets `latex` (and `bibliography` when its source declares one), with the
 editor adapter on; every profile uses schema 3.
-Profiles are initialization presets, not persistent policies or upgrade defaults.
+Profiles are initialization presets, not persistent policies.
 The configuration stores the resolved module choices.
 
 New projects chosen by profile or module list enable the editor adapter only with `--editor`. It installs
@@ -73,29 +73,24 @@ and bibliography processing. Bibliography can be checked without TeX.
 
 ## Enable and disable deliberately
 
-Preview module changes, then apply without dry-run:
+A module is on when `modules` in `.latex-ai.json` has it and off when it does not. Edit the file, then run `make check`;
+`latex-ai-init diff . --diff` shows what the generated Makefile and editor files would now contain, and an agent applies what is
+wanted by hand ([updating](upgrading.md)).
 
-```sh
-python3 /path/to/workbench/latex-ai-init configure /path/to/project --enable bibliography --dry-run --diff
-python3 /path/to/workbench/latex-ai-init configure /path/to/project --disable bibliography --dry-run --diff
+```json
+"modules": {"latex": {"default_document": "main", "documents": {"main": {"root": "main.tex"}}}, "bibliography": {"files": ["refs.bib"]}}
 ```
 
-Enabling LaTeX in an existing no-TeX project uses `main.tex`/pdfLaTeX defaults;
-for another root/engine, edit the explicit module configuration and inspect an
-upgrade dry-run. No source is generated or guessed during configure.
-
-Disabling retains source files. It also saves the module's settings in optional
-`disabled_modules` configuration; that field does not enable modules. Re-enabling
-restores the saved paths/settings. Commands stop being offered/accepted for the
-disabled module. Disabling LaTeX also stops its managed editor auto-build. Retained
-editor tasks remain visible for deliberate review. Upgrades never silently re-enable disabled modules.
+Enabling LaTeX in a project without TeX needs an explicit root (and engine, if not pdfLaTeX); no source is generated or guessed.
+Removing a module keeps your source files and forgets its settings: copy them aside if you may want them back. Its commands stop
+being accepted; editor tasks that were generated for it stay in `.vscode/` until you remove them.
 
 ## Extension contract
 
 Bundled modules are registered explicitly in `core.py`: defaults, dependencies
 and name. The installer renders their managed adapters; runtime code declares
 commands and file dependencies. Records are versioned JSON. A new module must add
-configuration, installation, routing, disable/retention and portability tests.
+configuration, installation, routing and portability tests.
 This is a small bundled-module architecture; external dynamically loaded plugins
 are a future extension.
 

@@ -466,7 +466,7 @@ class Audit3Repairs(unittest.TestCase):
 
     def test_a12_lifecycle_fixture_ignores_callers_doc_and_makeflags(self):
         result=subprocess.run([sys.executable,'-B','-m','unittest',
-            'test_document_lifecycle.DocumentLifecycleTests.test_adopted_build_stays_incremental_after_upgrade'],
+            'test_document_lifecycle.DocumentLifecycleTests.test_failed_named_build_regenerates_instead_of_reviving_a_receipt'],
             cwd=bootstrap.PACKAGE/'tests',env={**self.env,'DOC':'external','MAKEFLAGS':'n'},
             capture_output=True,text=True,timeout=25)
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)

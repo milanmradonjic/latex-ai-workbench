@@ -1,4 +1,4 @@
-# Bootstrap, audit and upgrade
+# Bootstrap, review and update
 
 ## Bootstrap an existing project
 
@@ -11,25 +11,22 @@ Locate the entire reusable workbench package, with `latex-ai-init`, templates
 and runtime together. A local CLI invocation is:
 
 ```sh
-python3 /path/to/workbench/latex-ai-init audit /path/to/project --json
+python3 /path/to/workbench/latex-ai-init init /path/to/project --dry-run --diff
 ```
 
-Audit missing components and conflicts; an absent installation returns 1.
-Select a profile or modules and enable the editor adapter only
+`init` is for a project that has no `.latex-ai/installation.json`; it refuses one that has it
+(see Update below). Select a profile or modules and enable the editor adapter only
 when needed; read [module setup](../../../docs/modules.md). Projects without a manuscript
 do not need a TeX root. Profiles choose initial configuration only.
-For handwritten TeX notes, register independent roots
-with `configure --document ID --root PATH`. Preview first. Read
-[TeX notes](../../../docs/tex-notes.md) for named output ownership, mixed formats
-and adopted Make restrictions. Only project configuration schema 3 is supported.
-Explicit configure operations use the same dry-run, conflict and
-backup safeguards. Ambiguous root/engine detection returns 2 and requires explicit choices after
+For handwritten TeX notes, add independent roots under `modules.latex.documents` in
+`.latex-ai.json` by hand. Read [TeX notes](../../../docs/tex-notes.md) for named output ownership,
+mixed formats and adopted Make restrictions. Only project configuration schema 3 is supported.
+Ambiguous root/engine detection returns 2 and requires explicit choices after
 inspection. Select `--root` for multiple manuscripts, `--engine` for fontspec
 or custom build files, and `--backend` for nonstandard bibliography declarations.
 Do not ask the owner to resolve ordinary choices evident from local files.
 
-Run `init PROJECT --dry-run --diff` with the chosen options. For an existing
-Makefile whose build target is not `build`, supply `--build-command` as a JSON
+For an existing Makefile whose build target is not `build`, supply `--build-command` as a JSON
 argv list invoking its actual safe target. Check where its PDF/log are written;
 config `output_dir` must match. Never delegate a runtime build to itself.
 
@@ -44,25 +41,26 @@ workflow; never remove one the project has without authorization.
 After evaluating a safe plan, apply it with the same command minus dry-run.
 Do not request approval for harmless authorized file changes. Setup does not
 stage files or run builds. Run `make doctor`, then `make check`, inspect diff
-and status and run audit again. Report real validation and any incomplete GUI
+and status. Report real validation and any incomplete GUI
 configuration. Create synthetic portability fixtures within an authorized
 test directory instead of modifying a research project.
 
-## Repository audit
+## Review an installed project
 
-Audit against the actual package and installed manifest, not remembered state.
+Review against the actual package and the project's installation record, not remembered state.
 Confirm root/backend/config agree with source and output layout. Inspect any
-local adapters and rc overrides. Run canonical validation separately when the
-task includes execution; CLI audit itself is structural and read-only.
+local adapters and rc overrides. `latex-ai-init diff PROJECT --diff` is structural and read-only:
+it lists runtime files that differ from this release and project files that differ from what a
+new project would get. Run canonical validation separately when the task includes execution.
 
 Check canonical semantic policy, delegation, editor Make invocation, intact
 Git approval rules, tracked bibliography inputs, ignored build outputs and
-manifest/runtime consistency. Distinguish:
+record/runtime consistency (`make status`). Distinguish:
 
 - missing workbench component or required input;
 - unsupported or ambiguous convention;
 - intentional local customization;
-- conflicting managed-file change;
+- a runtime file edited locally;
 - build/citation/reference failure;
 - optional setup or human action still pending.
 
@@ -70,19 +68,15 @@ Do not claim that structural compliance proves scientific correctness, GUI
 extension behavior, authentication or successful remote CI. Scope findings to
 observed files and command results.
 
-## Upgrade
+## Update
 
-Inspect the installed release and the new package. Run new-package
-`upgrade PROJECT --dry-run --diff`; project config stays human-owned. Full-file
-runtime/template changes and edits inside managed blocks can conflict. JSON
-uses three-way merges. Local content outside managed text blocks is preserved.
-No automatic downgrade, deletion or forced overwrite is available.
-
-Resolve a conflict with an explicit, focused edit after understanding both
-versions. Do not delete the manifest to bypass ownership. Apply the safe plan,
-then validate, audit and inspect the diff. Timestamped backups are recovery
-evidence, not permission to discard newer work. Recovery that replaces user
-changes needs approval and a specific file/version choice.
+Follow [the update recipe](../../../docs/upgrading.md): be able to undo, read the release notes,
+`diff`, `runtime`, then read and edit the project's own files by hand, then `make doctor`
+and `make check`. `latex-ai-init runtime` refuses a runtime file that was edited unless
+`--force` is given; that is the owner's call, not a way past a refusal. Never delete the
+installation record to bypass a check. Backups are recovery evidence, not permission to
+discard newer work; recovery that replaces user changes needs approval and a specific
+file/version choice.
 
 Updating the package itself requires versioning its release and regression
 testing observed failures. Only schema-3 projects are supported. Unsupported configurations must fail

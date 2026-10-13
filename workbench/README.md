@@ -36,22 +36,22 @@ a full check before sharing. No-TeX projects omit the build step.
 | `core` | file and policy checks only | none |
 | `writing` | a LaTeX manuscript | latex |
 
-Or choose an explicit `--modules` list. Supported schema-3 projects can be updated: the installer previews
-every change, preserves your files and has no overwrite switch.
+Or choose an explicit `--modules` list. An installed project is updated by an agent following [the recipe](docs/upgrading.md):
+`diff` shows what differs and `runtime` refreshes the runtime files, never overwriting an edited one unless forced.
 
 ## Guides
 
-| Getting started | Reference | Agents and upgrades |
+| Getting started | Reference | Agents and updates |
 |---|---|---|
 | [Quickstart](docs/quickstart.md) | [Modules and profiles](docs/modules.md) | [Working with AI agents](docs/agents.md) |
 | [I want to…](docs/tasks.md) | [Configuration](docs/configuration.md) | [Agent operating skill](skills/latex-ai-workbench/SKILL.md) |
-| [Installing and auditing](docs/installing.md) | [Validation routing](docs/validation.md) | [Upgrading](docs/upgrading.md) |
+| [Installing](docs/installing.md) | [Validation routing](docs/validation.md) | [Updating](docs/upgrading.md) |
 | [Daily use](docs/daily-use.md) | [Bibliography](docs/bibliography.md) | [Maintainers' material](docs/maintainers/README.md) |
 | | [TeX notes and named documents](docs/tex-notes.md) | |
 
 The whole `workbench/` directory is relocatable: keep it together, because the installer needs its
 sibling templates and backends. Installed projects need only their configuration, the vendored
-runtime in `.latex-ai/` and the manifest; builds do not depend on where the distribution lives.
+runtime in `.latex-ai/` and its installation record; builds do not depend on where the distribution lives.
 
 Version 3 uses one project configuration (schema 3) and one named-document
 execution path. Old Workbench project schemas and migration flags are unsupported.
