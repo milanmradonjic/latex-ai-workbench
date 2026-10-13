@@ -71,7 +71,7 @@ after an update; a daily scheduled run is an optional step the owner sets up. It
 Deletions first, by area, one small change each, with its tests removed or kept as the area goes, checking after each that the build
 records, VS Code files and Makefile output of what remains do not change: the research modules, the Markdown and notes modules, CI
 generation, the handbook, then the upgrade machinery. The changes to the build core come last: the Make adoption layer, the locks, and
-the per-document targets. The full version stays available as the tagged first commit of this repository.
+the per-document targets. The full version stays available as the first commit of this repository and as the frozen `latex-ai-test` repository.
 
 ## Progress
 
