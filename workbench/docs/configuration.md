@@ -22,8 +22,7 @@ changes, preview `upgrade --dry-run --diff` to refresh generated integrations.
     "bibliography": {"files": ["bibliography/references.bib"], "export": null}
   },
   "integrations": {
-    "editor": false,
-    "ci": {"enabled": false, "pdf_artifact": true, "texlive_version": "2026"}
+    "editor": false
   }
 }
 ```
@@ -47,7 +46,6 @@ Projects without TeX simply omit `modules.latex`; see [modules](modules.md).
 | `bibliography.files` | Shared `.bib` inputs, including paths assembled through macros. |
 | `bibliography.export` | `null`, or `{path, required, format}` for a local Zotero export. |
 | `integrations.editor` | Opt into generated editor tasks. |
-| `integrations.ci` | `enabled`, `pdf_artifact`, and `texlive_version` control generated CI. |
 | `validation.manuscript_inputs` | Extra project-relative globs for shared indirect dependencies. |
 | `validation.ignore` | Project-relative globs, for example `docs/**`, for paths that are never routed to the manuscript build. See [validation](validation.md). |
 | `validation.package` | Distribution directory for its own tests; default `workbench`, `null` disables package routing. |
@@ -97,7 +95,7 @@ not an automatic reason to turn lint off.
 Each document has `.latex-ai/artifacts/documents/<id>/build-receipt.json`.
 The current receipt format stores build identity directly: root, engine, output
 location, command, bibliography declarations, and input/output fingerprints.
-Lint, CI, and default selection do not change PDF identity. A first build must
+Lint and default selection do not change PDF identity. A first build must
 write both PDF and log. Incremental reuse needs a matching verified receipt;
 old or malformed receipts certify nothing. Failure or interruption invalidates
 the attempt even if the source is later restored. Export requires a current receipt.
@@ -117,7 +115,7 @@ Makefiles are hashed in full. Declare computed includes and hidden dependencies.
 Receipts cannot prove that arbitrary custom commands invoke a compiler or that
 their results are scientifically correct.
 
-## Make, editor, and CI boundaries
+## Make and editor boundaries
 
 One lexical Make scanner supplies rule/include facts without executing Make
 during inspection. Ambiguous ownership, custom recipe prefixes, and conditional
@@ -125,8 +123,7 @@ rule styles can require manual adaptation; installation refuses unsafe merges.
 Simple adopted phased builds require GNU Make 4.3+ and POSIX.
 
 Editor setup creates named Make tasks/recipes, disables automatic builds on
-save, and prevents magic comments from bypassing Make. CI uses the same selected
-documents and validation actions. Existing JSON settings use three-way merges;
+save, and prevents magic comments from bypassing Make. Existing JSON settings use three-way merges;
 JSONC requires `--skip-editor` and deliberate manual integration.
 
 LaTeX Workshop finds a document's PDF through `latex-workshop.latex.outDir`: one setting whose placeholders expand

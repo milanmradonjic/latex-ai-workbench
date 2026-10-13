@@ -103,7 +103,7 @@ class Repairs(ProjectCase):
                                                "\\begin{document}\n\\input{chap}\n\\end{document}\n")
         (self.project / "chap.tex").write_bytes("Caf\u00e9 na\u00efve\n".encode("latin-1"))
         (self.project / "other.tex").write_bytes("\u00e9t\u00e9\n".encode("latin-1"))
-        self.install("init", "--skip-editor", "--no-ci")
+        self.install("init", "--skip-editor")
         plan = json.loads(self.command("plan", "--files", "chap.tex", "--json").stdout)
         self.assertEqual(plan["documents"], ["manuscript"])
         self.command("validate", "--files-only", "--files", "chap.tex")
@@ -207,15 +207,6 @@ class Repairs(ProjectCase):
         self.assertIn("+# local", conflict.stdout)
 
     # --- F14: CI steps that can never be selected are not generated ---------------------------------
-
-    def test_workflow_omits_package_steps_when_package_routing_is_off(self):
-        config = {"schema_version": 3, "validation": {"package": None},
-                  "modules": {"latex": {"default_document": "paper", "documents": {"paper": {"root": "main.tex"}}}},
-                  "integrations": {"ci": {"enabled": True, "pdf_artifact": True}}}
-        text = adapters.workflow(config)
-        self.assertNotIn("Test workbench", text)
-        self.assertNotIn("Test compiler portability", text)
-        self.assertIn("Test workbench", adapters.workflow({**config, "validation": {}}))
 
 
 if __name__ == "__main__":

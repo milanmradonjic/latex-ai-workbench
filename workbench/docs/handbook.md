@@ -1,5 +1,5 @@
 <!-- Generated from handbook.py by `make -C workbench handbook`; do not edit it by hand. -->
-# LaTeX AI Workbench 4.0.0: guide
+# LaTeX AI Workbench 4.1.0: guide
 
 This is the printable copy of the guide that `make guide` shows in a project and `make guide-html` writes as a web page. In a project the commands are shown under the names that work there.
 
@@ -113,7 +113,7 @@ Rule of thumb: edit YOURS and SETTINGS, and only read the rest. If something in 
 │ notes, Markdown, scripts   │──▶│ quick file checks, no TeX build        │
 │ AGENTS.md, permissions     │──▶│ structure checks; you review meaning   │
 │ .tex, .bib, figures, data  │──▶│ build and check documents using them   │
-│ Makefile, settings, CI     │──▶│ file checks, then a full check         │
+│ Makefile, settings         │──▶│ file checks, then a full check         │
 │ no Git, or unknown files   │──▶│ everything, to be safe                 │
 └────────────────────────────┘   └────────────────────────────────────────┘
 ```

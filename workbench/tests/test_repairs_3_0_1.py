@@ -183,7 +183,7 @@ class Repairs(ProjectCase):
         authored = {"AGENTS.md": "# Mine\r\n\r\nKeep this line.\r\n", ".gitignore": "*.tmp\r\nnotes/\r\n"}
         for name, text in authored.items():
             (self.project / name).write_bytes(text.encode())
-        self.install("init", "--no-lint", "--no-ci", "--skip-editor")
+        self.install("init", "--no-lint", "--skip-editor")
         installed = {name: (self.project / name).read_bytes() for name in authored}
         for name, text in authored.items():
             with self.subTest(name):
@@ -195,7 +195,7 @@ class Repairs(ProjectCase):
     def test_installer_keeps_lf_files_lf(self):
         (self.project / "main.tex").write_text(SOURCE)
         (self.project / "AGENTS.md").write_bytes(b"# Mine\n\nKeep this line.\n")
-        self.install("init", "--no-lint", "--no-ci", "--skip-editor")
+        self.install("init", "--no-lint", "--skip-editor")
         self.assertNotIn(b"\r", (self.project / "AGENTS.md").read_bytes())
 
     # --- planner, configuration messages, orientation ----------------------------------------------------

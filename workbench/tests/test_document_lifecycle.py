@@ -76,7 +76,7 @@ class DocumentLifecycleTests(unittest.TestCase):
         (self.project / "main.tex").write_text(SOURCE)
         (self.project / "Makefile").write_text(
             ".PHONY: build\nbuild: main.pdf\nmain.pdf: main.tex compile.py\n\t" + sys.executable + " compile.py main.tex .\n" + check_rule)
-        self.install("init", "--engine", "pdflatex", "--no-lint", "--no-ci", "--skip-editor")
+        self.install("init", "--engine", "pdflatex", "--no-lint", "--skip-editor")
         self.assertEqual(schema.document_settings(schema.load_config(self.project))["build_command"], ["make", "build"])
 
     def named(self, **documents):
@@ -87,8 +87,7 @@ class DocumentLifecycleTests(unittest.TestCase):
         config = {"schema_version": 3, "modules": {"latex": {
             "default_document": "paper", "defaults": {"lint": {"enabled": False}}, "documents": {
                 "paper": {"root": "main.tex", "build_command": [sys.executable, "compile.py", "main.tex", ".latex-ai/artifacts/documents/paper/build"]},
-                "note": {"root": "notes/main.tex", "build_command": [sys.executable, "compile.py", "notes/main.tex", ".latex-ai/artifacts/documents/note/build"]}}}},
-            "integrations": {"ci": {"enabled": False, "pdf_artifact": True}}}
+                "note": {"root": "notes/main.tex", "build_command": [sys.executable, "compile.py", "notes/main.tex", ".latex-ai/artifacts/documents/note/build"]}}}}}
         for name, values in documents.items():
             config["modules"]["latex"]["documents"][name].update(values)
         (self.project / core.CONFIG).write_text(json.dumps(config))
@@ -153,7 +152,7 @@ class DocumentLifecycleTests(unittest.TestCase):
         (self.project / "Makefile").write_text(".PHONY: build\nbuild:\n\t@true\n")
         (self.project / "main.pdf").write_bytes(b"%PDF-old")
         (self.project / "main.log").write_text("old log\n")
-        self.install("init", "--engine", "pdflatex", "--no-lint", "--no-ci", "--skip-editor")
+        self.install("init", "--engine", "pdflatex", "--no-lint", "--skip-editor")
         result = self.make("check", expected=2)
         self.assertIn("Build did not regenerate main.pdf", result.stderr)
         self.assertIn("Hint:", result.stderr)
@@ -285,7 +284,7 @@ class DocumentLifecycleTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("latexmk") and shutil.which("pdflatex"), "real TeX tools required")
     def test_compiler_failure_names_the_tex_error(self):
         (self.project / "main.tex").write_text(SOURCE)
-        self.install("init", "--engine", "pdflatex", "--no-lint", "--no-ci", "--skip-editor")
+        self.install("init", "--engine", "pdflatex", "--no-lint", "--skip-editor")
         (self.project / "notes").mkdir()
         (self.project / "notes/derivation.tex").write_text("\\documentclass{article}\n\\begin{document}\n\\undefinedfixturemacro\n\\end{document}\n")
         self.install("configure", "--document", "derivation", "--root", "notes/derivation.tex", "--no-lint")

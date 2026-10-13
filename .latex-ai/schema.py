@@ -72,16 +72,6 @@ def check_lint(project, lint, where="lint"):
         local_path(project, lint["baseline"])
 
 
-def check_ci(ci):
-    if not isinstance(ci, dict):
-        raise WorkbenchError("ci must be an object")
-    unknown_keys(ci, {"enabled", "pdf_artifact", "texlive_version"}, "ci configuration")
-    if not all(isinstance(ci.get(k, True), bool) for k in ("enabled", "pdf_artifact")):
-        raise WorkbenchError("CI toggles (enabled, pdf_artifact) must be true or false")
-    if not re.fullmatch(r"20\d{2}", str(ci.get("texlive_version", "2026"))):
-        raise WorkbenchError("ci.texlive_version must be a four-digit TeX Live year")
-
-
 def project_pattern(pattern):
     """A glob that stays inside the project: relative, without '..' and without control characters."""
     return (isinstance(pattern, str) and bool(pattern) and not Path(pattern).is_absolute()
@@ -132,7 +122,6 @@ def validate_document_settings(project, config, planned_sources=None):
         raise WorkbenchError("Root document path must not contain whitespace or TeX-special characters")
     check_bibliography(project, config.get("bibliography", {}))
     check_lint(project, config.get("lint", {}))
-    check_ci(config.get("ci", {}))
     if config.get("output_dir") is not None:
         local_path(project, config["output_dir"])
     document_paths(project, config["root"], config.get("output_dir"))
@@ -146,7 +135,6 @@ def validate_document_settings(project, config, planned_sources=None):
 def validate_common(project, view):
     # Shared project policy does not require a TeX document.
     check_bibliography(project, view.get("bibliography", {}))
-    check_ci(view.get("ci", {}))
     check_validation(project, view.get("validation", {}))
 
 
@@ -210,7 +198,7 @@ class FrozenDict(dict):
 
 
 class SharedSettings(FrozenDict):
-    """What a project shares with every document: the bibliography, the validation declarations and CI. A project without
+    """What a project shares with every document: the bibliography and the validation declarations. A project without
     LaTeX has only this, so the bibliography checks take it; a document view is one too."""
     __slots__ = ()
 
@@ -221,11 +209,6 @@ class SharedSettings(FrozenDict):
     @property
     def validation(self):
         return self.get("validation", {})
-
-    @property
-    def ci(self):
-        return self.get("ci", {})
-
 
 class DocumentView(SharedSettings):
     """One declared document, resolved: what the LaTeX backend needs to build, verify and lint it. Its JSON is exactly
@@ -292,8 +275,7 @@ def specifications(config):
         inputs = settings["inputs"]
         validation = copy.deepcopy(config.get("validation", {}))
         validation["manuscript_inputs"] = [*validation.get("manuscript_inputs", []), *inputs]
-        view = {"name": name, **settings, "bibliography": bib,
-                "ci": integrations(config)["ci"], "validation": validation}
+        view = {"name": name, **settings, "bibliography": bib, "validation": validation}
         result.append(Document(name, json.dumps(view, sort_keys=True), default=name == default))
     return tuple(sorted(result, key=lambda document: (not document.default, document.name)))
 
@@ -321,7 +303,7 @@ def document_settings(config, document=None):
     if document:
         raise WorkbenchError("Module is disabled: latex")
     return SharedSettings({"bibliography": module_config(config, "bibliography") if has_module(config, "bibliography") else {},
-                           "validation": config.get("validation", {}), "ci": integrations(config)["ci"]})
+                           "validation": config.get("validation", {})})
 
 
 def required_tools(config):
@@ -378,7 +360,7 @@ def validate_latex(project, values, config, enabled=True, planned_sources=None):
             local_path(project, filename)
     active = {**config, "modules": {**config.get("modules", {}), "latex": values}}
     validate_common(project, {"bibliography": module_config(config, "bibliography") if has_module(config, "bibliography") else {},
-                              "ci": integrations(config)["ci"], "validation": config.get("validation", {})})
+                              "validation": config.get("validation", {})})
     roots, outputs = set(), set()
     exports = {path_identity(project, f".latex-ai/artifacts/documents/{name}/document.pdf") for name in targets}
     for target in specifications(active):
@@ -501,14 +483,15 @@ def validate_config(project, config, planned_sources=None):
     adapters = config.get("integrations", {})
     if not isinstance(adapters, dict):
         raise WorkbenchError("integrations must be an object")
-    unknown_keys(adapters, {"editor", "ci"}, "integrations")
+    if "ci" in adapters:
+        raise WorkbenchError("Workbench 4.1 no longer generates CI workflows: integrations.ci is gone",
+                             hint=f"remove \"ci\" from \"integrations\" in {CONFIG}; a workflow the workbench wrote earlier stays in "
+                                  ".github/workflows/ as your own file (docs/maintainers/minimal-scope.md says why)")
+    unknown_keys(adapters, {"editor"}, "integrations")
     if not isinstance(adapters.get("editor", False), bool):
         raise WorkbenchError("integrations.editor must be true or false")
     validate_common(project, {"bibliography": module_config(config, "bibliography") if has_module(config, "bibliography") else {},
-                              "ci": integrations(config)["ci"], "validation": config.get("validation", {})})
-    ci = integrations(config)["ci"]
-    if ci.get("pdf_artifact", False) and not has_module(config, "latex") and "latex" not in disabled:
-        raise WorkbenchError("PDF CI artifact requires the latex module")
+                              "validation": config.get("validation", {})})
     return config
 
 

@@ -62,9 +62,9 @@ class ValidationIgnore(ProjectCase):
 
     def test_build_configuration_and_policy_files_are_never_ignored(self):
         for name, key in (("docs/Makefile", "manuscript"), ("docs/latexmkrc", "manuscript"), ("docs/AGENTS.md", "policy"),
-                          (".github/workflows/latex-ai.yml", "manuscript")):
+                          (".latex-ai/guide.py", "manuscript")):
             with self.subTest(name=name):
-                plan = self.plan(name, ignore=["docs/**", ".github/**"])
+                plan = self.plan(name, ignore=["docs/**", ".latex-ai/**"])
                 self.assertNotEqual(plan["reasons"][name], IGNORED)
                 self.assertTrue(plan[key])
 

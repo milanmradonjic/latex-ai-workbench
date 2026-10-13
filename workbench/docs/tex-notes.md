@@ -113,8 +113,6 @@ wrong default document. Existing user settings are preserved by the normal
 three-way merge. Open the exported PDF for the selected document; no single
 global compiler output directory is imposed on mixed layouts.
 
-Generated CI consumes the same selected IDs and project-check decision, checks
-each selected document (or the project's complete `make check`) and
-uploads separately named PDFs after verification. Source bibliography and
+Source bibliography and
 compiler semantics remain authoritative. A successful build establishes current
 typesetting outputs, not the scientific correctness of a note.

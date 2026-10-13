@@ -115,40 +115,6 @@ boot.apply(Path(sys.argv[2]), json.loads(sys.argv[3]))
             self.assertNotEqual(boot.main(["recover", str(p)]), 0)
         self.assertEqual((p / "existing").read_text(), "user edit")
 
-
-    def test_profiles_share_local_and_ci_validation_actions(self):
-        p = self.project
-        (p / "main.tex").write_text("\\documentclass{article}\n\\begin{document}Fixture\\end{document}\n")
-        (p / "AGENTS.md").write_text("Policy")
-        (p / "CLAUDE.md").write_text("See AGENTS.md")
-        (p / "README.md").write_text("Notes")
-        for profile, modules in core.PROFILES.items():
-            with self.subTest(profile=profile):
-                config = {'schema_version': 3, 'modules': {name: {} for name in modules}, 'integrations': {'ci': {'enabled': True}}}
-                if "latex" in modules:
-                    config["modules"]["latex"] = {"default_document": "manuscript", "documents": {"manuscript": {"root": "main.tex"}}}
-                (p / core.CONFIG).write_text(json.dumps(config))
-                workflow = boot.workflow(config)
-                supported = set(re.findall(r"outputs.check_([a-z]+)", workflow))
-                for paths in (["README.md"], ["Makefile"]):
-                    plan = rt.validation_plan(p, config, paths)
-                    self.assertLessEqual(set(plan["actions"]), supported)
-                    order = list(dict.fromkeys(re.findall(r"outputs.check_([a-z]+)", workflow)))
-                    # Container's outer gate mentions both flags before its actual commands.
-                    if "portability" in order and "full" in order and "latex" in modules:
-                        order = [name for name in order if name not in {"portability", "full"}] + ["portability", "full"]
-                    self.assertEqual([name for name in order if name in plan["actions"]], plan["actions"])
-                    for name in plan["actions"]:
-                        self.assertIn(adapters.ci_command(name, config), workflow)
-                    output = p / "github-output"
-                    output.write_text("")
-                    with patch.object(sys, "argv", ["runtime", "plan", "--project", str(p), "--files", *paths,
-                                                    "--github-output", str(output)]), contextlib.redirect_stdout(io.StringIO()):
-                        self.assertEqual(rt.main(), 0)
-                    enabled = {line.split("=", 1)[0].removeprefix("check_") for line in output.read_text().splitlines()
-                               if line.startswith("check_") and line.endswith("=true")}
-                    self.assertEqual(enabled, set(plan["actions"]))
-
     def test_effective_config_keeps_persisted_schema_and_module_defaults(self):
         persisted = {'schema_version': 3, 'modules': {'latex': {'default_document': 'manuscript', 'documents': {'manuscript': {'root': 'main.tex', 'engine': 'pdflatex', 'output_dir': '.'}}}}}
         before = json.dumps(persisted)

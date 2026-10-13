@@ -71,8 +71,8 @@ The compiler and BibTeX/Biber are authoritative for TeX expansion and
 bibliography semantics. Static inspection is not a replacement for them.
 
 Clean build files (`make latex-ai-clean`, where the workbench provides it) only when
-stale build state is suspected or explicitly asked for. It is not a routine validation step. CI and editor integrations must call
-the same Make commands; CI builds exclusively from repository contents.
+stale build state is suspected or explicitly asked for. It is not a routine validation step. Editor integrations and any hosted checks must call
+the same Make commands, and build exclusively from repository contents.
 
 # Git safety
 

@@ -31,7 +31,7 @@ Distribution maintainers can use `make -C workbench upgrade-reference`, then
 reference through the installer and verify parity; they perform no Git mutations.
 
 Keep `.latex-ai.json`, installed `.latex-ai/*.py`, `.latex-ai/installation.json`,
-Makefile, policies, editor configuration and CI in version control. The manifest
+Makefile, policies and editor configuration in version control. The manifest
 stores installed and upstream text baselines; it is required for safe merges
 and is not a cache. Ignore `.latex-ai/backups/` and `.latex-ai/artifacts/`.
 
@@ -53,24 +53,16 @@ current. Audit and dry-run only read. Upgrades refuse unsupported schemas and
 downgrades. There is no network updater: release retrieval and Git changes are
 under human control.
 
-## Pinned workflow actions
-
-Every action the generated workflow uses is pinned to a commit, with its tag in a comment
-(`uses: actions/checkout@<commit> # v7`). A tag is resolved again on every CI run, so a moved or hijacked tag would change
-what runs with your checkout and token in reach; a commit cannot move. The workbench carries the pins, so a new release
-brings new ones: an upgrade changes the `uses:` lines of `.github/workflows/latex-ai.yml` and nothing else in it. An action
-the workbench has no pin for is refused when the workflow is generated. Your own workflows are not touched.
-
 ## Ownership and conflicts
 
-New runtime, policy, Make and workflow files are managed as whole files. In the
+New runtime, policy and Make files are managed as whole files. In the
 Makefile, `AGENTS.md`, `CLAUDE.md` and `.gitignore` of a project that had none,
 the installed text is the managed part: lines you add above or below it are
 yours, are kept on every upgrade and are not reported as changes. A change
 inside the installed text is not merged and blocks the upgrade. To resolve it,
 run the upgrade with `--dry-run --diff`, which prints your change against the
 installed text; undo it or move it outside that text, and run the upgrade
-again. Runtime, guardrail and workflow files are installed whole and are not
+again. Runtime and guardrail files are installed whole and are not
 meant to be edited at all: restore them from version control. Do not delete
 manifest entries to force an overwrite. An unchanged upstream/current file can
 remain unchanged without conflict.
@@ -89,8 +81,8 @@ Existing agent permission files are never weakened or silently replaced.
 Different policies require manual reconciliation, preserving stricter rules.
 Unknown/deleted installed files and malformed managed blocks stop the plan.
 Previously managed files no longer in the desired set are retained and reported,
-not deleted. Disabling installed managed CI generates a disabled job on upgrade;
-unrelated workflows remain governed by their own project policy.
+not deleted: a workflow that an earlier release wrote stays in `.github/workflows/` as the
+project's own file, which the workbench no longer touches.
 
 Deleting a managed block intentionally stops an upgrade; it will not be
 reintroduced silently. The active GNU Make filename is retained, including

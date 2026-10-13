@@ -50,7 +50,7 @@ class ModuleTests(unittest.TestCase):
     def example(self):
         """A small LaTeX project with the workbench installed."""
         (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nExample.\n\\end{document}\n")
-        self.assertEqual(self.cli("init", "--engine", "pdflatex", "--no-lint", "--no-ci", "--skip-editor"), 0)
+        self.assertEqual(self.cli("init", "--engine", "pdflatex", "--no-lint", "--skip-editor"), 0)
         return schema.load_config(self.project)
 
 
@@ -134,26 +134,17 @@ class ModuleTests(unittest.TestCase):
         self.assertTrue(plan["bibliography"])
         self.assertFalse(plan["manuscript"])
 
-    def test_no_tex_ci_has_no_container_or_pdf_upload(self):
-        self.assertEqual(self.cli("init", "--profile", "core", "--ci", "--editor"), 0)
-        workflow = (self.project / ".github/workflows/latex-ai.yml").read_text()
-        self.assertNotIn("texlive-action", workflow)
-        self.assertNotIn("upload-artifact", workflow)
-        self.assertNotIn("latex-workshop", (self.project / ".vscode/tasks.json").read_text())
 
-
-    def test_disable_latex_stops_managed_editor_autobuild_and_ci_tex(self):
+    def test_disable_latex_stops_managed_editor_autobuild(self):
         (self.project / "paper.tex").write_text("\\documentclass{article}\n\\begin{document}Test.\\end{document}\n")
         self.assertEqual(self.cli("init"), 0)
         self.assertEqual(self.cli("configure", "--disable", "latex"), 0)
         self.assertEqual(json.loads((self.project / ".vscode/settings.json").read_text())["latex-workshop.latex.autoBuild.run"], "never")
-        self.assertNotIn("texlive-action", (self.project / ".github/workflows/latex-ai.yml").read_text())
         self.command("check")
         self.assertTrue((self.project / "paper.tex").exists())
         self.assertIn("*.aux", (self.project / ".gitignore").read_text())
         self.assertEqual(self.cli("configure", "--enable", "latex"), 0)
         restored = schema.load_config(self.project)
-        self.assertTrue(core.integrations(restored)["ci"]["pdf_artifact"])
         self.assertEqual(schema.document_settings(restored)["root"], "paper.tex")
 
     def run_main(self, *arguments):
@@ -514,35 +505,13 @@ class ModuleTests(unittest.TestCase):
         (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n")
         (self.project / "Makefile").write_text("PYTHON ?= python3\nbuild:\n\t@echo build\n" + "".join(
             f"{name}:\n\t@echo MINE\n" for name in ("doctor", "bib-check", "pdf-artifact", "clean")))
-        self.assertEqual(self.cli("init", "--modules", "latex", "--ci", "--engine", "pdflatex"), 0)
+        self.assertEqual(self.cli("init", "--modules", "latex", "--engine", "pdflatex"), 0)
         targets = guide.make_targets((self.project / "Makefile").read_text())
         for name in ("doctor", "bib-check", "pdf-artifact"):
             self.assertIn("latex-ai-" + name, targets)
         self.assertIn("latex-ai-clean", targets)  # the selected document determines whether cleanup is supported
         self.assertEqual(self.make_output("clean").strip(), "MINE")
         self.assertEqual(self.make_output("doctor").strip(), "MINE")  # and the project's recipes are still its own
-
-    def test_generated_ci_only_calls_make_names_the_installer_always_provides(self):
-        # CI must run the workbench's checks even where the project keeps a target of the short name.
-        cases = (("adopted paper", "latex", True),
-                 ("fresh paper", "latex,bibliography", False),
-                 ("no manuscript", "bibliography", False))
-        for label, modules, adopted in cases:
-            with self.subTest(case=label):
-                shutil.rmtree(self.project)
-                self.project.mkdir()
-                (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n")
-                if adopted:
-                    (self.project / "Makefile").write_text("PYTHON ?= python3\nbuild:\n\t@echo build\n" + "".join(
-                        f"{name}:\n\t@echo MINE\n" for name in ("bib-check", "pdf-artifact")))
-                self.assertEqual(self.cli("init", "--modules", modules, "--ci", *(["--engine", "pdflatex"] if adopted else [])), 0)  # an existing build needs the engine named
-                workflow = (self.project / ".github/workflows/latex-ai.yml").read_text()
-                called = re.findall(r"(?m)^\s*(?:run: )?make (?!-C)([\w-]+)", workflow)
-                self.assertTrue(called, workflow)
-                targets = guide.make_targets((self.project / "Makefile").read_text())
-                for name in called:
-                    self.assertTrue(name == "check" or name.startswith("latex-ai-"), f"{label}: CI calls `make {name}`")
-                    self.assertIn(name, targets)
 
     def test_enable_hint_is_a_command_that_works_for_this_configuration(self):
         (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n")
@@ -562,7 +531,7 @@ class ModuleTests(unittest.TestCase):
         self.assertEqual(self.cli(words[position + 1], *words[position + 3:], "--dry-run"), 0, hint)
 
     def test_audit_names_the_command_that_applies_what_it_previewed(self):
-        status, text = self.cli_output("audit", "--profile", "core", "--ci")
+        status, text = self.cli_output("audit", "--profile", "core", "--editor")
         self.assertEqual(status, 1)
         command = shlex.split(re.search(r"apply with: (.+)", text).group(1))
         self.assertEqual(command[:3], ["python3", str(boot.PACKAGE / "latex-ai-init"), "init"])
@@ -571,7 +540,7 @@ class ModuleTests(unittest.TestCase):
             self.assertEqual(boot.main(command[2:]), 0)  # exactly what was printed, and it applies
         config = schema.load_config(self.project)
         self.assertEqual(sorted(config["modules"]), [])
-        self.assertTrue(config["integrations"]["ci"]["enabled"])
+        self.assertTrue(config["integrations"]["editor"])
         status, text = self.cli_output("audit")
         self.assertEqual(status, 0)
         self.assertIn("the installation is current", text)
@@ -801,14 +770,13 @@ class ModuleTests(unittest.TestCase):
         (self.project / "main.tex").write_text(self.PAPER)
         status, text = self.cli_output("init", "--dry-run")
         self.assertRegex(text, r"NOTE: .*\.vscode.*--skip-editor")
-        self.assertRegex(text, r"NOTE: .*workflow.*--no-ci")
         quickstart = (boot.PACKAGE / "docs/quickstart.md").read_text()
-        for flag in ("--no-ci", "--skip-editor"):
+        for flag in ("--skip-editor"):
             self.assertIn(flag, quickstart)
-        status, text = self.cli_output("init", "--no-ci", "--skip-editor")
+        status, text = self.cli_output("init", "--skip-editor")
         self.assertEqual(status, 0)
         self.assertNotIn("NOTE: ", text)
-        self.assertFalse((self.project / ".vscode").exists() or (self.project / ".github").exists())
+        self.assertFalse((self.project / ".vscode").exists())
         self.assertIn("make status", text.split("Next:")[1])
 
     def test_more_installer_errors_carry_a_hint(self):
@@ -871,8 +839,8 @@ class ModuleTests(unittest.TestCase):
         self.assertEqual(config["schema_version"], 3)
         self.assertEqual(sorted(config["modules"]), ["bibliography", "latex"])
         self.assertEqual(config["modules"]["latex"]["documents"]["manuscript"]["backend"], "bibtex")
-        self.assertTrue(config["integrations"]["editor"] and config["integrations"]["ci"]["enabled"])  # the defaults are unchanged
-        self.assertTrue((self.project / ".vscode/settings.json").is_file() and (self.project / ".github/workflows/latex-ai.yml").is_file())
+        self.assertTrue(config["integrations"]["editor"])  # the default is unchanged
+        self.assertTrue((self.project / ".vscode/settings.json").is_file())
         self.assertEqual(self.cli("configure", "--disable", "bibliography", "--dry-run"), 0)  # no migration step for a new project
         before = self.snapshot()
         self.assertEqual(self.cli("upgrade"), 0)
@@ -899,14 +867,12 @@ class ModuleTests(unittest.TestCase):
             with self.subTest(profile=profile):
                 self.fresh_project()
                 (self.project / "main.tex").write_text(self.PAPER)
-                self.assertEqual(self.cli("init", "--profile", profile, "--ci"), 0)
+                self.assertEqual(self.cli("init", "--profile", profile), 0)
                 config = schema.load_config(self.project)
                 targets = guide.make_targets((self.project / "Makefile").read_text())
                 expected = {command.reserved for command in guide.COMMANDS if command.reserved and guide.enabled(command, config)}
                 self.assertEqual({name for name in targets if name.startswith("latex-ai-")} - internal, expected)
                 self.assertEqual({command.short for command in guide.COMMANDS if command.reserved and guide.enabled(command, config)} - targets, set())  # and every alias
-                workflow = (self.project / ".github/workflows/latex-ai.yml").read_text()
-                self.assertEqual(set(re.findall(r"make (latex-ai-[a-z-]+)", workflow)) - expected, set())
 
     ROWS = [{"file": "main.tex", "line": 3, "warning": 2, "message": "Non-breaking space (`~') should have been used.", "text": "See Fig. \\ref{f}."},
             {"file": "main.tex", "line": 3, "warning": 12, "message": "Interword spacing (`\\ ') should perhaps be used.", "text": "See Fig. \\ref{f}."},

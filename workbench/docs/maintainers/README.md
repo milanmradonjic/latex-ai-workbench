@@ -24,6 +24,7 @@ earlier repository, local folder paths and the name of a private test project we
 - [Plan after 3.0.2](plan-after-3.0.2.md): the remaining audit work in phases, starting with macOS verification.
 - [Version 3.5.0 verification](verification-3.5.0.md): the pinned workflow actions, and what an upgrade does to a project's workflow.
 - [Version 3.6.0 verification](verification-3.6.0.md): `validation.ignore`, and what it never ignores.
+- [Version 4.1.0 verification](verification-4.1.0.md): CI workflow generation removed, and what an upgrade does to a project that had it.
 - [Version 4.0.0 verification](verification-4.0.0.md): the research, notes and Markdown modules removed, and what that changes for an installed project.
 - [Version 3.7.0 verification](verification-3.7.0.md): the duplicates of finding F9 collapsed, and where that changes behaviour.
 - [Version 3.4.1 verification](verification-3.4.1.md): the viewer's output folder in the generated VS Code settings, and what it cannot solve.

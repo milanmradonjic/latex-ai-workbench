@@ -16,7 +16,6 @@ import bootstrap
 import documents
 import latex
 import runtime
-import schema3_workflow
 from test_support import isolate_environment
 
 
@@ -31,9 +30,6 @@ class SimplificationTests(unittest.TestCase):
         return {"schema_version": 3, "modules": {"latex": {
             "default_document": "paper", "documents": {"paper": {
                 "root": "./main.tex", "lint": {"enabled": False}}}}}}
-
-    def test_hosted_multi_document_workflow_matches_generated_adapter(self):
-        self.assertEqual(schema3_workflow.DESTINATION.read_text(), schema3_workflow.generated_workflow())
 
     def test_old_project_schemas_refuse_installation_without_writes(self):
         for version in (1, 2):

@@ -41,13 +41,13 @@ class PullRequestPolicy(ProjectCase):
 
     def test_installed_projects_receive_the_rule(self):
         (self.project / "main.tex").write_text(SOURCE)
-        self.install("init", "--skip-editor", "--no-ci")
+        self.install("init", "--skip-editor")
         self.assertIn(RULE, (self.project / "AGENTS.md").read_text())
         owned = self.root / "owned"
         owned.mkdir()
         (owned / "main.tex").write_text(SOURCE)
         (owned / "AGENTS.md").write_text("# Our own policy\n\nKeep it short.\n")
-        self.run_command(sys.executable, "-B", str(PACKAGE / "latex-ai-init"), "init", "--skip-editor", "--no-ci", str(owned))
+        self.run_command(sys.executable, "-B", str(PACKAGE / "latex-ai-init"), "init", "--skip-editor", str(owned))
         text = (owned / "AGENTS.md").read_text()
         self.assertIn("# Our own policy", text)
         self.assertIn(RULE, text)

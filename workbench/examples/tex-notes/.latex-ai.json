@@ -17,10 +17,6 @@
     }
   },
   "integrations": {
-    "ci": {
-      "enabled": false,
-      "pdf_artifact": true
-    },
     "editor": false
   }
 }

@@ -16,7 +16,7 @@ make latex-ai-pdf-artifact DOC=derivation
 ```
 
 Setup preserves the included schema-3 configuration. It enables local PDF
-export while leaving CI and editor integration disabled. ChkTeX is required
+export while leaving the editor integration disabled. ChkTeX is required
 by the example's default lint policy.
 
 Edit `notes/state.tex`: its consumer is `notebook`. Edit `notes/shared.tex`:

@@ -105,7 +105,7 @@ class ReviewFixes(unittest.TestCase):
         p = self.project
         (p / "main.tex").write_text("\\documentclass{article}\n\\begin{document}Fixture\\end{document}\n")
         (p / "Makefile").write_text("build: pdf\npdf:\n\t@echo compiler >> calls\n\tlatexmk -pdf -recorder -interaction=nonstopmode -halt-on-error main.tex\nlint:\n\t@true\ncheck: build lint\n")
-        result = self.install("--engine", "pdflatex", "--build-command", '["make","pdf"]', "--no-lint", "--no-ci", "--skip-editor")
+        result = self.install("--engine", "pdflatex", "--build-command", '["make","pdf"]', "--no-lint", "--skip-editor")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         for count in range(1, 3):
             result = subprocess.run(["make", "-j4", "check"], cwd=p, capture_output=True, text=True)
@@ -138,7 +138,7 @@ class ReviewFixes(unittest.TestCase):
         (p / "main.tex").write_text("\\documentclass{article}\n\\begin{document}Fixture\\end{document}\n")
         (p / "builder.py").write_text("from pathlib import Path\nimport time\nPath('started').touch()\nwhile not Path('release').exists(): time.sleep(.02)\nPath('main.pdf').write_bytes(b'%PDF-fixture\\n')\nPath('main.log').write_text('Fixture compile complete\\n')\n")
         (p / "Makefile").write_text("build: pdf\npdf:\n\t$(PYTHON) builder.py\nlint:\n\t@true\ncheck: build lint\n")
-        result = self.install("--engine", "pdflatex", "--build-command", '["make","pdf"]', "--no-lint", "--no-ci", "--skip-editor")
+        result = self.install("--engine", "pdflatex", "--build-command", '["make","pdf"]', "--no-lint", "--skip-editor")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         first = subprocess.Popen(["make", "-j4", "check"], cwd=p, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         try:
@@ -165,7 +165,7 @@ class ReviewFixes(unittest.TestCase):
         (p / "main.tex").write_text("\\documentclass{article}\n\\begin{document}Fixture\\end{document}\n")
         (p / "builder.py").write_text("from pathlib import Path\nwith Path('calls').open('a') as f: f.write('compiler\\n')\nPath('main.pdf').write_bytes(b'%PDF-fixture\\n')\nPath('main.log').write_text('Fixture compile complete\\n')\n")
         (p / "Makefile").write_text("CHECK_TARGET = check\nall: $(CHECK_TARGET)\npdf:\n\t$(PYTHON) builder.py\nlint:\n\t@true\n")
-        result = self.install("--engine", "pdflatex", "--build-command", '["make","pdf"]', "--no-lint", "--no-ci", "--skip-editor")
+        result = self.install("--engine", "pdflatex", "--build-command", '["make","pdf"]', "--no-lint", "--skip-editor")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         for count, goal in enumerate((None, "build", "latex-ai-integrity", "latex-ai-check-passed", "all"), 1):
             result = subprocess.run(["make", "-j4", *([goal] if goal else [])], cwd=p, capture_output=True, text=True)
@@ -188,7 +188,7 @@ class ReviewFixes(unittest.TestCase):
         # A fixture cap makes a broken recursion guard fail promptly, not hang.
         (p / "builder.py").write_text("from pathlib import Path\nimport subprocess\np = Path('calls')\nn = int(p.read_text()) + 1 if p.exists() else 1\np.write_text(str(n))\nif n >= 4: raise SystemExit(2)\nraise SystemExit(subprocess.call(['make', 'latex-ai-build']))\n")
         (p / "Makefile").write_text("build: pdf\npdf:\n\t$(PYTHON) builder.py\nlint:\n\t@true\n")
-        result = self.install("--engine", "pdflatex", "--build-command", '["make","pdf"]', "--no-lint", "--no-ci", "--skip-editor")
+        result = self.install("--engine", "pdflatex", "--build-command", '["make","pdf"]', "--no-lint", "--skip-editor")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         result = subprocess.run([sys.executable, str(p / ".latex-ai/workbench.py"), "build", "--project", str(p)],
                                 capture_output=True, text=True, timeout=5)
@@ -203,7 +203,7 @@ class ReviewFixes(unittest.TestCase):
         source.write_text("\\documentclass{article}\n\\begin{document}Fixture\\end{document}\n")
         (p / "builder.py").write_text("from pathlib import Path\nwith Path('calls').open('a') as f: f.write('compiler\\n')\nPath('main.pdf').write_bytes(b'%PDF-fixture\\n')\nPath('main.log').write_text('Fixture compile complete\\n')\n")
         (p / "Makefile").write_text("build: pdf\npdf: main.pdf\nmain.pdf: main.tex builder.py\n\t$(PYTHON) builder.py\nlint:\n\t@true\ncheck: build lint\n")
-        result = self.install("--engine", "pdflatex", "--build-command", '["make","pdf"]', "--no-lint", "--no-ci", "--skip-editor")
+        result = self.install("--engine", "pdflatex", "--build-command", '["make","pdf"]', "--no-lint", "--skip-editor")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         for expected in (1, 1, 2):
             if expected == 2:

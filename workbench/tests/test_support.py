@@ -66,7 +66,7 @@ class ProjectCase(unittest.TestCase):
         settings = {"root": "main.tex", "lint": {"enabled": False}, "output_dir": "outputs",
                     "build_command": [sys.executable, "builder.py"]}
         config = {"schema_version": 3, "modules": {"latex": {"default_document": "paper", "documents": documents_ or {"paper": settings}}},
-                  "integrations": {"ci": {"enabled": False, "pdf_artifact": True}}, **extra}
+                  **extra}
         (self.project / core.CONFIG).write_text(json.dumps(config))
         return config
 

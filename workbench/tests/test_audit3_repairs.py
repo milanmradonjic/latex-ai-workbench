@@ -71,8 +71,7 @@ class Audit3Repairs(unittest.TestCase):
             (self.project / name).write_text(SOURCE)
         config = {'schema_version': 3, 'modules': {'latex': {
             'default_document': 'paper', 'defaults': {'lint': {'enabled': False}},
-            'documents': {'paper': {'root': 'main.tex'}, 'note': {'root': 'note.tex'}}}},
-            'integrations': {'ci': {'enabled': True, 'pdf_artifact': True}}}
+            'documents': {'paper': {'root': 'main.tex'}, 'note': {'root': 'note.tex'}}}}}
         (self.project / core.CONFIG).write_text(json.dumps(config))
         if makefile is not None:
             (self.project / 'Makefile').write_text(makefile)
@@ -92,8 +91,7 @@ class Audit3Repairs(unittest.TestCase):
         config = {'schema_version': 3, 'modules': {'latex': {
             'default_document': 'paper', 'defaults': {'lint': {'enabled': False}},
             'documents': {name: {'root': root, 'build_command': [sys.executable, 'compile.py', root,
-                f'.latex-ai/artifacts/documents/{name}/build']} for name, root in [('paper','main.tex'),('note','note.tex')]}}},
-            'integrations': {'ci': {'enabled': True, 'pdf_artifact': True}}}
+                f'.latex-ai/artifacts/documents/{name}/build']} for name, root in [('paper','main.tex'),('note','note.tex')]}}}}
         (self.project / core.CONFIG).write_text(json.dumps(config))
         if makefile is not None:
             (self.project / 'Makefile').write_text(makefile)
@@ -130,7 +128,7 @@ class Audit3Repairs(unittest.TestCase):
         (self.project/'compile.mk').write_text('TEX_TEXT := First\n')
         (self.project/'Makefile').write_text('include compile.mk\n.PHONY: build\nbuild: main.pdf\n'
             "main.pdf: main.tex\n\tpdflatex -recorder -interaction=nonstopmode -halt-on-error '\\def\\fixturetext{$(TEX_TEXT)}\\input{main.tex}'\n")
-        self.install('init','--no-lint','--no-ci','--skip-editor','--engine','pdflatex')
+        self.install('init','--no-lint','--skip-editor','--engine','pdflatex')
         self.run_command('make','check')
         receipt=json.loads((self.project/'.latex-ai/artifacts/documents/manuscript/build-receipt.json').read_text())
         self.assertEqual(receipt['input_roles']['compile.mk'],'make-policy')
@@ -185,7 +183,7 @@ class Audit3Repairs(unittest.TestCase):
             " while not Path('release').exists(): time.sleep(.05)\n"
             "subprocess.run(['pdflatex','-interaction=nonstopmode','-halt-on-error','main.tex'],check=True)\n")
         (self.project / 'Makefile').write_text('.PHONY: build check\nbuild: main.pdf\nmain.pdf: main.tex\n\t'+sys.executable+' slow.py\ncheck: build\n')
-        self.install('init', '--no-lint', '--no-ci', '--skip-editor', '--engine', 'pdflatex')
+        self.install('init', '--no-lint', '--skip-editor', '--engine', 'pdflatex')
         owner = subprocess.Popen(['make','-j4','check'], cwd=self.project, env=self.env,
                                  start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.addCleanup(lambda: owner.poll() is None and owner.kill())
@@ -216,17 +214,6 @@ class Audit3Repairs(unittest.TestCase):
                 finally:
                     self.project = old
 
-    def test_a4_generated_ci_executes_recognized_project_check(self):
-        self.synthetic('check: project-tests\nproject-tests:\n\ttouch project-check-ran\n')
-        workflow = (self.project / '.github/workflows/latex-ai.yml').read_text()
-        plan = json.loads(self.command('plan', '--files', 'note.tex', '--json').stdout)
-        self.assertTrue(plan.get('project_check'), plan)
-        # Replay the literal canonical command emitted by CI, not an invented check.
-        commands = re.findall(r'^\s+(make check)\s*$', workflow, re.M)
-        self.assertEqual(commands, ['make check'], workflow)
-        self.run_command(*commands[0].split())
-        self.assertTrue((self.project / 'project-check-ran').is_file())
-
     @unittest.skipUnless(TEX, 'real latexmk/pdflatex required')
     def test_a5_custom_compiler_receives_supplied_stdin(self):
         (self.project / 'main.tex').write_text(SOURCE)
@@ -234,7 +221,7 @@ class Audit3Repairs(unittest.TestCase):
             "import subprocess,sys\n"
             "if sys.stdin.readline().strip()!='approve': raise SystemExit(3)\n"
             "subprocess.run(['pdflatex','-interaction=nonstopmode','-halt-on-error','main.tex'],check=True)\n")
-        self.install('init','--no-lint','--no-ci','--skip-editor','--engine','pdflatex',
+        self.install('init','--no-lint','--skip-editor','--engine','pdflatex',
                      '--build-command',json.dumps([sys.executable,'compile.py']))
         self.command('build', input='approve\n')
         self.command('verify')
@@ -277,7 +264,7 @@ class Audit3Repairs(unittest.TestCase):
     @unittest.skipUnless(TEX, 'real latexmk/pdflatex required')
     def test_a8_current_startup_failure_never_uses_prior_tex_log(self):
         (self.project / 'main.tex').write_text(SOURCE.replace('Audit fixture.','\\OLDMACRO'))
-        self.install('init','--no-lint','--no-ci','--skip-editor','--engine','pdflatex')
+        self.install('init','--no-lint','--skip-editor','--engine','pdflatex')
         first = self.command('build',expected=1)
         self.assertIn('Undefined control sequence',first.stderr)
         (self.project / 'main.tex').write_text(SOURCE)
@@ -329,7 +316,7 @@ class Audit3Repairs(unittest.TestCase):
         makefile='check:: local-test\nlocal-test:\n\ttouch project-check-ran\n'
         (self.project/'Makefile').write_text(makefile)
         (self.project/'main.tex').write_text(SOURCE)
-        result=self.install('init','--no-lint','--no-ci','--skip-editor','--engine','pdflatex',
+        result=self.install('init','--no-lint','--skip-editor','--engine','pdflatex',
                             '--build-command',json.dumps([sys.executable,'-c','pass']),expected=None)
         if result.returncode==0:
             parsed=self.run_command('make','-n','check')
@@ -346,7 +333,7 @@ class Audit3Repairs(unittest.TestCase):
             "Path('main.log').write_text('Clean fixture log')\n")
         (self.project/'Makefile').write_text(header+'.PHONY: build check\nbuild: main.pdf\n'
             'main.pdf: main.tex\n\t@'+sys.executable+' compile.py\n\t@touch recipe-completed\ncheck: build\n')
-        self.install('init','--no-lint','--no-ci','--skip-editor','--engine','pdflatex')
+        self.install('init','--no-lint','--skip-editor','--engine','pdflatex')
 
     def test_review_raw_adopted_goal_still_builds_without_receipt(self):
         self.adopted()
@@ -397,7 +384,7 @@ class Audit3Repairs(unittest.TestCase):
         makefile='ifeq (0,1)\ncheck::\nelse\ncheck:\nendif\n'
         (self.project/'Makefile').write_text(makefile)
         (self.project/'main.tex').write_text(SOURCE)
-        result=self.install('init','--no-lint','--no-ci','--skip-editor',
+        result=self.install('init','--no-lint','--skip-editor',
             '--engine','pdflatex','--build-command',json.dumps([sys.executable,'-c','pass']),expected=2)
         self.assertIn('colon',result.stdout+result.stderr)
         self.assertEqual((self.project/'Makefile').read_text(),makefile)
@@ -407,7 +394,7 @@ class Audit3Repairs(unittest.TestCase):
         makefile='.RECIPEPREFIX := >\ncheck:\n>touch project-check-ran\n'
         (self.project/'Makefile').write_text(makefile)
         (self.project/'main.tex').write_text(SOURCE)
-        result=self.install('init','--no-lint','--no-ci','--skip-editor','--engine','pdflatex',
+        result=self.install('init','--no-lint','--skip-editor','--engine','pdflatex',
             '--build-command',json.dumps([sys.executable,'-c','pass']),expected=2)
         self.assertIn('recipe prefix',result.stdout+result.stderr)
         self.assertEqual((self.project/'Makefile').read_text(),makefile)

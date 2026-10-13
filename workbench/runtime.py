@@ -284,7 +284,7 @@ def validation_plan(project, config, paths=None, base=None):
     for name in paths:
         suffix = Path(name).suffix.lower()
         control = (Path(name).name in {"Makefile", "makefile", "GNUmakefile", "latexmkrc", ".latexmkrc", ".chktexrc", ".chktex-baseline.json"}
-                   or name == CONFIG or name.startswith((".github/workflows/", ".latex-ai/", ".vscode/", templates))
+                   or name == CONFIG or name.startswith((".latex-ai/", ".vscode/", templates))
                    or name in runtime_files)
         policy = (Path(name).name in {"AGENTS.md", "CLAUDE.md", "SKILL.md"}
                   or name.startswith((".claude/", ".codex/", skills)))
@@ -572,8 +572,7 @@ def main():
     parser.add_argument("--base", default=os.environ.get("LATEX_AI_BASE"), help="Git revision to compare; default HEAD plus local/untracked changes")
     parser.add_argument("--files", nargs="*", help="Explicit changed paths, including deleted paths")
     parser.add_argument("--json", action="store_true", help="Print structured results; plan/modules retain their native JSON formats")
-    parser.add_argument("--github-output", type=Path, help="Append boolean routing outputs for GitHub Actions")
-    parser.add_argument("--files-only", action="store_true", help="Run lightweight file/policy checks only (CI runs selected jobs separately)")
+    parser.add_argument("--files-only", action="store_true", help="Run lightweight file/policy checks only (a hook or a hosted job can run the rest separately)")
     args = parser.parse_args()
     project = args.project.resolve()
     line_buffered()
@@ -657,14 +656,6 @@ def selected_checks(project, config, args):
         if os.environ.get("DOC"):
             print(f"NOTE: DOC={os.environ['DOC']} is ignored here: documents are selected from the changed files. "
                   f"To check one document use make {guide.command_name(project, 'document-check') or 'latex-ai-document-check'} DOC={os.environ['DOC']}")
-    if args.github_output:
-        with args.github_output.open("a", encoding="utf-8") as stream:
-            for key in ("unit", "portability", "manuscript", "bibliography"):
-                stream.write(f"{key}={str(plan[key]).lower()}\n")
-            for action in VALIDATION_ACTIONS:
-                stream.write(f"check_{action}={str(action in plan['actions']).lower()}\n")
-            stream.write("document_ids=" + json.dumps(plan["documents"]) + "\n")
-            stream.write("project_check=" + str(plan["project_check"]).lower() + "\n")
     return plan
 
 

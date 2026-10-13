@@ -15,7 +15,7 @@ python3 /path/to/workbench/latex-ai-init audit /path/to/project --json
 ```
 
 Audit missing components and conflicts; an absent installation returns 1.
-Select a profile or modules and enable editor/CI adapters only
+Select a profile or modules and enable the editor adapter only
 when needed; read [module setup](../../../docs/modules.md). Projects without a manuscript
 do not need a TeX root. Profiles choose initial configuration only.
 For handwritten TeX notes, register independent roots
@@ -38,9 +38,8 @@ replacing it. Treat malformed JSON, colliding task names, differing agent
 permissions and unsupported syntax as conflicts to explain, not excuses to
 overwrite. Strict JSON editor merges preserve unrelated settings. Use
 `--skip-editor` for JSONC when the user does not need immediate GUI integration;
-document the manual integration still pending. Existing unrelated workflows
-can remain alongside the workbench CI; identify duplication for deliberate
-resolution. Never remove another workflow without authorization.
+document the manual integration still pending. The workbench writes no
+workflow; never remove one the project has without authorization.
 
 After evaluating a safe plan, apply it with the same command minus dry-run.
 Do not request approval for harmless authorized file changes. Setup does not
@@ -56,7 +55,7 @@ Confirm root/backend/config agree with source and output layout. Inspect any
 local adapters and rc overrides. Run canonical validation separately when the
 task includes execution; CLI audit itself is structural and read-only.
 
-Check canonical semantic policy, delegation, editor/CI Make invocation, intact
+Check canonical semantic policy, delegation, editor Make invocation, intact
 Git approval rules, tracked bibliography inputs, ignored build outputs and
 manifest/runtime consistency. Distinguish:
 

@@ -67,8 +67,7 @@ class DocumentTests(unittest.TestCase):
         config = {"schema_version": 3, "modules": {"latex": {
             "default_document": "paper", "defaults": {"lint": {"enabled": False}}, "documents": {
                 "paper": {"root": "main.tex", "build_command": [sys.executable, "compile.py", "main.tex", ".latex-ai/artifacts/documents/paper/build"]},
-                "note": {"root": "notes/main.tex", "build_command": [sys.executable, "compile.py", "notes/main.tex", ".latex-ai/artifacts/documents/note/build"]}}}},
-            "integrations": {"ci": {"enabled": True, "pdf_artifact": True}}}
+                "note": {"root": "notes/main.tex", "build_command": [sys.executable, "compile.py", "notes/main.tex", ".latex-ai/artifacts/documents/note/build"]}}}}}
         (self.project / core.CONFIG).write_text(json.dumps(config))
         return config
 
@@ -245,15 +244,11 @@ class DocumentTests(unittest.TestCase):
         self.command("plan", "--files", "notes/main.tex", "--json")
         self.assertEqual(before, self.snapshot())
 
-    def test_document_ci_and_editor_tasks_use_named_make_commands(self):
+    def test_editor_tasks_use_named_make_commands(self):
         config = self.configuration()
-        config["integrations"]["editor"] = True
+        config["integrations"] = {"editor": True}
         (self.project / core.CONFIG).write_text(json.dumps(config))
         self.install("init")
-        workflow = (self.project / ".github/workflows/latex-ai.yml").read_text()
-        for name in ("paper", "note"):
-            self.assertIn("make latex-ai-document-check DOC=" + name, workflow)
-            self.assertIn("artifacts/documents/" + name + "/document.pdf", workflow)
         tasks = json.loads((self.project / ".vscode/tasks.json").read_text())["tasks"]
         self.assertIn(["latex-ai-build", "DOC=note"], [task["args"] for task in tasks])
 
@@ -270,7 +265,6 @@ class DocumentTests(unittest.TestCase):
         config = self.configuration()
         saved = config["modules"].pop("latex")
         config["disabled_modules"] = {"latex": saved}
-        config["integrations"]["ci"]["pdf_artifact"] = False
         (self.project / core.CONFIG).write_text(json.dumps(config))
         self.install("init")
         self.assertTrue((self.project / ".latex-ai/documents.py").is_file())
@@ -392,7 +386,7 @@ class DocumentTests(unittest.TestCase):
         (self.project / "alias").mkdir()
         (self.project / "src/main.tex").write_text("\\documentclass{article}\n")
         (self.project / "alias/paper.tex").symlink_to(self.project / "src/main.tex")
-        self.install("init", "--root", "alias/paper.tex", "--no-lint", "--no-ci", "--skip-editor")
+        self.install("init", "--root", "alias/paper.tex", "--no-lint", "--skip-editor")
         original = latex.output_paths(self.project, schema.document_settings(schema.load_config(self.project)))[2]
         self.install("configure")
         self.assertEqual(latex.output_paths(self.project, schema.document_settings(schema.load_config(self.project)))[2], original)

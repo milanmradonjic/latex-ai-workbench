@@ -30,7 +30,7 @@ EVERY_KEY = {
                                          "output_dir": "note-out", "lint": {"enabled": False, "baseline": "note.baseline.json"}}}},
         "bibliography": {"files": ["refs.bib"], "export": {"path": "refs.bib", "required": True, "format": "biblatex"}},
     },
-    "integrations": {"editor": False, "ci": {"enabled": True, "pdf_artifact": True, "texlive_version": "2026"}},
+    "integrations": {"editor": False},
     "validation": {"manuscript_inputs": ["figures/*.pdf"], "package": None},
 }
 CONFIGURATIONS = {**{name: config for name, (config, makefile) in FIXTURES.items()}, "every-key": EVERY_KEY}
@@ -90,7 +90,6 @@ class ViewTypes(unittest.TestCase):
         self.assertEqual(list(view.build_command), ["make", "note"])
         self.assertEqual(view.lint["enabled"], False)
         self.assertEqual(view.bibliography["backend"], "bibtex")
-        self.assertEqual(view.ci["texlive_version"], "2026")
         self.assertEqual(list(self.view("paper").inputs), ["data/*.csv"])
         self.assertEqual(view.validation["manuscript_inputs"], ["figures/*.pdf"])
 
@@ -110,7 +109,7 @@ class ViewTypes(unittest.TestCase):
         self.assertIsInstance(settings, schema.SharedSettings)
         self.assertNotIsInstance(settings, schema.DocumentView)
         self.assertEqual(list(settings.bibliography["files"]), ["refs.bib"])
-        self.assertEqual(set(settings), {"bibliography", "validation", "ci"})
+        self.assertEqual(set(settings), {"bibliography", "validation"})
 
     def test_document_settings_resolves_a_project_configuration_and_refuses_a_view(self):
         config = core.effective_config(EVERY_KEY)

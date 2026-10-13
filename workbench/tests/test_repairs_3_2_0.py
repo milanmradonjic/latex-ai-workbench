@@ -22,14 +22,14 @@ class DocumentSelectorWithoutLatex(ProjectCase):
 
     def test_a_project_created_without_latex_refuses_the_selector_and_says_how_to_enable_it(self):
         (self.project / "README.md").write_text("notes\n")
-        self.install("init", "--profile", "core", "--no-ci", "--skip-editor")
+        self.install("init", "--profile", "core", "--skip-editor")
         for action in ("check", "bib-check", "build"):  # build always did
             with self.subTest(action=action):
                 self.refused(action, "--document", "paper")
 
     def test_a_project_that_disabled_latex_refuses_it_the_same_way(self):
         (self.project / "main.tex").write_text(TEX)
-        self.install("init", "--profile", "writing", "--root", "main.tex", "--engine", "pdflatex", "--no-lint", "--no-ci", "--skip-editor")
+        self.install("init", "--profile", "writing", "--root", "main.tex", "--engine", "pdflatex", "--no-lint", "--skip-editor")
         self.install("configure", "--disable", "latex")
         for action in ("check", "bib-check", "build"):
             with self.subTest(action=action):
@@ -37,7 +37,7 @@ class DocumentSelectorWithoutLatex(ProjectCase):
 
     def test_with_latex_on_the_selector_still_selects_and_still_rejects_an_unknown_name(self):
         (self.project / "main.tex").write_text(TEX)
-        self.install("init", "--profile", "writing", "--root", "main.tex", "--engine", "pdflatex", "--no-lint", "--no-ci", "--skip-editor")
+        self.install("init", "--profile", "writing", "--root", "main.tex", "--engine", "pdflatex", "--no-lint", "--skip-editor")
         self.command("bib-check", "--document", "manuscript")
         refused = self.command("check", "--document", "nope", expected=1)
         self.assertIn("Unknown document: 'nope'", refused.stderr)

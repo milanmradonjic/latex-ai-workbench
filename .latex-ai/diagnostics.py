@@ -64,7 +64,7 @@ def recent_faults(project, limit=5):
 
 DIFFERING = ("modified locally", "missing", "unreadable")
 # Whole files the project is expected to add to: what it writes above or below the installed text is its own
-# and is kept on upgrade. Runtime, guardrail and workflow files are not in this set.
+# and is kept on upgrade. Runtime and guardrail files are not in this set.
 EXTENDABLE = frozenset({"AGENTS.md", "CLAUDE.md", ".gitignore", "Makefile", "makefile", "GNUmakefile"})
 
 
