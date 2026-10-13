@@ -8,9 +8,9 @@ in ``runtime`` (``-`` written ``_``); a test keeps the two in step. The order is
 """
 from typing import NamedTuple, Optional, Tuple
 
-# What a recipe takes from Make variables, by the ``selects`` of a target (DOC, TOPIC and the issue
+# What a recipe takes from Make variables, by the ``selects`` of a target (DOC and the issue
 # variables reach recipes through the environment, never as Make text spliced into a shell line).
-RECIPE_ARGUMENTS = {"": "", "document": ' --document "$$DOC"', "topic": ' --topic "$$TOPIC"',
+RECIPE_ARGUMENTS = {"": "", "document": ' --document "$$DOC"',
                     "note": ' --note "$$ISSUE_NOTE" --command "$$ISSUE_COMMAND"'}
 
 
@@ -25,7 +25,7 @@ class Target(NamedTuple):
     reserved: Optional[str]
     group: str
     description: str
-    selects: str = ""     # what the recipe takes from Make variables: "document", "topic" or "note"
+    selects: str = ""     # what the recipe takes from Make variables: "document" or "note"
     usage: str = ""       # the assignment `make help` shows after the name: DOC=NAME
 
 
@@ -70,9 +70,7 @@ ACTIONS = (
     Action("help", standalone=True, targets=(
         Target("help", "latex-ai-help", "Everyday", "This list"),)),
     Action("guide", standalone=True, targets=(
-        Target("guide", "latex-ai-guide", "Everyday", "How the parts fit: pictures, how-tos, glossary (TOPIC=name shows one part)", selects="topic"),)),
-    Action("guide-html", standalone=True, targets=(
-        Target("guide-html", "latex-ai-guide-html", "Everyday", "The same guide as a web page: .latex-ai/artifacts/guide.html"),)),
+        Target("guide", "latex-ai-guide", "Everyday", "A short manual for this project"),)),
     Action("build", module="latex", document=True, view=True, targets=(
         Target("build", "latex-ai-build", "Manuscript", "Build the PDF and record its input/output validity", selects="document", usage="DOC=NAME"),)),
     Action("build-prepare", module="latex", document=True, view=True),    # internal transaction hooks of an adopted build

@@ -49,11 +49,8 @@ cd /path/to/project
 make help      # the commands this project has
 make status    # where it stands and what to do next
 make doctor    # are the required tools installed?
-make guide     # how the parts fit: pictures, how-tos, a glossary
+make guide     # a short manual for this project
 ```
-
-`make guide-html` writes the same guide as a web page (`.latex-ai/artifacts/guide.html`) that you can
-open in a browser; [the guide](handbook.md) is also in the package.
 
 If your Makefile already had a target called `help`, `status` or `doctor`, your recipe was kept
 and `make help` still shows only your own targets. The workbench commands are then

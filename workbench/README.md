@@ -27,8 +27,7 @@ a full check before sharing. No-TeX projects omit the build step.
 
 - [Quickstart](docs/quickstart.md): install, first check, daily loop, when something fails.
 - [I want to…](docs/tasks.md): find the command for what you are trying to do.
-- [The guide](docs/handbook.md): pictures of how the parts fit, how-tos and a glossary. In a project,
-  `make guide` prints it and `make guide-html` writes it as a web page ([ready-made copy](docs/handbook.html)).
+- In a project, `make guide` prints a short manual written with that project's own documents and command names.
 
 ## Pick a profile
 
@@ -48,7 +47,7 @@ every change, preserves your files and has no overwrite switch.
 | [I want to…](docs/tasks.md) | [Configuration](docs/configuration.md) | [Agent operating skill](skills/latex-ai-workbench/SKILL.md) |
 | [Installing and auditing](docs/installing.md) | [Validation routing](docs/validation.md) | [Upgrading](docs/upgrading.md) |
 | [Daily use](docs/daily-use.md) | [Bibliography](docs/bibliography.md) | [Maintainers' material](docs/maintainers/README.md) |
-| [The guide: pictures, how-tos, glossary](docs/handbook.md) | [TeX notes and named documents](docs/tex-notes.md) | |
+| | [TeX notes and named documents](docs/tex-notes.md) | |
 
 The whole `workbench/` directory is relocatable: keep it together, because the installer needs its
 sibling templates and backends. Installed projects need only their configuration, the vendored

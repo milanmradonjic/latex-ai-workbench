@@ -39,7 +39,7 @@ uses LaTeX and bibliography.
 |---|---|---|
 | Reusable templates | `templates/` | Agent policy, Make, editor, permissions |
 | Setup/audit/upgrade | `latex-ai-init`, `bootstrap.py` | Detect conventions, plan safe changes, manage installation |
-| Runtime/core | `runtime.py`, `core.py`, `guide.py`, `handbook.py`, `diagnostics.py` | Vendored to `.latex-ai/`; dispatcher, config and file checks, help/status/guide, local defect reports |
+| Runtime/core | `runtime.py`, `core.py`, `guide.py`, `diagnostics.py` | Vendored to `.latex-ai/`; dispatcher, config and file checks, help/status/guide, local defect reports |
 | Optional backends | `latex.py`, `documents.py` | Installed when LaTeX or bibliography is enabled |
 | Configuration | Project `.latex-ai.json` | Enabled modules, paths, commands, optional adapters; schema 3 only |
 | Upgrade state | Project `.latex-ai/installation.json` | Release and merge baselines (digests for files installed whole, text where a merge needs it); keep in version control |

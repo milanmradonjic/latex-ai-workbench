@@ -58,7 +58,7 @@ latex-ai-named-check:
 check: latex-ai-named-check
 endif
 export ISSUE_NOTE ISSUE_COMMAND
-export DOC TOPIC
+export DOC
 .PHONY: latex-ai-validate
 latex-ai-validate:
 	@$(PYTHON) .latex-ai/workbench.py validate
@@ -78,14 +78,9 @@ latex-ai-help:
 	@$(PYTHON) .latex-ai/workbench.py help
 .PHONY: latex-ai-guide
 latex-ai-guide:
-	@$(PYTHON) .latex-ai/workbench.py guide --topic "$$TOPIC"
+	@$(PYTHON) .latex-ai/workbench.py guide
 .PHONY: guide
 guide: latex-ai-guide
-.PHONY: latex-ai-guide-html
-latex-ai-guide-html:
-	@$(PYTHON) .latex-ai/workbench.py guide-html
-.PHONY: guide-html
-guide-html: latex-ai-guide-html
 .PHONY: latex-ai-lint
 latex-ai-lint:
 	@$(PYTHON) .latex-ai/workbench.py lint --document "$$DOC"

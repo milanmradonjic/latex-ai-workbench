@@ -116,7 +116,7 @@ def help_text(project, config, problem):
     if problem:
         lines += ["", f"Configuration problem: {problem[0]}",
                   f"  To fix it: {problem[1]}", "  Until then only help, status, the guide and the issue report work."]
-    start = [f"make {names[short]}{extra}" for short, extra in (("status", ""), ("guide", " (pictures, how-tos, glossary)")) if names[short]]
+    start = [f"make {names[short]}{extra}" for short, extra in (("status", ""), ("guide", " (a short manual)")) if names[short]]
     if start:
         lines[1:1] = ["", "Start here: " + ", then ".join(start)]
     groups = {}  # a group is listed once, where its first command is
@@ -139,7 +139,49 @@ def help_text(project, config, problem):
                   "  make check checks all documents; build/export without DOC uses the default."]
     lines += ["", "Nothing here changes Git. Written guide: docs/quickstart.md in the workbench package (the folder the installer was run from)."]
     if names["guide"]:
-        lines.append(f"Pictures, how-tos and a glossary: make {names['guide']}" + (f", or make {names['guide-html']} for a web page." if names["guide-html"] else "."))
+        lines.append(f"A short manual for this project: make {names['guide']}")
+    return "\n".join(lines)
+
+
+def manual_text(project, config, problem, documents=None):
+    """The short manual: how to work in this project, written with the command names that work in it."""
+    names = available(project, config)
+
+    def line(short, text, usage=""):
+        return [f"  make {names[short]}{(' ' + usage) if usage else ''}", f"      {text}"] if names.get(short) else []
+    lines = [f"LaTeX AI Workbench {VERSION}: manual for {project.name}", ""]
+    if problem:
+        lines += [f"Configuration problem: {problem[0]}", f"  To fix it: {problem[1]}", "  Until then only help, status, this manual and the issue report work.", ""]
+    else:
+        lines.append("Modules: " + (", ".join(enabled_modules(config)) or "none (core only)"))
+    if documents:
+        lines.append("Documents: " + "; ".join(f"{d['id']}{' (default)' if d.get('default') else ''} is {d['state']}" for d in documents))
+    lines += ["", "The everyday loop",
+              *line("status", "where things stand, and what to do next"),
+              "  Edit your files.",
+              *line("validation-plan", "which checks your change needs (nothing runs)"),
+              *line("validate", "run only those checks"),
+              *line("check", "the full check, before you share the work")]
+    if config is not None and has_module(config, "latex"):
+        lines += ["", "One document (DOC=NAME; without it, the default document)",
+                  *line("build", "build the PDF and record that it matches its sources", "DOC=NAME"),
+                  *line("document-check", "build, verify and lint one document", "DOC=NAME"),
+                  *line("pdf-artifact", "copy the verified PDF to .latex-ai/artifacts/documents/NAME/document.pdf", "DOC=NAME"),
+                  *line("lint-baseline", "accept today's ChkTeX warnings; only new ones fail (the owner's decision)", "DOC=NAME"),
+                  "", "What a document's state means"] + [f"  {state:<8}{meaning}" for state, meaning in STATES.items()]
+    lines += ["", "When something goes wrong",
+              "  A line starting ERROR: is an ordinary failure: read the file or tool it names, and its Hint.",
+              "  INTERNAL ERROR means a defect in the workbench, not in your work:"]
+    lines += [f"      make {names['issue']} ISSUE_NOTE=\"what you saw, what you expected\"" if names.get("issue") else "      write down what you saw and what you expected",
+              "      writes a local report; nothing is sent anywhere."]
+    lines += ["", "Working with AI agents",
+              "  They read AGENTS.md. They ask before any Git change, never push to the default branch and never merge a pull request.",
+              "  They do not edit .latex-ai/ (the workbench's own files) or switch a check off to get a green result.",
+              "", "More: make " + (names["help"] or "help") + " lists every command; docs/quickstart.md in the workbench package explains installing and upgrading."]
+    differ = [(short, actual) for short, actual in names.items() if actual and actual != short]
+    if differ:
+        lines += ["", "Names: your Makefile keeps its own target for " + ", ".join(f"`{short}`" for short, _ in differ) +
+                  "; the workbench's commands are " + ", ".join(f"`make {actual}`" for _, actual in differ) + "."]
     return "\n".join(lines)
 
 

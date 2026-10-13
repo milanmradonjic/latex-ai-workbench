@@ -9,7 +9,7 @@ names apply. `latex-ai-init` below is a file in the workbench package, run as
 | I want to… | Run | More |
 |---|---|---|
 | See what this project can do | `make help` | [quickstart](quickstart.md) |
-| Understand how the parts fit, with pictures and how-tos | `make guide` (`make guide TOPIC=loop` for one part; `make guide-html` for a web page) | [the guide](handbook.md) |
+| Read a short manual for this project | `make guide` | [quickstart](quickstart.md) |
 | See where things stand and what to do next | `make status` (a stale document lists what changed) | [quickstart](quickstart.md) |
 | Check that my tools are installed | `make doctor` | [installing](installing.md) |
 | Check everything before sharing | `make check` | [daily use](daily-use.md) |

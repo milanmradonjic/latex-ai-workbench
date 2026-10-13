@@ -77,6 +77,7 @@ the per-document targets. The full version stays available as the first commit o
 
 - **4.0.0** removed the research modules, the notes and Markdown modules and what served them ([verification](verification-4.0.0.md)).
 - **4.1.0** removed the generator of CI workflows ([verification](verification-4.1.0.md)).
+- **4.2.0** replaced the long generated handbook by a short manual ([verification](verification-4.2.0.md)).
 
 ## Not yet decided
 
