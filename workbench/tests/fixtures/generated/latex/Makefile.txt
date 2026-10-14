@@ -42,6 +42,11 @@ guide: latex-ai-guide
 .PHONY: latex-ai-build
 latex-ai-build:
 	@$(PYTHON) .latex-ai/workbench.py build --document "$$DOC"
+.PHONY: latex-ai-build-all
+latex-ai-build-all:
+	@$(PYTHON) .latex-ai/workbench.py build --all
+.PHONY: all
+all: latex-ai-build-all
 .PHONY: latex-ai-lint
 latex-ai-lint:
 	@$(PYTHON) .latex-ai/workbench.py lint --document "$$DOC"

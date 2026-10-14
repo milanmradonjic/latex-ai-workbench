@@ -123,6 +123,20 @@ def module_disabled(config, name):
     return WorkbenchError(f"Module is disabled: {name}", hint="to turn it on, " + ENABLE)
 
 
+def document_targets(project, config):
+    """What to type to build one document: its own Make target where the Makefile has one, else the long way."""
+    targets = make_targets(makefile_text(project))
+    documents = specifications(config)
+    own = [document.name for document in documents if document.name in targets]
+    other = [document.name for document in documents if document.name not in targets]
+    sentences = []
+    if own:
+        sentences.append(", ".join(f"make {name}" for name in own) + ": each builds that document.")
+    if own or len(documents) > 1:
+        sentences += [f"{name} has no target of its own: make build DOC={name}" for name in other]
+    return sentences
+
+
 def help_text(project, config, problem):
     names = available(project, config)
     enabled = enabled_modules(config)
@@ -151,6 +165,7 @@ def help_text(project, config, problem):
     if config and has_module(config, "latex"):
         lines += ["", "Documents: " + ", ".join(document.name + (" (default)" if document.default else "") for document in specifications(config)),
                   "  make check checks all documents; build/export without DOC uses the default."]
+        lines += ["  " + sentence for sentence in document_targets(project, config)]
     lines += ["", "Nothing here changes Git. Written guide: docs/quickstart.md in the workbench package (the folder the installer was run from)."]
     if names["guide"]:
         lines.append(f"A short manual for this project: make {names['guide']}")
@@ -179,6 +194,8 @@ def manual_text(project, config, problem, documents=None):
     if config is not None and has_module(config, "latex"):
         lines += ["", "One document (DOC=NAME; without it, the default document)",
                   *line("build", "build the PDF and record that it matches its sources", "DOC=NAME"),
+                  *line("all", "build every document, one after another"),
+                  *[f"  {sentence}" for sentence in document_targets(project, config)],
                   *line("document-check", "build, verify and lint one document", "DOC=NAME"),
                   *line("pdf-artifact", "copy the verified PDF to .latex-ai/artifacts/documents/NAME/document.pdf", "DOC=NAME"),
                   *line("lint-baseline", "accept today's ChkTeX warnings; only new ones fail (the owner's decision)", "DOC=NAME"),

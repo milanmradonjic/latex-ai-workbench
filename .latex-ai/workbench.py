@@ -558,6 +558,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=ACTIONS)
     parser.add_argument("--document", help="Named LaTeX document; omitted uses the default for document operations")
+    parser.add_argument("--all", action="store_true", help="build: every declared document, one after another")
     parser.add_argument("--note", default="", help="issue: what you observed and what you expected")
     parser.add_argument("--command", dest="failed_command", default="", help="issue: the command that misbehaved")
     parser.add_argument("--project", type=Path, default=Path.cwd(), help="Project root (default: current directory); an installed runtime belongs to its own project")
@@ -680,7 +681,13 @@ def do_check(project, config, persisted, args):
 
 
 def do_build(project, config, persisted, args):
-    build(project, config)
+    if not args.all:
+        return build(project, config)
+    targets = specifications(effective_config(persisted))
+    args.result = {"documents": [target.name for target in targets]}
+    for number, target in enumerate(targets, 1):
+        print(f"== Building document {target.name} ({number} of {len(targets)})", flush=True)
+        build(project, target.view)
 
 
 def do_lint(project, config, persisted, args):
@@ -757,6 +764,10 @@ def dispatch(project, args):
         action = commands.BY_NAME[args.action]
         if args.document and not action.document:
             raise WorkbenchError(f"--document is not supported for {args.action}; this command inspects the whole project")
+        if args.all and not action.batch:
+            raise WorkbenchError(f"--all is not supported for {args.action}; only build takes every document in turn")
+        if args.all and args.document:
+            raise WorkbenchError("--all builds every document, so it names none", hint="use --all without --document, or build one document with --document NAME")
         persisted = config = None
         if not action.standalone:
             if not (project / CONFIG).is_file():

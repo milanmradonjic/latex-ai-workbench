@@ -20,9 +20,9 @@ import sys
 
 sys.dont_write_bytecode = True
 import guide
-from commands import RECIPE_ARGUMENTS
+from commands import RECIPE_ARGUMENTS, RESERVED_PREFIX
 from core import (CONFIG, GENERATED_TREES, MAKEFILES, MODULES, VERSION, WorkbenchError, atomic_write, effective_config, git_output,
-                  has_module, integrations, line_buffered, local_path, module_config, read_tex, runtime_sources)
+                  has_module, integrations, line_buffered, local_path, make_goals, module_config, read_tex, runtime_sources)
 from diagnostics import recorded_digests, sha256_text
 from guide import make_targets
 from latex import bibliography_check, source_tree, tex_without_comments
@@ -223,11 +223,13 @@ def core_makefile():
     return "# Project-local core checks.\nPYTHON ?= python3\n.DEFAULT_GOAL := check\n.PHONY: check\ncheck:\n\t@$(PYTHON) .latex-ai/workbench.py check\n"
 
 
-def module_make_targets(config, existing=()):
+def module_make_targets(config, existing=frozenset()):
     """Every command of the registry that this configuration enables, under its reserved ``latex-ai-`` name, plus the short alias
     unless the template defines that name itself. Guidance and hints can therefore always name a command that reaches the
     workbench, and no command is named in a second place."""
     commands = [command for command in guide.COMMANDS if command.reserved and guide.enabled(command, config)]
+    documents = specifications(effective_config(config)) if has_module(config, "latex") else ()
+    own = set().union(*(make_goals(document.view.get("build_command")) for document in documents))  # `make all` there is the project's own target
     # DOC reaches recipes through the environment ("$$DOC"), never as Make text
     # spliced into a shell line, so its value cannot be interpreted as shell syntax.
     result = ["export ISSUE_NOTE ISSUE_COMMAND",  # the same rule for the issue report's free text
@@ -235,8 +237,16 @@ def module_make_targets(config, existing=()):
     for command in commands:
         result.extend([f".PHONY: {command.reserved}", f"{command.reserved}:"])
         result.append(f"\t@$(PYTHON) .latex-ai/workbench.py {command.action}{RECIPE_ARGUMENTS[command.selects]}")
-        if command.short not in existing:
+        if command.short not in existing | own:
             result.extend([f".PHONY: {command.short}", f"{command.short}: {command.reserved}"])
+    # A project with several documents also gets `make NAME` for each, where the name is free: not one of the workbench's own, and not a goal that a document's
+    # build_command names (`make notes` there is the project's own target).
+    if len(documents) > 1:
+        taken = {name for command in guide.COMMANDS for name in (command.short, command.reserved) if name} | set(existing) | own
+        for document in documents:
+            if document.name not in taken and not document.name.startswith(RESERVED_PREFIX):
+                result.extend([f".PHONY: {document.name}", f"{document.name}:",
+                               f"\t@$(PYTHON) .latex-ai/workbench.py build --document {document.name}"])
     return "\n".join(result) + "\n"
 
 
