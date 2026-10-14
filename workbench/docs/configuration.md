@@ -62,6 +62,15 @@ resolve from the root's directory; configuration paths resolve from the project.
 Normal latexmk rc files remain active. Custom commands must write the configured
 stem's PDF and log; nonstandard job naming needs explicit adaptation.
 
+Before compilation, conventional outputs (including lists, indexes, glossaries,
+slide auxiliaries and SyncTeX files) must remain inside the project and cannot
+alias a declared root or a known source input, even through a hard link.
+A source named `example.idx` or `train.log` is still an input; the extension alone
+does not make it generated. Executables, recognised interpreter scripts and
+explicit Makefiles are source inputs; other command arguments may name outputs.
+Declare ambiguous or hidden command inputs in `inputs`. This checks known paths;
+it does not sandbox arbitrary TeX or custom-command writes.
+
 Custom commands run from the project root unless their own script changes it.
 Recorder `INPUT` paths resolve from the recorder's `PWD`, not from the TeX root.
 New recorder inputs discovered during any build trigger one forced rebuild
@@ -112,6 +121,10 @@ Dependencies include literal TeX resources, compiler recorder inputs, declared
 globs, bibliography, command scripts, latexmk configuration, and the Makefile
 when the build command is a `make` goal. Makefiles are hashed in full; an
 included Makefile is not followed. Declare includes and hidden dependencies in `inputs`.
+Literal `\graphicspath{{figures/}{other/}}` directories in the root or included
+fragments contribute every existing graphics candidate, so adding a preferred
+PDF beside a consumed PNG invalidates the receipt. Paths assembled through
+macros still need declarations.
 Receipts cannot prove that arbitrary custom commands invoke a compiler or that
 their results are scientifically correct.
 

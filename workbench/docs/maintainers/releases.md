@@ -3,6 +3,18 @@
 Workbench 4 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 4.8.1 — audit repairs for output safety, freshness and validation
+
+- **Output safety:** validate the conventional list, index, glossary, slide and SyncTeX outputs as well as PDF/log/recorder paths. Reject symlinks leaving the project and outputs aliasing any declared root or known source, including hard links. A genuine source with a generated-looking suffix remains protected and fingerprinted; an actual generated auxiliary remains excluded.
+- **Graphics freshness:** literal `\graphicspath` directories from roots and included fragments contribute all existing candidates. Adding a preferred PDF beside a consumed PNG now invalidates the receipt and forces a real rebuild.
+- **Validation:** a Makefile using `.RECIPEPREFIX` conservatively selects the project's own `check`. Full and per-document checks reject NULs and conflict markers in manuscript text, including recorder-discovered inputs, without parsing displayed examples as executable code.
+- **TeX discovery:** comments respect even/odd backslash parity. Bibliography backend detection and file discovery use the same whitespace-aware command match.
+- **Less repeated work:** check each environment directory once per file inventory and scan each document once when planning. Snapshot inventory is taken after acquiring its lock, so files created during the wait are included.
+- **Review corrections:** include listings' `.lol` output; distinguish authored inputs from generated-looking filenames and actual output paths; protect executable/interpreter scripts and explicit Makefiles, including attached `-f` options, while preserving ordinary output arguments and incremental Make targets.
+- **Unchanged:** configuration and receipt schema versions, generated Makefile/editor files, manuscript, bibliography, permission rules and snapshot retention. No migration is needed; refresh the runtime as [upgrading](../upgrading.md) describes.
+
+See [the verification record](verification-4.8.1.md), including the local process-namespace limits and hosted checks.
+
 ## 4.8.0 — snapshots in three stores, with counted retention
 
 At the owner's request, the day after 4.7.0 was merged: 4.7.0 kept two tiers that rotated by week and month, so a clock that jumped forward by a few weeks, once, made both repositories look expired and deleted the whole history.

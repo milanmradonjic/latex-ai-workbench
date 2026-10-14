@@ -104,7 +104,7 @@ With schema-3 named documents, validation checks only the selected documents.
 A project-wide `make check` already covers enabled modules and subsumes the
 selected bibliography check.
 If the Makefile gives `check` anything beyond what `init` wrote (prerequisites, a recipe of its own,
-a second rule, a computed target, an include), `make validate` runs `make check` instead, so
+a second rule, a computed target, an include or `.RECIPEPREFIX`), `make validate` runs `make check` instead, so
 those project-owned checks are never skipped. The JSON plan includes
 `project_check`. It is decided by reading the rule lines, never by running Make, and when it cannot
 tell it says yes: that costs selective document validation, never a skipped check.
@@ -126,6 +126,13 @@ links, parse every Markdown construct, validate arbitrary YAML/TOML schemas, or
 prove policy semantics. Apply appropriate format-specific tools and judgment
 when the task requires them. Generated Zotero data and permission guardrails
 retain their existing editing restrictions.
+
+With LaTeX enabled, `make check` and `make document-check DOC=name` also reject
+NULs and conflict markers in known manuscript text inputs, including files first
+found by the compiler recorder. This runs after the build discovers its inputs
+and before log verification and lint. Files displayed by TeX receive this text
+integrity check, without requiring a displayed JSON or Python example to be valid
+as an executable file.
 
 Without LaTeX, `make check` applies the same file checks to every ordinary
 project file: Git's view (tracked plus untracked and not ignored, so
