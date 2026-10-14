@@ -12,6 +12,7 @@ import plistlib
 import re
 import subprocess
 import sys
+import threading
 import time
 import unittest
 from pathlib import Path
@@ -20,7 +21,7 @@ from unittest.mock import patch
 PACKAGE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE))
 import core
-from test_scope_4_7_0 import Case as SnapshotCase, at, git, history, newest, numbers, shadow, stores
+from test_scope_4_7_0 import SOURCE, Case as SnapshotCase, at, git, history, newest, numbers, shadow, stores
 from test_support import fixture_env
 
 
@@ -178,6 +179,82 @@ class TheClockDecidesNothingThatIsDeleted(Case):
         self.assertEqual(self.labels("frequent"), ["day 0", "day 4"])  # the newest by number, not by date
 
 
+class AfterTheReview(Case):
+    """What an independent review of 4.8.0 reproduced."""
+
+    def test_a_lock_left_by_a_killed_run_does_not_block_the_store_for_good(self):
+        self.take(tier="frequent")
+        (self.store() / "frequent" / "index.lock").write_text("left by Git when the run was killed")  # a timer is stopped at logout; launchd sends SIGTERM
+        self.edit("b")
+        self.assertTrue(self.take(0, 13, tier="frequent")["changed"])
+        self.assertFalse((self.store() / "frequent" / "index.lock").exists())
+
+    def test_a_label_with_characters_that_python_calls_line_ends_is_kept_and_does_not_break_the_list(self):
+        labels = ["x\x0cy", "a\u2028b", "c\x85d", "e\rf", "g\x1ch"]
+        for number, label in enumerate(labels):
+            self.edit(str(number))
+            self.take(0, 8 + number, note=label)
+        listed = shadow().listing(self.project, base=self.base)["snapshots"]
+        self.assertEqual([row["label"] for row in sorted(listed, key=lambda row: row["number"])], labels)
+        self.edit("more")
+        self.take(0, 14, note="after")  # and the next snapshot still works
+
+    def test_a_reference_that_only_looks_like_a_number_is_not_ours(self):
+        self.take(tier="frequent")
+        repository = self.store() / "frequent"
+        for name in ("1", "\u00b2", "123456789", "0000000x"):
+            git(repository, "update-ref", f"refs/snapshots/{name}", newest(repository))
+        self.edit("b")
+        result = self.take(0, 13, tier="frequent")
+        self.assertEqual((result["status"], result["number"]), ("taken", 2))
+        shadow().listing(self.project, base=self.base)
+
+    def test_a_project_folder_that_ends_in_a_blank_is_not_refused_the_second_time(self):
+        odd = self.root / "proj "
+        odd.mkdir()
+        (odd / "main.tex").write_text(SOURCE)
+        with patch.object(sys, "stdout"):
+            shadow().take(odd, base=self.base, now=at())
+            (odd / "main.tex").write_text("changed")
+            self.assertTrue(shadow().take(odd, base=self.base, now=at(0, 13))["changed"])
+
+    def test_two_projects_do_not_wait_for_each_other_and_one_project_waits_for_itself(self):
+        other = self.root / "other"
+        other.mkdir()
+        (other / "main.tex").write_text(SOURCE)
+        with patch.object(shadow(), "PATIENCE", 0.2), core.operation_lock(self.base, "snapshot-" + shadow().project_key(self.project)):
+            with patch.object(sys, "stdout"):
+                self.assertTrue(shadow().take(other, base=self.base, now=at())["changed"])  # another project's snapshot is not held up by this one's
+            with self.assertRaisesRegex(core.WorkbenchError, "Another snapshot of this project"):
+                self.take()
+
+    def test_a_lock_can_be_waited_for_as_many_seconds_as_asked(self):
+        with core.operation_lock(self.base, "x"):
+            started = time.monotonic()
+            with self.assertRaises(core.WorkbenchError):
+                with core.operation_lock(self.base, "x", wait=0.3):
+                    pass
+            self.assertTrue(0.3 <= time.monotonic() - started < 3, "it waited for the default few seconds, or not at all")
+
+    def test_a_snapshot_waits_for_the_one_before_it_and_then_takes_its_own(self):
+        self.assertEqual(shadow().PATIENCE, 60)  # the timers of one project start together at login
+        held, release = threading.Event(), threading.Event()
+
+        def hold():
+            with core.operation_lock(self.base, "snapshot-" + shadow().project_key(self.project)):
+                held.set()
+                release.wait(10)
+        thread = threading.Thread(target=hold)
+        thread.start()
+        held.wait(5)
+        threading.Timer(0.5, release.set).start()
+        try:
+            self.assertTrue(self.take()["changed"])
+        finally:
+            release.set()
+            thread.join()
+
+
 class Layout(Case):
     def test_folders_made_by_4_7_0_are_left_alone(self):
         self.take()
@@ -263,9 +340,10 @@ class Launchd(Case):
     def test_the_command_each_agent_runs_is_accepted_and_goes_to_its_store(self):
         for tier, plist in self.agents().items():
             with self.subTest(tier=tier):
-                argv = plist["ProgramArguments"]
-                self.assertEqual(argv[1:], [".latex-ai/workbench.py", "snapshot", "--tier", tier])
-                self.run_command(sys.executable, "-B", *argv[1:], env={**self.env, "LATEX_AI_SNAPSHOT_DIR": str(self.home / "s")})
+                argv = [word.replace("/Users/YOU/PATH/TO/PROJECT", str(self.project)) for word in plist["ProgramArguments"]]
+                self.assertEqual(argv[1:], [f"{self.project}/.latex-ai/workbench.py", "snapshot", "--tier", tier, "--project", str(self.project)])
+                self.assertNotIn("WorkingDirectory", plist)  # a folder launchd cannot enter fails before the program starts, and leaves no log
+                self.run_command(sys.executable, "-B", *argv[1:], cwd=self.root, env={**self.env, "LATEX_AI_SNAPSHOT_DIR": str(self.home / "s")})
         (store,) = stores(self.home / "s")
         self.assertEqual(sorted(history(store)), ["frequent", "weekly"])
 

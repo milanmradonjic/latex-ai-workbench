@@ -388,7 +388,8 @@ class Hardening(Case):
 
     def test_a_second_snapshot_that_cannot_get_the_lock_says_so_and_writes_nothing(self):
         self.take()
-        with core.operation_lock(self.base, "snapshot"), self.assertRaisesRegex(core.WorkbenchError, "Another snapshot"):
+        with patch.object(shadow(), "PATIENCE", 0.2), core.operation_lock(self.base, "snapshot-" + shadow().project_key(self.project)), \
+                self.assertRaisesRegex(core.WorkbenchError, "Another snapshot of this project"):
             self.edit("b")
             self.take(0, 13)
         self.assertEqual(numbers(self.repository()), [1])

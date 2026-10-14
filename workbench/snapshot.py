@@ -24,6 +24,7 @@ from core import CONFIG, GENERATED_TREES, OUTPUT_SUFFIXES, WorkbenchError, envir
 from guide import command_name
 
 LIMIT = 25 * 1024 * 1024  # a larger file is named in the output and not copied
+PATIENCE = 60  # seconds a snapshot waits for another snapshot of the same project: a timer's runs for one project can start together
 TIERS = ("manual", "weekly", "frequent")
 KEEP = {"weekly": 6, "frequent": 60}  # how many each keeps; `manual` is not here: it keeps all
 REFS = "refs/snapshots/"
@@ -57,7 +58,7 @@ def need_git():
         raise WorkbenchError("Git is not installed, and the snapshots are Git repositories", hint="install Git, then run the command again")
 
 
-def git(path, project, *arguments, input=None, check=True, now=None):
+def git(path, project, *arguments, input=None, now=None):
     """One Git command on a snapshot repository (and the project's files as its work tree). Nothing of the user's own Git reaches it: no GIT_ variable,
     no configuration file (HOME and XDG_CONFIG_HOME are moved, which every Git version honours), no template, no hook."""
     env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
@@ -67,7 +68,7 @@ def git(path, project, *arguments, input=None, check=True, now=None):
     if now:
         env["GIT_AUTHOR_DATE"] = env["GIT_COMMITTER_DATE"] = f"{int(now.timestamp())} +0000"
     done = subprocess.run(["git", *arguments], input=input, capture_output=True, env=env, cwd=project or path.parent)
-    if check and done.returncode:
+    if done.returncode:
         raise WorkbenchError(f"git {arguments[0]} failed in {path}: {done.stderr.decode(errors='replace').strip()}")
     return done.stdout.decode(errors="replace").strip()
 
@@ -80,12 +81,17 @@ def build(parent, name, fill):
     os.rename(path, parent / name)
 
 
+def project_key(project):
+    """Eight hex digits of a hash of the project's path: what tells two projects with one name apart, in the store's name and in its lock's."""
+    return hashlib.sha256(os.fsencode(project)).hexdigest()[:8]
+
+
 def open_store(project, base, create):
     """The folder of this project's snapshots, made when asked; a folder of that name that this module did not make for this project is refused, untouched."""
     name = re.sub(r"[^\w.-]+", "_", project.name)[:60] or "project"
-    store = base / f"{name}-{hashlib.sha256(os.fsencode(project)).hexdigest()[:8]}"
+    store = base / f"{name}-{project_key(project)}"
     mark = store / FOLDER_MARK
-    if store.is_symlink() or (store.exists() and not (mark.is_file() and mark.read_bytes().strip() == os.fsencode(project))):
+    if store.is_symlink() or (store.exists() and not (mark.is_file() and mark.read_bytes() == os.fsencode(project) + b"\n")):
         raise WorkbenchError(f"{store} exists, but the workbench did not make it for this project; nothing in it was touched",
                              hint="move or delete it, or give LATEX_AI_SNAPSHOT_DIR another folder")
     if create and not store.exists():
@@ -114,9 +120,9 @@ def repository(store, tier, create=False):
 def records(path):
     """The store's snapshots, oldest first: (number, commit, tree, seconds, label). A reference that is not a number is not ours, and is left out."""
     rows = []
-    for line in git(path, None, "for-each-ref", "--sort=refname", "--format=%(refname)\t%(objectname)\t%(tree)\t%(committerdate:raw)\t%(subject)", REFS).splitlines():
-        ref, commit, tree, date, label = line.split("\t", 4)
-        if ref[len(REFS):].isdigit():
+    for line in filter(None, git(path, None, "for-each-ref", "--sort=refname", "--format=%(refname)\t%(objectname)\t%(tree)\t%(committerdate:raw)\t%(subject)", REFS).split("\n")):
+        ref, commit, tree, date, label = line.split("\t", 4)  # not splitlines(): a label may hold characters it treats as line ends
+        if re.fullmatch(r"[0-9]{8}", ref[len(REFS):]):
             rows.append((int(ref[len(REFS):]), commit, tree, int(date.split()[0]), label))
     return rows
 
@@ -182,6 +188,7 @@ def snapshot_into(path, tier, project, files, note, now):
     newest = rows[-1] if rows else None
     if tier == "weekly" and newest and week(newest[3]) == week(now.timestamp()):
         return newest, "week", []
+    (path / "index.lock").unlink(missing_ok=True)  # left by a run that was killed while Git held it; the project's lock is ours, so nothing else is writing the index
     git(path, project, "read-tree", "--empty")
     git(path, project, "update-index", "--add", "--remove", "-z", "--stdin", input=b"".join(os.fsencode(name) + b"\0" for name in files))
     tree = git(path, project, "write-tree")
@@ -211,7 +218,7 @@ def take(project, tier="manual", note="", base=None, now=None):
     need_git()
     files, large = project_files(project)
     base.mkdir(mode=0o700, parents=True, exist_ok=True)  # private: a snapshot holds every file of the project, whoever may read them
-    with operation_lock(base, "snapshot", wait=True, busy="Another snapshot is being taken; wait for it, then run this again"):
+    with operation_lock(base, "snapshot-" + project_key(project), wait=PATIENCE, busy="Another snapshot of this project is being taken; wait for it, then run this again"):
         store = open_store(project, base, create=True)
         (number, commit, *_), status, dropped = snapshot_into(repository(store, tier, create=True), tier, project, files, note, now)
     print({"taken": f"Snapshot #{number} ({commit[:7]}) in the {tier} store: {len(files)} files",
