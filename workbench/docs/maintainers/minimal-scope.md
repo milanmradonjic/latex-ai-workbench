@@ -81,7 +81,15 @@ the per-document targets. The full version stays available as the first commit o
 - **4.3.0** took the upgrade machinery out of the installer, leaving `init`, `diff` and `runtime` ([verification](verification-4.3.0.md)).
 - **4.4.0** removed the Make adoption layer: `init` creates files and never merges, and an existing project is migrated by a recipe ([verification](verification-4.4.0.md)).
 
+- **Still to do**, in this order ([the plan after 4.4.0](plan-after-4.4.0.md)): the runtime refresh apart from project files and the dormant module machinery,
+  locks and interrupted-build recovery, the engine, backend and profile choices, per-document targets, snapshots, and the doctor's stamp report.
+
+## Decided since
+
+- **The licence is MIT** (13 October 2026), with the repository owner's GitHub name as the copyright holder.
+- **No biber** (14 October 2026): the engine is `pdflatex` and the bibliography backend is `none` or `bibtex`; a project that needs more declares a `build_command`.
+
 ## Not yet decided
 
-Which exact Git guardrail rules remain, what the planner for changed files still routes once CI and research are gone, what the minimal
-manual contains, and the licence.
+Which exact Git guardrail rules remain; what the planner for changed files still routes (workflow files and figure scripts in particular); and what the minimal
+manual contains and how project notes grow. [The plan after 4.4.0](plan-after-4.4.0.md#gates-the-owners-decisions) states each as a gate, with the options.

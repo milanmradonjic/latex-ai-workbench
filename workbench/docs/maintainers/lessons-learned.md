@@ -133,6 +133,12 @@ independent reading and review, not as a substitute for deciding what to ask.
   Dependabot's first pull request (a `setup-python` bump) arrived with the tag comment updated.
 - **Public repositories are not metered**, and allow branch protection on the free plan, at the price of everything being readable. Audit
   the history for secrets, emails and local paths before the switch, and prefer a fresh start to rewriting history.
+- **A web action writes under the account's settings.** Merges made with a hosting service's button used the account's real address as the author until "keep my
+  email private" was switched on, and the repository was already public. History rewritten after publication stays reachable by commit hash and through the hidden
+  pull-request refs, which only the host can clear, so the repository was recreated from the rewritten history. Switch the privacy settings on, and check the author,
+  committer and message of every commit, before the first public push.
+- **Test every supported version on pull requests once minutes are free.** Testing only the oldest and the newest saved minutes on a private plan; in a public
+  repository it let a failure in one middle version through two merges to `main`. The failing assertion depended on the wording of a standard-library message.
 
 ## 6. What to do differently
 

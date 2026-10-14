@@ -1,5 +1,7 @@
 # Plan after 3.0.2
 
+> **Closed on 14 October 2026.** Phases 0 to 3 are done; Phase 4 is retired, and Phases 5 to 7 are met, moot or moved (see each below). The work continues in [the plan after 4.4.0](plan-after-4.4.0.md). This file stays as the record of the audit's follow-up.
+
 The plan for finishing the [architecture audit](architecture-audit-3.0.1.md). It was written
 when `main` was at `e8b55cf` (workbench 3.0.2), to be worked through in later sessions, the
 first of them on macOS. Each phase stands alone: read this file, the audit and the
@@ -223,6 +225,9 @@ Each was one short branch.
 
 ## Phase 4 — F11: run `make <goal>` as the default for adopted builds (owner decision first)
 
+**Retired — not done, 13 October 2026.** The owner decided that the Make adoption layer is not needed: a project with its own build uses
+`build_command` or a hand-written target ([the minimal scope](minimal-scope.md)). There is no adoption mode left to choose a default for.
+
 **Decision to put to the owner before any code:** should *new* installs that adopt
 `["make", "<goal>"]` default to the simple mode (the workbench runs `make <goal>` as a child
 under the build record), with today's shared-graph "phased" mode kept as an opt-in?
@@ -250,6 +255,9 @@ unchanged, and the release notes describe the default. Release as 3.1.0.
 
 ## Phase 5 — F14: one TeX container in CI
 
+**Met in 4.1.0 — 13 October 2026.** `latex.yml` runs the portability tests and the reference manuscript's check in one TeX Live container; the
+per-document steps and `schema3-acceptance.yml` went with the workflow generator ([4.1.0](verification-4.1.0.md)).
+
 - **Change.** Replace the per-document `xu-cheng/texlive-action` steps with either a job-level
   `container:` image (pinned TeX Live) or a matrix over `document_ids`.
 - **Upload conditions.** Keep the per-document upload conditions, and keep
@@ -258,6 +266,8 @@ unchanged, and the release notes describe the default. Release as 3.1.0.
   run times before and after in the verification record.
 
 ## Phase 6 — F13: run-archive layout (only when archives grow)
+
+**Retired — moot, 14 October 2026.** The run archives belonged to the research modules, which 4.0.0 removed ([4.0.0](verification-4.0.0.md)).
 
 - **Layout.** New records go under `results/runs/<module>/<task>/<stamp>-<uuid>/`, as record
   schema 2, with snapshots in content-addressed `results/runs/blobs/<sha256>`.
@@ -268,6 +278,9 @@ unchanged, and the release notes describe the default. Release as 3.1.0.
 
 ## Phase 7 — F15: tests by component
 
+**Moved — 14 October 2026.** This is now step 3.8 of [the plan after 4.4.0](plan-after-4.4.0.md). The components named below that no longer exist
+(Make adapters, research, Markdown) drop out, and locks go with step 3.3.
+
 - **Regroup.** Regroup `workbench/tests/test_*` by component: receipts, locks, planner,
   installer, Make adapters, research, Markdown, guide.
 - **Origins.** Keep each test's origin in its docstring ("3.0.1 audit: …").
@@ -277,14 +290,4 @@ unchanged, and the release notes describe the default. Release as 3.1.0.
 
 ## Starting a session
 
-Paste this as the first message of a new session in a clone of this repository:
-
-> This is a workbench session. Read `workbench/docs/maintainers/plan-after-3.0.2.md`, the audit it links and the 3.0.2
-> verification record. Work on the first phase not marked done (Phase 0 on macOS). Follow the
-> plan's rules: branch per phase, failing-first tests for defects, reference parity. Create your
-> topic branches, commit, push them and open the pull requests yourself and report each; merge
-> only a record pull request, and only with `.github/scripts/merge_record_pr.py`; never push to
-> `main`, or rewrite or discard work without asking me. Report what passed, what failed and what
-> you could not verify.
-
-Mark a phase done here (with the commit and release) when it lands on `main`.
+This plan is closed. Start from [the plan after 4.4.0](plan-after-4.4.0.md#starting-a-session).

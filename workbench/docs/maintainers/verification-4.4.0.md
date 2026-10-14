@@ -2,7 +2,7 @@
 
 This records the release that removes the adoption of a project's own Makefile (the fifth step of [the minimal scope](minimal-scope.md)): `init` only creates files,
 and an existing project is migrated by a recipe. Tested on 2026-10-13 on macOS (Darwin 25.5, Python 3.14.8, GNU Make 4.4.1 from Homebrew with `gnubin` first on `PATH`,
-the system GNU Make 3.81 for one test, TeX Live with latexmk 4.88 and Biber 2.21). The hosted results of the pull request follow once it has run.
+the system GNU Make 3.81 for one test, TeX Live with latexmk 4.88 and Biber 2.21). The hosted results follow the local ones.
 
 | Check | Result |
 |---|---|
@@ -33,14 +33,29 @@ the system GNU Make 3.81 for one test, TeX Live with latexmk 4.88 and Biber 2.21
 - **The installer shrank less than hoped:** `bootstrap.py` 614 to 557 lines. What remains is the detection of root, engine and bibliography (82 lines) and the reporting of `main`
   (101 lines), including `--json`. Trimming them is a separate decision.
 
+## Hosted verification
+
+The runs of this release's pull request and of its push to `main` were in the first version of this repository, which was later recreated; they are given as plain text.
+
+| Run | Result |
+|---|---|
+| Pull request: `validate`, `test (3.10)`, `test (3.14)` | passed |
+| Push to `main`: `validate` | passed |
+| Push to `main`: Workbench Python compatibility, five versions | `test (3.12)` failed; the other four passed |
+
+The failure was in a test, not in the runtime. Five subtests of `test_scope_4_3_0.test_the_installer_has_three_modes_and_refuses_the_removed_ones_by_name` asserted
+the exact quoted wording of argparse's invalid-choice message, which Python 3.12.13 prints without quotes. It was reproduced locally on 3.12.13 and repaired by
+one assertion, the usage line `{init,diff,runtime}`, which also fails if a fourth mode is added (the old assertion did not). The repair is proved by a [manual run of the
+full matrix](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38476470076) on its branch and, on `main` at `ac4f0b6`, by the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38477410380) and [`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38477410344). This release's runtime is
+unchanged by it.
+
 ## Not verified
 
-- **Hosted runs.** The pull request is the first run of this version's workflows.
 - **An agent other than the author following `migrating.md`.** I followed it on the copy of one real paper and on a synthetic adapted project; the first real use by an agent on the owner's
   own project is the test of the wording.
-- **`make -n`, `-q` and `-t` on other Make versions** (4.4.1 only, besides the 3.81 test of the generated Makefile), **Python 3.10 to 3.13**, **Windows.**
+- **`make -n`, `-q` and `-t` on other Make versions** (4.4.1 only, besides the 3.81 test of the generated Makefile), **Python 3.10 to 3.13 on macOS** (covered on Linux by the hosted runs above), **Windows.**
 
 ## Open items
 
-Next in [the order of the work](minimal-scope.md#order-of-the-work): the locks and the interrupted-build recovery, and the per-document targets (`make main`, `make all`); then snapshots.
+Next in [the order of the work](minimal-scope.md#order-of-the-work): the locks and the interrupted-build recovery, and the per-document targets (`make main`, `make all`); then snapshots; the full list is [the plan after 4.4.0](plan-after-4.4.0.md).
 Migrating the owner's real two-document test project is the owner's call and needs a copy or a Git repository first.

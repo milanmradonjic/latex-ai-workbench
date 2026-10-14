@@ -2,7 +2,7 @@
 
 This records the release that takes the upgrade machinery out of the installer (the fourth step of [the minimal scope](minimal-scope.md)),
 tested on 2026-10-13 on macOS (Darwin 25.5, Python 3.14.8, GNU Make 4.4.1 from Homebrew with `gnubin` first on `PATH`, TeX Live with latexmk 4.88
-and Biber 2.21). The hosted results of the pull request follow once it has run.
+and Biber 2.21). The hosted results follow the local ones.
 
 | Check | Result |
 |---|---|
@@ -29,9 +29,14 @@ and Biber 2.21). The hosted results of the pull request follow once it has run.
   used as it is; an installed project is refused) keeps those tests meaningful and is the rule the installer says in its error.
 - **A stale file stays.** `runtime` never deletes, so runtime files of earlier releases that no longer exist remain in a project, unused. The reference had none.
 
+## Hosted verification
+
+The runs were in the first version of this repository, which was later recreated; they are given as plain text. The push to `main` for this release passed `validate`;
+the Python compatibility run failed in `test (3.12)` only, and the other four versions passed. That log was not read: the 4.4.0 push failed in the same job on a test this
+release added, with the cause and the repair given in [the 4.4.0 record](verification-4.4.0.md#hosted-verification).
+
 ## Not verified
 
-- **Hosted runs.** The pull request is the first run of this version's workflows.
 - **An agent following the recipe.** `docs/upgrading.md` was written and read, and the commands in it were run by hand on a 4.2.0 project, but no agent has updated a
   project with it yet. The first real update is the test.
 - **Python 3.10 to 3.13**, **GNU Make 3.81 as `make`**, **Windows.**

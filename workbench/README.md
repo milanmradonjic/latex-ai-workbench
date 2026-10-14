@@ -9,7 +9,7 @@ Python 3.10+ and `make`; TeX, Zotero, an editor and API keys are optional.
 Git is optional. Without it, installation and checks work, and validation selects
 all enabled checks because there is no change history to compare.
 
-Workbench 3 is the supported development line, with schema-3 configuration only.
+Workbench 4 is the supported development line, with schema-3 configuration only.
 Earlier experimental releases are retired from support; their historical records
 remain available without adding compatibility code to this runtime.
 

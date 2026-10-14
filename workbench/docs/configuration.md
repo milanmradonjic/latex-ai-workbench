@@ -1,6 +1,6 @@
 # Project configuration
 
-Workbench 3 supports **configuration schema 3 only**, for projects with or without
+Workbench 4 supports **configuration schema 3 only**, for projects with or without
 TeX. `.latex-ai.json` is project-owned UTF-8 JSON. Unknown fields and older schemas
 fail clearly; there is no automatic migration. After deliberate configuration
 changes, `latex-ai-init diff . --diff` shows what the generated Makefile and editor files would now contain; an agent
