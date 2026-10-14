@@ -296,7 +296,7 @@ def document_settings(config, document=None):
     if "schema_version" not in config:
         raise TypeError("document_settings resolves a project configuration; this is already resolved, so use it as it is")
     if config.get("schema_version") != 3:
-        raise WorkbenchError("Workbench 3 supports only project configuration schema 3")
+        raise WorkbenchError("Workbench 4 supports only project configuration schema 3")
     if has_module(config, "latex"):
         return resolve(config, document).view
     if document:
@@ -384,7 +384,7 @@ def validate_config(project, config, planned_sources=None):
     if not isinstance(config, dict):
         raise WorkbenchError("Configuration must be a JSON object")
     if config.get("schema_version") != 3:
-        raise WorkbenchError(f"Workbench 3 supports only project configuration schema 3 (this file declares {config.get('schema_version')!r})",
+        raise WorkbenchError(f"Workbench 4 supports only project configuration schema 3 (this file declares {config.get('schema_version')!r})",
                              hint="older configurations are not migrated and your authored files are untouched: write a schema-3 "
                                   f"{CONFIG} (format: docs/configuration.md in the workbench package; `latex-ai-init init` writes one for a new project)")
     unknown_keys(config, {"schema_version", "modules", "disabled_modules", "integrations", "validation"}, "core configuration")
