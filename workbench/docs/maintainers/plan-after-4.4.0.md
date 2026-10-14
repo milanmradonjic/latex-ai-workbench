@@ -18,7 +18,8 @@ the verification record of the last release, then start the next step that is no
 
 These come from the repository's `AGENTS.md`, plus what 4.0.0 to 4.4.0 taught.
 
-- **Git.** One topic branch and one pull request per step (`plan/<step>-<topic>`). The owner merges, after `validate` has passed.
+- **Git.** One topic branch and one pull request per step (`plan/<step>-<topic>`). The agent opens the pull request itself once the branch is pushed
+  ([`AGENTS.md`](../../../AGENTS.md)); the owner merges, after `validate` has passed.
 - **Failing first.** A change in behaviour gets a test that fails before it and passes after it, and each new test is mutated once to see it fail. New tests go in
   `tests/test_scope_<version>.py` until step 3.8 regroups them.
 - **Old against new.** Where output must not change, install the previous release and this tree into identical projects, run every action, and compare. The
@@ -28,14 +29,16 @@ These come from the repository's `AGENTS.md`, plus what 4.0.0 to 4.4.0 taught.
 - **Reference parity.** After any change under `workbench/`, run `make -C workbench upgrade-reference` and commit the regenerated `.latex-ai/` with it.
 - **Before pushing,** these must pass: `make -C workbench test`; `make -C workbench portability` where TeX is installed; and in the reference
   `python3 -B .latex-ai/workbench.py validate --files-only`.
-- **Hosted proof.** A step that touches the runtime runs the full Python matrix on its branch before the merge
-  (`gh workflow run workbench-python.yml --ref <branch>`), until step 2 makes every pull request run it.
+- **Hosted proof.** Every pull request runs all five supported Python versions (since step 2), and the ruleset requires them with `validate`: a red Python job
+  blocks the merge.
 - **Release record.** Each release gets release notes, and a verification record with the hosted results, what was not verified, and the runtime's line count.
 - **No personal data.** No personal email address, local path or private project name in any file, commit message or pull-request text. Before pushing, run
   `git log --format='%an <%ae> | %cn <%ce>' origin/main..HEAD` and check that every address is one meant to be public: the host's no-reply form, or an agent's.
 - **Review.** A change to receipts, locks or process handling needs an independent review, as [the README](README.md#working-on-the-workbench-itself) says.
 
 ## Step 1: records (docs only)
+
+**Done — 14 October 2026**, [pull request #2](https://github.com/milanmradonjic/latex-ai-workbench/pull/2) (`aa33b79`).
 
 Close the plan after 3.0.2 (a status for Phases 4 to 7, and its session prompt replaced); add this plan; record the scope's decisions and what is still to do; correct
 the stale "Workbench 3" statements and the README's link to the verification record; give 4.3.0 and 4.4.0 their hosted results and say that the repository was
@@ -44,14 +47,17 @@ recreated; add the lessons of the recreation.
 **Done when** the pull request has merged, `validate --files-only` passes and no record points an agent at removed work. The two error strings in `schema.py`
 that still say "Workbench 3" are runtime files, so they change in step 3.1.
 
-## Step 2: test every supported Python on pull requests
+## Step 2: test every supported Python on pull requests, and require them
 
-`workbench-python.yml` tests only 3.10 and 3.14 on a pull request, to save a private plan's Actions minutes. The repository is public, so the saving is gone, and it
+`workbench-python.yml` tested only 3.10 and 3.14 on a pull request, to save a private plan's Actions minutes. The repository is public, so the saving is gone, and it
 had a cost: the 3.12 job failed on the pushes to `main` for 4.3.0 and 4.4.0, a version their pull requests did not test.
 
-- **Change.** Test all five versions on pull requests, and rewrite [the cost of the hosted checks](README.md#the-cost-of-the-hosted-checks), which also still names
+- **Change.** Test all five versions on pull requests, and rewrite [the cost of the hosted checks](README.md#the-cost-of-the-hosted-checks), which also still named
   two generated workflows that no longer exist.
-- **Done when** a pull request shows five Python jobs and `validate`.
+- **Decided, 14 October 2026.** The five Python jobs are required checks, with `validate`, so a red one blocks the merge. That takes two changes: the workflow loses its
+  `paths` filter (a required check that a filter skips would wait forever on a pull request that touches no matching path; public runs are unmetered), and the owner adds
+  `test (3.10)` to `test (3.14)` to the ruleset on `main` once the workflow has merged, never before, or no pull request could pass.
+- **Done when** a pull request shows five Python jobs and `validate`, and the ruleset requires all six.
 
 ## Gates: the owner's decisions
 

@@ -1,16 +1,9 @@
 name: Workbench Python compatibility
+# No path filter: the five jobs below are required checks, and a required check that a filter skips would leave a pull request waiting for it forever.
 on:
   push:
     branches: [main]
-    paths:
-      - 'workbench/**'
-      - '.latex-ai/**'
-      - '.github/workflows/workbench-python.yml'
   pull_request:
-    paths:
-      - 'workbench/**'
-      - '.latex-ai/**'
-      - '.github/workflows/workbench-python.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,8 +17,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The oldest and newest supported Python on a pull request; every supported version once the change is on main.
-        python: ${{ fromJSON(github.event_name == 'pull_request' && '["3.10", "3.14"]' || '["3.10", "3.11", "3.12", "3.13", "3.14"]') }}
+        # Every supported Python on every run. The repository is public, so runs are not metered; testing only the oldest and the newest on a pull request let a
+        # failure in 3.12 through two merges to main.
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
