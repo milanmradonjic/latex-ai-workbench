@@ -86,7 +86,7 @@ Each step is one release and one pull request.
   error strings in `schema.py` change in this release. **Done when** `diff` and `runtime` print the same on identical projects before and after, and the
   overwrite safeguards are untouched. **Done — 14 October 2026**, [pull request #4](https://github.com/milanmradonjic/latex-ai-workbench/pull/4) (`975663c`), workbench 4.4.1.
 - **3.2 The dormant module machinery.** Both modules have empty `tools` and `requires`, and `module_names(group=...)` has no caller that passes a group. Remove them.
-  **Done when** configuration, receipts and generated files compare identical.
+  **Done when** configuration, receipts and generated files compare identical. **Done — 14 October 2026**, [pull request #5](https://github.com/milanmradonjic/latex-ai-workbench/pull/5) (`75f4d4f`), workbench 4.4.2.
 - **3.3 Locks and interrupted-build recovery.** The scope accepts the risk: two simultaneous builds can corrupt a record, and the remedy is to rebuild. Decide first
   whether the `running` state stays, which needs a liveness check, or folds into `failed`, and what `operation_lock`, `output_transaction`, the lock directory and
   their tests become. **Done when** the receipts of non-concurrent builds are byte-identical before and after, the accepted risk is written in `troubleshooting.md`, and

@@ -23,10 +23,15 @@ Tested on 2026-10-14 on Linux (x86_64, GNU Make 4.3, Python 3.13.16 and 3.12.13;
 - **The first comparison run crashed** because a result tuple was indexed as if it still held the command; that was the harness, not the code.
 - **An import went unused** (`module_names` in `schema.py`) and was removed.
 
+## Hosted verification
+
+All six required checks passed on the pull request ([`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38541164162) in 2m30s; the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38541164220), 1m06s to 1m25s each), and again on the
+merge commit `75f4d4f` on `main` ([`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38554416150); the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38554416209)). The `validate` job runs the portability tests and the reference
+manuscript's check in a TeX container, which the local runs could not.
+
 ## Not verified
 
-- **Hosted runs.** The pull request's checks and the push to `main` follow in the next record.
-- **TeX.** The 16 tests that need it, and `make -C workbench portability`, were not run locally; the hosted `validate` job runs the portability tests in a TeX container.
+- **TeX.** The 16 tests that need it, and `make -C workbench portability`, were not run locally; the hosted `validate` job ran the portability tests in a TeX container and passed.
 - **Other platforms and versions locally.** macOS, Windows, and Python 3.10, 3.11 and 3.14 were not run locally; the hosted run covers all five Python versions on Linux.
 - **Any reader of the `modules` output that expects `requires`.** None is known in this repository or its documents; an outside script would see the key gone.
 
