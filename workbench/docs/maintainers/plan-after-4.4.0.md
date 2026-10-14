@@ -18,7 +18,8 @@ the verification record of the last release, then start the next step that is no
 
 These come from the repository's `AGENTS.md`, plus what 4.0.0 to 4.4.0 taught.
 
-- **Git.** One topic branch and one pull request per step (`plan/<step>-<topic>`). The owner merges, after `validate` has passed.
+- **Git.** One topic branch and one pull request per step (`plan/<step>-<topic>`). The agent opens the pull request itself once the branch is pushed
+  ([`AGENTS.md`](../../../AGENTS.md)); the owner merges, after `validate` has passed.
 - **Failing first.** A change in behaviour gets a test that fails before it and passes after it, and each new test is mutated once to see it fail. New tests go in
   `tests/test_scope_<version>.py` until step 3.8 regroups them.
 - **Old against new.** Where output must not change, install the previous release and this tree into identical projects, run every action, and compare. The

@@ -158,8 +158,8 @@ tooling. A session is one of two kinds, and only the owner chooses which.
   the figures or the project's configuration. The workbench is shared infrastructure here: do not
   edit `workbench/` or `.latex-ai/`. When something looks like a defect, follow "Suspected
   workbench defects" above: report it and carry on.
-- **Workbench session.** The task is to change the workbench itself: a phase of
-  `workbench/docs/maintainers/plan-after-3.0.2.md`, a release, a repair. It begins only when the
+- **Workbench session.** The task is to change the workbench itself: a step of
+  `workbench/docs/maintainers/plan-after-4.4.0.md`, a release, a repair. It begins only when the
   owner says so in the task ("this is a workbench session", or the plan's session prompt). The
   maintainers' rules in `workbench/docs/maintainers/README.md` ("Working on the workbench itself")
   then apply, including fixing a small defect in the pull request already open. Change `workbench/`
@@ -175,6 +175,12 @@ the owner's, every time: merging, with one exception below, updating the owner's
 stash, rebase, amending a pushed commit, deleting local branches, history rewriting), writing Git
 configuration, changing the agents' permission rules, and anything outside the session's task. In a
 manuscript session every Git mutation needs approval, as "Git safety" says.
+
+**Opening the pull request.** The owner has asked that an agent open the pull request itself as soon as it has pushed a topic
+branch with finished work, without asking first, and report its link, what the checks showed and what could not be verified. This
+holds in both kinds of session: it follows a push that was already approved (in a manuscript session, the push still needs approval
+each time). If a pull request for the branch exists, push to it; never open a second one for the same change. Merging stays the
+owner's, as above.
 
 **The one merge delegated to an agent.** A *record pull request* is one whose every changed file is
 `workbench/docs/maintainers/plan-after-3.0.2.md` or a `verification*.md` in that folder: records of what
