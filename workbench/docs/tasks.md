@@ -23,7 +23,7 @@ names apply. `latex-ai-init` below is a file in the workbench package, run as
 | Change what is checked | edit `.latex-ai.json` | [configuration](configuration.md) |
 | Set up Zotero and Better BibTeX | follow the guide | [bibliography](bibliography.md) |
 | Keep a copy to return to before a risky change, and restore from it | `make snapshot` (`SNAPSHOT_NOTE="why"`), `make snapshots` | [snapshots](snapshots.md) |
-| Have snapshots taken for me while I work (Mac) | two launchd agents: every 30 minutes, and one a week | [snapshots](snapshots.md#timers-on-a-mac-launchd) |
+| Have snapshots taken for me while I work (Mac) | two launchd agents: one asks every 30 minutes (the newest 60 kept), one asks every day (one a week, the newest 6 kept) | [snapshots](snapshots.md#timers-on-a-mac-launchd) |
 | Update to a newer release | `latex-ai-init diff . --diff`, then `latex-ai-init runtime .` (an agent follows the recipe) | [updating](upgrading.md) |
 | Report a suspected workbench defect | `make latex-ai-issue ISSUE_NOTE="..."` | [agents](agents.md#suspected-workbench-defects) |
 | Let an AI agent work safely | it reads `AGENTS.md`; Git changes prompt you | [agents](agents.md) |

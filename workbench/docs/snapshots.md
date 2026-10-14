@@ -14,14 +14,14 @@ Each store is a Git repository of its own, so what goes into one can never push 
 | Store | Filled by | A snapshot is taken | Kept |
 |---|---|---|---|
 | `manual` | you, with `make snapshot` | when files differ from your last manual snapshot | all of them; the workbench never deletes one |
-| `weekly` | a timer that asks every day ([below](#timers-on-a-mac-launchd)) | the first time in a calendar week (Monday to Sunday) that files differ from the last weekly snapshot | the newest 6 |
+| `weekly` | a timer that asks every day ([below](#timers-on-a-mac-launchd)) | the first time in a calendar week (Monday to Sunday, by the computer's own clock and time zone) that files differ from the last weekly snapshot | the newest 6 |
 | `frequent` | a timer that asks every 30 minutes | whenever files differ from the last frequent snapshot | the newest 60 |
 
 The two timers run `python3 .latex-ai/workbench.py snapshot --tier frequent` and `--tier weekly`; `make snapshot` is the manual one (`--tier manual`, the default). A snapshot that would be identical to the
 newest of its store is not taken, and the run says so, so a timer that fires while you are away costs almost nothing and uses none of the 60.
 
-Every snapshot has a number, `#1`, `#2`, ... in its store, which only grows (it is not reused after a snapshot is dropped). The clock decides when a snapshot is taken (whether this week already has its weekly one) and never
-what is deleted: only the count does. A clock that jumps forward or back can cause one snapshot too many or too few, and deletes nothing else.
+Every snapshot has a number, `#1`, `#2`, ... in its store, which only grows (a dropped snapshot's number is not reused). The clock decides when a snapshot is taken (whether this week already has its weekly one) and never
+what is deleted: only the count does. A clock that jumps forward or back can cause one snapshot too many or too few, and each snapshot taken drops at most one old one; so a clock that flips back and forth between a wrong date and the right one, run after run, can still replace the six weekly snapshots, one at a time.
 
 ## What the workbench deletes
 
@@ -34,7 +34,7 @@ git --git-dir=$HOME/.snapshots/NAME-HASH/manual update-ref -d refs/snapshots/000
 git --git-dir=$HOME/.snapshots/NAME-HASH/manual prune --expire=now
 ```
 
-A reference you add yourself (say `git update-ref refs/keep/before-rewrite <id>`) keeps its snapshot's files from being pruned, and a name under `refs/snapshots/` that is not a number is left alone.
+A reference you add yourself (say `git update-ref refs/keep/before-rewrite <id>`) keeps its snapshot's files from being pruned, and a name under `refs/snapshots/` that is not eight digits is left alone. If you run `git gc` on a store, its files are packed, and the files of snapshots dropped afterwards are no longer freed (they only take space); the stores need no `gc`.
 
 ## What is in a snapshot
 
@@ -55,9 +55,10 @@ temporary file) is not an error.
 
 ## Where
 
-In `~/.snapshots/NAME-HASH/`, where `NAME` is the project folder's name and `HASH` is eight letters of a hash of its full path (two projects with the same name do not share a folder); inside it, a folder for each store.
+In `~/.snapshots/NAME-HASH/`, where `NAME` is the project folder's name and `HASH` is eight hexadecimal digits of a hash of its full path (two projects with the same name do not share a folder); inside it, a folder for each store.
 `LATEX_AI_SNAPSHOT_DIR` names another folder instead of `~/.snapshots`; it cannot be inside the project. To free the space of one project, delete its folder yourself.
-The folder also holds a `.latex-ai/` with a lock file: one snapshot is taken at a time (a second waits a few seconds for the first, and says so if it is still running).
+`~/.snapshots` also holds a `.latex-ai/` with the lock files: one snapshot of a project is taken at a time (a second one for the same project, the timers of one project starting together for example, waits up to a minute for the first, and says so if it is still running); other projects do not wait for it.
+Folders called `fine-*` and `daily-*` in a project's folder belong to the release before this one (4.7.0); they are not read or touched, and can be deleted by hand.
 
 ## Restoring
 
@@ -77,7 +78,7 @@ delete it by hand if it is not wanted. A project with its own Git sees the resto
 **Untested.** This was written where launchd could not be run. The two files below are checked to be valid property lists, and the command each runs is checked to work and to fill the right store; how launchd
 treats them on your Mac is not. Run the command by hand first, then load the agents, then look at the log.
 
-The agents run only while you are using the Mac. If it sleeps through a start, launchd runs the job once when it wakes (several missed starts become one); if it was switched off, nothing runs until the next start, and
+The agents run while you are logged in and the Mac is awake (a locked screen does not stop them). If it sleeps through a start, launchd runs the job once when it wakes (several missed starts become one); if it was switched off, nothing runs until the next start, and
 `RunAtLoad` makes the job run when you log in, so the first run after switching on is not a day late. The weekly agent starts every day and the program decides whether the week already has its snapshot,
 so a week with no changes gives none and the first day of a week with changes gives one.
 
@@ -96,12 +97,13 @@ so a week with no changes gives none and the first day of a week with changes gi
   <key>ProgramArguments</key>
   <array>
     <string>/usr/bin/python3</string>
-    <string>.latex-ai/workbench.py</string>
+    <string>/Users/YOU/PATH/TO/PROJECT/.latex-ai/workbench.py</string>
     <string>snapshot</string>
     <string>--tier</string>
     <string>frequent</string>
+    <string>--project</string>
+    <string>/Users/YOU/PATH/TO/PROJECT</string>
   </array>
-  <key>WorkingDirectory</key><string>/Users/YOU/PATH/TO/PROJECT</string>
   <key>EnvironmentVariables</key>
   <dict><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>
   <key>StartInterval</key><integer>1800</integer>
@@ -123,12 +125,13 @@ so a week with no changes gives none and the first day of a week with changes gi
   <key>ProgramArguments</key>
   <array>
     <string>/usr/bin/python3</string>
-    <string>.latex-ai/workbench.py</string>
+    <string>/Users/YOU/PATH/TO/PROJECT/.latex-ai/workbench.py</string>
     <string>snapshot</string>
     <string>--tier</string>
     <string>weekly</string>
+    <string>--project</string>
+    <string>/Users/YOU/PATH/TO/PROJECT</string>
   </array>
-  <key>WorkingDirectory</key><string>/Users/YOU/PATH/TO/PROJECT</string>
   <key>EnvironmentVariables</key>
   <dict><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>
   <key>StartCalendarInterval</key>

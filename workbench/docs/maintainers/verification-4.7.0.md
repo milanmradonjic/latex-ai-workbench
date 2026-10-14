@@ -3,7 +3,7 @@
 This records the release that adds `make snapshot` and `make snapshots` (step 3.6 of [the plan after 4.4.0](plan-after-4.4.0.md)): a copy of every file of the project, kept outside it, in two rotating tiers.
 It touches the owner's machine outside the project, so the design was put to the owner first and accepted on 14 October 2026 (the plan records the decisions).
 Tested on 2026-10-14 on Linux (x86_64, GNU Make 4.3, Git 2.43.0, Python 3.13.16, 3.12.13 and 3.11.17) with TeX Live 2023 from Debian: `latexmk`, `chktex`, `bibtex`, `lualatex`, `xelatex` and `biber`.
-The hosted results follow in the next record.
+The hosted results are at the end of this record (added by [the next record](verification-4.8.0.md)'s pull request). Release 4.8.0 replaced the rotation described here by three stores with counted retention; what this record says of the contents, the exact bytes, the isolation, the refusals and the review stands, and what it says of weeks, months and periods does not.
 
 | Check | Result |
 |---|---|
@@ -37,11 +37,10 @@ The hosted results follow in the next record.
 
 ## Hosted verification
 
-The hosted results of this pull request follow in the next record.
+All six required checks passed on the pull request ([#11](https://github.com/milanmradonjic/latex-ai-workbench/pull/11): [`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38610456722) in 1m50s with TeX Live 2026; the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38610456760), 1m34s to 1m54s each, which ran the new tests on 3.10 and 3.14 as well), and again on the merge commit `d00afcc` on `main` ([`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38618702956); the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38618703093)).
 
 ## Not verified
 
-- **Hosted runs of this pull request**, with TeX Live 2026 in the `validate` job.
 - **The lock on a network file system.** `flock` is what the project's own build lock uses; six snapshots at once were tested on a local disk only.
 - **Windows and an older Git.** `rmtree` of read-only Git objects on Windows may fail at a rotation (suspected by the review, not run); Git before 2.32 ignores `GIT_CONFIG_GLOBAL`, which is why `HOME` and `XDG_CONFIG_HOME` are moved instead (not run on an old Git either).
 - **macOS and Windows.** `Path.home()`, a path with a space, a case-insensitive file system (where `.GIT` and `.git` are one folder) and Windows' file names were not exercised. Git 2.43 only: the commands used (`read-tree --empty`, `update-index -z --stdin`, `write-tree`, `commit-tree`, `update-ref`, `init --bare --template=`) are all old, but no other version was run.

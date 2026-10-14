@@ -3,6 +3,24 @@
 Workbench 4 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 4.8.0 — snapshots in three stores, with counted retention
+
+At the owner's request, the day after 4.7.0 was merged: 4.7.0 kept two tiers that rotated by week and month, so a clock that jumped forward by a few weeks, once, made both repositories look expired and deleted the whole history.
+
+- **Changed:** a snapshot goes into one of three stores, each a repository of its own: `manual` (what `make snapshot` takes; the workbench never deletes from it, and the owner prunes it, as `docs/snapshots.md` says), `weekly` (the first snapshot of each calendar
+  week, Monday to Sunday, in the user's own time; the newest 6 are kept) and `frequent` (every snapshot that finds files changed; the newest 60 are kept). A timer chooses the store with `snapshot --tier frequent` or `--tier weekly`
+  (`--tier manual` is the default, so `make snapshot` is unchanged).
+- **Counted, not timed:** a snapshot is a commit of its own, numbered `#1`, `#2`, ... in its store, and the number only grows. When a store holds more than it keeps, the oldest is dropped: its reference is deleted and the files only it held are pruned. The clock decides when a snapshot
+  is taken (whether this week already has its weekly one) and never what is deleted, so a clock that jumps forward or back changes nothing that is kept beyond one snapshot too many or too few. The workbench no longer deletes a folder at all.
+- **Unchanged:** what is in a snapshot, the exact bytes, the isolation from the user's Git, the lock, the private folders, the refusals (a link, a folder without the marker, a store made for another path, a snapshot folder inside the project), `make snapshot`, `make snapshots`
+  and the Makefile (no line changes; only the text of `make help` for `snapshot` does). `make snapshots` lists each store, newest first, with the numbers.
+- **Hardened after an independent review:** a run killed while Git held its index lock (launchd stops jobs at logout) no longer leaves the store unable to snapshot; a label with a character Python treats as a line end no longer breaks the list; a reference such as
+  `refs/snapshots/1` is not taken for a snapshot; a project folder whose name ends in a blank is no longer refused the second time (a defect of 4.7.0); and the lock is per project and waits up to a minute, so the timers of several projects starting together at login do not lose snapshots.
+- **Docs:** `docs/snapshots.md` is rewritten, and gives two launchd agents for the owner's Mac (untested: the files are checked to be valid property lists and the command each runs is checked to work and to fill the right store).
+- **Folders of 4.7.0:** `fine-*` and `daily-*` in a project's snapshot folder belong to the release before; 4.8.0 neither reads nor touches them, and they can be deleted by hand.
+
+See [the verification record](verification-4.8.0.md).
+
 ## 4.7.0 — `make snapshot` and `make snapshots`
 
 Step 3.6 of [the plan after 4.4.0](plan-after-4.4.0.md): a copy of every file of the project, kept outside it, to restore from. The owner accepted the design on 14 October 2026.
