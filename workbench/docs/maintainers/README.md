@@ -128,8 +128,9 @@ the run it makes obsolete.
 The Python compatibility workflow tests all five supported versions (3.10 to 3.14) on a pull request and on `main` alike. Until 14 October 2026 a pull request tested
 only the oldest and the newest, which saves minutes on a private plan; the 3.12 job then failed on the pushes to `main` for 4.3.0 and 4.4.0, a version their pull
 requests had not tested ([the 4.4.0 record](verification-4.4.0.md#hosted-verification)). If the repository ever goes private again, the matrix is the place to cut,
-knowing what that costs.
+knowing what that costs; the ruleset's required checks must follow the matrix.
 
-The workflow has a `paths` filter, so a pull request that touches nothing under `workbench/` or `.latex-ai/` does not run it. `latex.yml` has none: it runs the file
-checks, then the portability tests and the reference manuscript's check in one TeX Live container, and its job `validate` is the check the ruleset requires. The
-Python jobs are advisory: a required check that a path filter skips would leave a pull request waiting for it forever.
+Neither workflow has a `paths` filter, because both are required checks and a required check that a filter skips would leave a pull request waiting for it forever.
+`latex.yml` runs the file checks, then the portability tests and the reference manuscript's check in one TeX Live container; its job is `validate`. The ruleset on
+`main` requires `validate` and the five Python jobs, `test (3.10)` to `test (3.14)`, so a red Python job blocks the merge. Those six names are what the ruleset matches:
+renaming the job, or changing the matrix, means updating the ruleset in the same step.

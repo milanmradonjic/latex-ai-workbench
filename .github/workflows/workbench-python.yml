@@ -1,16 +1,9 @@
 name: Workbench Python compatibility
+# No path filter: the five jobs below are required checks, and a required check that a filter skips would leave a pull request waiting for it forever.
 on:
   push:
     branches: [main]
-    paths:
-      - 'workbench/**'
-      - '.latex-ai/**'
-      - '.github/workflows/workbench-python.yml'
   pull_request:
-    paths:
-      - 'workbench/**'
-      - '.latex-ai/**'
-      - '.github/workflows/workbench-python.yml'
   workflow_dispatch:
 permissions:
   contents: read

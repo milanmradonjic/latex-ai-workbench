@@ -29,8 +29,8 @@ These come from the repository's `AGENTS.md`, plus what 4.0.0 to 4.4.0 taught.
 - **Reference parity.** After any change under `workbench/`, run `make -C workbench upgrade-reference` and commit the regenerated `.latex-ai/` with it.
 - **Before pushing,** these must pass: `make -C workbench test`; `make -C workbench portability` where TeX is installed; and in the reference
   `python3 -B .latex-ai/workbench.py validate --files-only`.
-- **Hosted proof.** Every pull request that touches `workbench/` or `.latex-ai/` runs all five supported Python versions (since step 2). Read them before the
-  merge: only `validate` is required.
+- **Hosted proof.** Every pull request runs all five supported Python versions (since step 2), and the ruleset requires them with `validate`: a red Python job
+  blocks the merge.
 - **Release record.** Each release gets release notes, and a verification record with the hosted results, what was not verified, and the runtime's line count.
 - **No personal data.** No personal email address, local path or private project name in any file, commit message or pull-request text. Before pushing, run
   `git log --format='%an <%ae> | %cn <%ce>' origin/main..HEAD` and check that every address is one meant to be public: the host's no-reply form, or an agent's.
@@ -47,17 +47,17 @@ recreated; add the lessons of the recreation.
 **Done when** the pull request has merged, `validate --files-only` passes and no record points an agent at removed work. The two error strings in `schema.py`
 that still say "Workbench 3" are runtime files, so they change in step 3.1.
 
-## Step 2: test every supported Python on pull requests
+## Step 2: test every supported Python on pull requests, and require them
 
 `workbench-python.yml` tested only 3.10 and 3.14 on a pull request, to save a private plan's Actions minutes. The repository is public, so the saving is gone, and it
 had a cost: the 3.12 job failed on the pushes to `main` for 4.3.0 and 4.4.0, a version their pull requests did not test.
 
 - **Change.** Test all five versions on pull requests, and rewrite [the cost of the hosted checks](README.md#the-cost-of-the-hosted-checks), which also still named
   two generated workflows that no longer exist.
-- **Open.** The ruleset requires only `validate`, so the five Python jobs are advisory: the workflow's `paths` filter would leave a required check waiting on a pull
-  request that touches no matching path. To require them, drop the filter on pull requests (public runs are unmetered) and add the five jobs to the ruleset. The owner
-  decides; until then, read the Python jobs before merging.
-- **Done when** a pull request shows five Python jobs and `validate`.
+- **Decided, 14 October 2026.** The five Python jobs are required checks, with `validate`, so a red one blocks the merge. That takes two changes: the workflow loses its
+  `paths` filter (a required check that a filter skips would wait forever on a pull request that touches no matching path; public runs are unmetered), and the owner adds
+  `test (3.10)` to `test (3.14)` to the ruleset on `main` once the workflow has merged, never before, or no pull request could pass.
+- **Done when** a pull request shows five Python jobs and `validate`, and the ruleset requires all six.
 
 ## Gates: the owner's decisions
 
