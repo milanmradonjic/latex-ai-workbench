@@ -16,7 +16,12 @@ Step 3.6 of [the plan after 4.4.0](plan-after-4.4.0.md): a copy of every file of
   more than two periods would then have left the old one on disk, so the rule is: older than the previous period.)
 - **What is in a snapshot:** every file and link except `.git`, `.latex-ai/artifacts/` and `.latex-ai/backups/`, the compiler's files, the output folder of a document that builds into a folder of its own,
   environments and caches, and files over 25 MB (named in the output). The project's `.gitignore` does not apply. A folder that cannot be read stops the snapshot with its name.
-- **Isolated from the user's Git:** no `GIT_` variable, configuration file, template or hook reaches the snapshot repositories, and they use an identity of their own.
+- **Isolated from the user's Git:** no `GIT_` variable, configuration file, template or hook reaches the snapshot repositories, and they use an identity of their own. The bytes are kept exactly: a repository's
+  `info/attributes` outranks the project's `.gitattributes` and the user's `core.autocrlf`, so line endings, `$Id$`, filters and re-encoding do not apply at the snapshot or at a restore, and the user's hooks do not run.
+- **Hardened after an independent review** (which reproduced each of these): one snapshot at a time (a lock in the snapshot folder; two at once had left an empty snapshot); a repository is built whole under a temporary name and
+  renamed, so an interrupted run or a full disk does not leave a folder the next run refuses; the folders are private (mode 700), since a snapshot holds every file; a compiler's file is left out only beside a `.tex` of its
+  name (a `train.log` or `solver.out` is data); the count is of what is kept; a file that vanishes during the walk is not an error; a label of blanks is no label, and one that starts with a dash is a label; the output says
+  which repository it deletes and when its newest snapshot was; an unknown home folder, a long project name and a path that is not UTF-8 give a message or a store, not a traceback.
 - **Added to the Makefile `init` writes:** `export SNAPSHOT_NOTE` and the two commands with their short names, eleven lines in all. `diff` shows a project from 4.6 and before exactly those lines, and `runtime` does not
   touch the Makefile. The reference's Makefile gained them by hand, and the guard's stored Makefiles were regenerated on purpose.
 - **Docs:** [snapshots](../snapshots.md) is new; `upgrading.md` and `migrating.md` take a snapshot as their first step (the new release can snapshot a project that has no workbench yet:
