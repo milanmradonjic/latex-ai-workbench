@@ -3,6 +3,20 @@
 Workbench 4 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 4.4.2 — a module declares only what something reads
+
+Step 3.2 of [the plan after 4.4.0](plan-after-4.4.0.md): a removal of fields nothing used.
+
+- **Removed:** the `tools` and `requires` lists and the `check_group` of both entries of `core.MODULES` (both lists were empty for both modules, and no caller passed a group),
+  the `group` parameter of `module_names`, and the check in `validate_config` that the modules a module requires are enabled (it could not fail).
+- **Changed output:** `make modules` no longer prints a `requires` list for each module; it was always `[]`. Nothing else it prints changes.
+- **Unchanged:** the order of the modules, what the schema accepts and refuses (messages included), the tools `doctor` asks for, the generated files and the build receipts:
+  104 comparisons of 4.4.1 against this tree, on four kinds of project and six broken configurations, found no difference beyond the `requires` list
+  ([the record](verification-4.4.2.md)).
+- **Size:** the package is 3,948 lines, from 3,952. Tests: 356 before, 361 now (5 new).
+
+See [the verification record](verification-4.4.2.md).
+
 ## 4.4.1 — refreshing the runtime no longer renders a project's files
 
 Step 3.1 of [the plan after 4.4.0](plan-after-4.4.0.md): a refactor that changes nothing `init`, `diff` or `runtime` print or write.

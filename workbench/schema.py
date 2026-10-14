@@ -11,7 +11,7 @@ from pathlib import Path, PurePosixPath
 import re
 
 from commands import RECURSIVE_GOALS, RESERVED_PREFIX
-from core import (CONFIG, MODULES, REMOVED_MODULES, WorkbenchError, document_paths, has_module, integrations, local_path, module_config, module_names,
+from core import (CONFIG, MODULES, REMOVED_MODULES, WorkbenchError, document_paths, has_module, integrations, local_path, module_config,
                   path_identity, path_name, read_json)
 
 DEFAULTS = {"engine": "pdflatex", "backend": "none", "lint": {"enabled": True, "args": []},
@@ -306,7 +306,7 @@ def document_settings(config, document=None):
 
 
 def required_tools(config):
-    tools = ["make", *[tool for name in module_names(config) for tool in MODULES[name]["tools"]]]
+    tools = ["make"]
     if has_module(config, "latex"):
         for target in specifications(config):
             tex = target.view
@@ -407,9 +407,6 @@ def validate_config(project, config, planned_sources=None):
         if not isinstance(values, dict):
             raise WorkbenchError(f"The {name} module configuration must be an object")
         unknown_keys(values, MODULES[name]["defaults"], f"{name} module")
-        missing = set(MODULES[name]["requires"]) - modules.keys()
-        if missing:
-            raise WorkbenchError(f"{name} requires enabled module(s): {', '.join(sorted(missing))}")
     adapters = config.get("integrations", {})
     if not isinstance(adapters, dict):
         raise WorkbenchError("integrations must be an object")
