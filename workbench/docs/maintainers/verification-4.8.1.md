@@ -11,17 +11,17 @@ latexmk 4.83, ChkTeX 1.7.8 and pdfTeX from TeX Live 2023/Debian.
 
 ## Regression evidence
 
-`tests/test_scope_4_8_1.py` contains 25 tests. Against the frozen 4.8.0 source,
-22 fail (50 assertion failures across subcases); the three controls for actual
+`tests/test_scope_4_8_1.py` contains 27 tests. Against the frozen 4.8.0 source,
+24 fail (73 assertion failures across subcases); the three controls for actual
 generated auxiliaries, mere filename mentions and output command arguments pass.
-All 25 pass after the repairs. Each new test also catches one deliberate
-production mutation in a disposable copy; 25 mutations, none surviving.
+All 27 pass after the repairs. Each new test also catches one deliberate
+production mutation in a disposable copy; 27 mutations, none surviving.
 
 | Finding | Behaviour now verified |
 |---|---|
 | F1, auxiliary output containment | Conventional lists, indexes, glossaries and slide auxiliaries cannot follow an outside symlink. A real listings build with a `.lol` symlink fails before compilation and preserves sentinel bytes. |
-| F2, source/output aliases | Outputs cannot alias their own or another document's root, in either default order, through hard links or symlinks. Known nonroot sources, authored `.idx` files, sources literally read at an output path, executable/interpreter scripts and explicit Makefiles are protected before the command runs. All six separated/attached Makefile option forms are covered. |
-| F2 controls | Recorder-only `train.log` remains fingerprinted and becomes stale after editing. Actual generated `.aux` input is excluded. Merely mentioning an output filename or passing an output argument does not turn it into source. Repeated custom and Make builds still work. |
+| F2, source/output aliases | Outputs cannot alias their own or another document's root, in either default order, through hard links or symlinks. Known nonroot sources, authored `.idx` files, sources literally read at an output path, executable/interpreter scripts and explicit Makefiles are protected before the command runs. All six separated/attached Makefile option forms are covered for ordinary names and two names beginning with `-`. Python/Bash `--` markers and a bare executable with a leading `-` preserve source bytes. |
+| F2 controls | Recorder-only `train.log` remains fingerprinted and becomes stale after editing. Actual generated `.aux` input is excluded. Merely mentioning an output filename or passing an output argument does not turn it into source. Repeated custom and Make builds still work. A Makefile literally named `-f` remains an input without causing the following PDF goal to become an input. |
 | F3, graphics freshness | Literal graphics search paths in included fragments are followed, including starred and explicit-extension commands. A real build consumes PNG, notices a newly added preferred PDF, becomes stale, then recompiles with the PDF and a current receipt. |
 | F4, project checks | Literal and computed `.RECIPEPREFIX` cause conservative routing to the project's own `make check`; its custom recipe actually runs. |
 | F5, manuscript integrity | Full and document checks reject conflict markers that a successful compiler command leaves undetected, including recorder-only text. Displayed files receive text integrity checks without unrelated format parsing. |
@@ -34,15 +34,15 @@ production mutation in a disposable copy; 25 mutations, none surviving.
 
 | Check | Result |
 |---|---|
-| `make -C workbench test` | 506 tests: 500 pass, 3 skip, 2 fail and 1 error. The three process cases also fail on unchanged 4.8.0 in this environment; details below. No test was weakened or excluded. |
-| Focused scope, incremental Make controls and unchanged generated-files guard | 30 tests pass. |
+| `make -C workbench test` | 508 tests: 502 pass, 3 skip, 2 fail and 1 error. The three process cases also fail on unchanged 4.8.0 in this environment; details below. No test was weakened or excluded. |
+| Focused scope, incremental Make controls and unchanged generated-files guard | 32 tests pass. |
 | `make -C workbench portability` | All 51 scenarios pass, with real TeX and BibTeX. |
 | Reference `make check` | Passes, including bibliography, text integrity, compiler-log verification and ChkTeX. |
 | `make -C workbench upgrade-reference`, then `audit-reference` | Runtime identical at 4.8.1. The project's extended `AGENTS.md` is reported separately as project-owned. |
 | Reference `validate --files-only` | Passes, including policy structure and Markdown links. |
 | Old against new | 105 comparisons with 4.8.0 on four identical project types: core, single document, nested root and two documents, using deterministic custom builders. No differences after normalising temporary project paths/names, the version and the new text-integrity success line. Generated policy/Make/editor files, installer previews, reports, build/check/verify/lint/export actions, routing and receipt identity/input/output fields agree. The same 105 comparisons pass at each implementation commit. |
-| Review commits | The primary repairs pass 16 focused tests. Adding `.lol` containment passes 17; its real-compiler and path tests fail without that addition. The final source-role repairs pass all 25; the interim tree has 10 failing assertions across the additional alias/Makefile/recorder cases. |
-| Size | Package 4,352 lines, from 4,292; installer remains 579 lines. Tests grow by 320 lines. No generated Makefile/editor fixture changes. |
+| Review commits | The primary repairs pass 16 focused tests. Adding `.lol` containment passes 17; its real-compiler and path tests fail without that addition. The initial source-role repairs pass 25, after 10 failing assertions in the interim tree. The final filename-boundary extension passes all 27: its preceding probes fail 12 dash-named Makefile cases, six script/option-consumption assertions and one bare-executable assertion before correction. |
+| Size | Package 4,371 lines, from 4,292; installer remains 579 lines. Tests grow by 368 lines. No generated Makefile/editor fixture changes. |
 
 ## Independent review
 
@@ -57,10 +57,18 @@ arguments. Corrected input-role handling now distinguishes known executable,
 interpreter-script and explicit Makefile reads from ambiguous arguments.
 
 Final independent review found no remaining actionable findings. It ran all
-25 scope tests, 13 lifecycle tests and three existing Make tests: 40 passed,
+27 scope tests, 13 lifecycle tests and three existing Make tests: 42 passed,
 one failed in the process environment described below; none were excluded or
 reported as passing. The original overwrite probes now fail before mutation
 and preserve the exact source bytes.
+
+A final filename review confirmed that an explicit Makefile beginning with `-`
+was discarded or parsed again as an option, and that interpreter `--` markers
+could hide a dash-named script. A Makefile literally named `-f` also made the
+following PDF goal look like another input. The small follow-up consumes each
+Make option value once, respects the option boundary, and preserves established
+executable/script filename roles. All overwrite and ordinary-build controls
+pass the independent re-review.
 
 ## Hosted verification
 
@@ -72,9 +80,10 @@ at implementation commit `a9985e0` on 14 October 2026:
 | [Python compatibility](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38646023811) | `test (3.10)`, `test (3.11)`, `test (3.12)`, `test (3.13)` and `test (3.14)` all succeed. The 3.12 log reports 506 tests, OK, with 22 explicit tool-dependent skips; all three locally failing process tests pass unchanged. These runners have no TeX installation, so compiler coverage comes from the local tests and the separate validation job. |
 | [Validation](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38646023816) | File/policy checks, all 51 portability scenarios and the reference manuscript's full check succeed with TeX Live 2026. |
 
-The follow-up commit adds only this hosted record; the implementation remains
-the exact file tree exercised by these runs. The latest required check statuses
-remain visible on the pull request.
+The record-only follow-up also passed all six jobs ([Python](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38646642502),
+[validation](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38646642540)).
+The subsequent filename-boundary repair is described above; its complete current
+tree is checked by the latest required runs visible on the pull request.
 
 ## Limits and open items
 

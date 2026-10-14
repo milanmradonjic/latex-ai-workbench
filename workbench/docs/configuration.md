@@ -68,7 +68,8 @@ alias a declared root or a known source input, even through a hard link.
 A source named `example.idx` or `train.log` is still an input; the extension alone
 does not make it generated. Executables, recognised interpreter scripts and
 explicit Makefiles are source inputs; other command arguments may name outputs.
-Declare ambiguous or hidden command inputs in `inputs`. This checks known paths;
+Declare ambiguous or hidden command inputs, including unsupported interpreter
+or command-option layouts, in `inputs`. This checks known paths;
 it does not sandbox arbitrary TeX or custom-command writes.
 
 Custom commands run from the project root unless their own script changes it.

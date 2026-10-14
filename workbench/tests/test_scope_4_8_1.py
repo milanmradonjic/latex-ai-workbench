@@ -6,6 +6,7 @@ import contextlib
 import argparse
 import io
 import json
+import os
 import shutil
 import struct
 import sys
@@ -168,19 +169,24 @@ class AuditRepairs(ProjectCase):
         self.builder()
         self.configure()
         self.install('init', '--skip-editor')
-        script = self.project / 'outputs/main.log'
-        script.parent.mkdir()
         original = 'raw:\n\t' + sys.executable + ' builder.py\n'
-        for arguments in (['-f', 'outputs/main.log'], ['--file', 'outputs/main.log'],
-                          ['--makefile', 'outputs/main.log'], ['-foutputs/main.log'],
-                          ['--file=outputs/main.log'], ['--makefile=outputs/main.log']):
-            with self.subTest(arguments=arguments):
-                script.write_text(original)
-                (self.project / '.latex-ai/artifacts/documents/paper/build-receipt.json').unlink(missing_ok=True)
-                self.edit_config(lambda data: data['modules']['latex']['documents']['paper'].update(
-                    build_command=['make', *arguments, 'raw']))
-                self.assertIn('aliases a source input', self.command('build', expected=1).stderr)
-                self.assertEqual(script.read_text(), original)
+        for stem, directory in (('main', 'outputs'), ('-paper', '.'), ('-file', '.')):
+            (self.project / (stem + '.tex')).write_text(SOURCE)
+            name = (Path(directory) / (stem + '.log')).as_posix()
+            script = self.project / name
+            script.parent.mkdir(exist_ok=True)
+            (self.project / 'builder.py').write_text('from pathlib import Path\n'
+                + 'Path(' + repr(str(Path(directory) / (stem + '.pdf'))) + ").write_bytes(b'%PDF-fixture')\n"
+                + 'Path(' + repr(name) + ").write_text('would overwrite the makefile')\n")
+            for arguments in (['-f', name], ['--file', name], ['--makefile', name],
+                              ['-f' + name], ['--file=' + name], ['--makefile=' + name]):
+                with self.subTest(arguments=arguments):
+                    script.write_text(original)
+                    (self.project / '.latex-ai/artifacts/documents/paper/build-receipt.json').unlink(missing_ok=True)
+                    self.edit_config(lambda data: data['modules']['latex']['documents']['paper'].update(
+                        root=stem + '.tex', output_dir=directory, build_command=['make', *arguments, 'raw']))
+                    self.assertIn('aliases a source input', self.command('build', expected=1).stderr)
+                    self.assertEqual(script.read_text(), original)
 
     def test_f2_actual_generated_auxiliary_is_not_treated_as_authored(self):
         self.builder("Path('outputs').mkdir(exist_ok=True)\nPath('outputs/main.aux').write_text('generated')\n",
@@ -190,6 +196,48 @@ class AuditRepairs(ProjectCase):
         self.command('build')
         self.assertNotIn('outputs/main.aux', self.receipt()['inputs'])
         self.assertEqual(self.state(), 'current')
+
+    def test_f2_dash_named_makefile_does_not_turn_an_output_goal_into_source(self):
+        self.builder()
+        self.configure()
+        self.install('init', '--skip-editor')
+        (self.project / '-f').write_text('outputs/main.pdf: main.tex builder.py\n\t' + sys.executable + ' builder.py\n')
+        for arguments in (['-f', '-f'], ['--file', '-f'], ['--makefile', '-f'],
+                          ['-f-f'], ['--file=-f'], ['--makefile=-f']):
+            with self.subTest(arguments=arguments):
+                (self.project / '.latex-ai/artifacts/documents/paper/build-receipt.json').unlink(missing_ok=True)
+                self.edit_config(lambda data: data['modules']['latex']['documents']['paper'].update(
+                    build_command=['make', *arguments, 'outputs/main.pdf']))
+                self.command('build')
+                self.command('build')
+                self.assertIn('-f', self.receipt()['inputs'])
+                self.assertNotIn('outputs/main.pdf', self.receipt()['inputs'])
+                self.assertEqual(self.state(), 'current')
+
+    def test_f2_known_script_roles_preserve_dash_named_source_scripts(self):
+        self.builder()
+        self.configure()
+        self.install('init', '--skip-editor')
+        (self.project / '-paper.tex').write_text(SOURCE)
+        builder = "from pathlib import Path\nPath('-paper.pdf').write_bytes(b'%PDF-fixture')\nPath('-paper.log').write_text('would overwrite the script')\n"
+        (self.project / 'builder.py').write_text(builder)
+        self.env['PATH'] = str(self.project) + os.pathsep + self.env['PATH']
+        for executable, options, original in (
+                (sys.executable, ['--'], builder), (sys.executable, ['-u', '--'], builder),
+                ('bash', ['--'], sys.executable + ' builder.py\n'),
+                ('bash', ['-eu', '--'], sys.executable + ' builder.py\n'),
+                ('-paper.log', [], '#!' + sys.executable + '\n' + builder)):
+            with self.subTest(executable=executable, options=options):
+                script = self.project / '-paper.log'
+                script.write_text(original)
+                script.chmod(0o700)
+                if not shutil.which(executable, path=self.env['PATH']):
+                    self.skipTest(executable + ' required')
+                (self.project / '.latex-ai/artifacts/documents/paper/build-receipt.json').unlink(missing_ok=True)
+                self.edit_config(lambda data: data['modules']['latex']['documents']['paper'].update(
+                    root='-paper.tex', output_dir='.', build_command=[executable, *options, '-paper.log']))
+                self.assertIn('aliases a source input', self.command('build', expected=1).stderr)
+                self.assertEqual(script.read_text(), original)
 
     @unittest.skipUnless(TEX, 'real latexmk and pdflatex required')
     def test_f1_listings_auxiliary_cannot_overwrite_an_external_file(self):

@@ -321,19 +321,38 @@ def command_files(project, config, authored=False):
     if re.fullmatch(r"python(?:\d+(?:\.\d+)*)?", executable):
         while script < len(command) and command[script].startswith("-"):
             option = command[script]
+            if option == "--":
+                script += 1
+                break
             if option.startswith(("-c", "-m")):
                 script = len(command)
                 break
             script += 2 if option in {"-W", "-X", "--check-hash-based-pycs"} else 1
-    elif executable not in {"sh", "bash", "dash", "zsh", "ksh", "node", "perl", "ruby"}:
+    elif executable in {"sh", "bash", "dash", "zsh", "ksh", "node", "perl", "ruby"}:
+        while executable in {"sh", "bash", "dash", "zsh", "ksh"} and script < len(command) and re.fullmatch(r"-[abefhkmnptuvxBCEHPT]+", command[script]):
+            script += 1
+        if script < len(command) and command[script] == "--":
+            script += 1
+    else:
         script = len(command)
+    makefile_next, make_options = False, True
     for index, argument in enumerate(command):
-        if make_build(config) and argument.startswith(("-f", "--file=", "--makefile=")):
-            argument = argument[2:] if argument.startswith("-f") else argument.partition("=")[2]
-        elif authored and index and index != script and not (
-                make_build(config) and command[index - 1] in {"-f", "--file", "--makefile"}):
+        makefile = False
+        if make_build(config) and index:
+            if makefile_next:
+                makefile_next = False
+                makefile = True
+            elif make_options and argument in {"-f", "--file", "--makefile"}:
+                makefile_next = True
+                continue
+            elif make_options and argument.startswith(("-f", "--file=", "--makefile=")):
+                argument = argument[2:] if argument.startswith("-f") else argument.partition("=")[2]
+                makefile = True
+            elif argument == "--":
+                make_options = False
+        if authored and index and index != script and not makefile:
             continue
-        if not argument.startswith("-"):
+        if not argument.startswith("-") or makefile or index in {0, script}:
             resource = (root / argument).resolve()
             if resource.is_relative_to(root) and resource.is_file():
                 names.add(resource.relative_to(root).as_posix())
