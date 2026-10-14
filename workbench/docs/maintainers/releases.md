@@ -3,6 +3,20 @@
 Workbench 4 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 4.5.1 — `init` stops at a paper that needs another toolchain, and says what to declare
+
+At the owner's request after 4.5.0, which let `init` succeed as pdflatex on such a paper and left the first build to fail with the compiler's own message.
+
+- **Added:** a guard in `init`. When the source shows that the paper needs lualatex or xelatex (a `% !TeX program` comment, `\directlua`, `luacode`, `xeCJK`, `\XeTeX`, `fontspec`,
+  `unicode-math`) or biber (biblatex without `backend=bibtex`, `\addbibresource`), `init` writes nothing and exits 2 with the command to run it again with:
+  `--build-command '["latexmk", "-lualatex", "-interaction=nonstopmode", "-halt-on-error", "-file-line-error", "-cd", "<root>"]'`, with the engine's flag (`-pdf` for biber, which `latexmk` runs itself).
+  The hint was followed with real lualatex, xelatex and biber in the tests, for a paper at the project root and in a subfolder. A `--build-command` of your own takes the guard away;
+  a project that has its own configuration is not second-guessed.
+- **Unchanged:** everything else. The guard is in the installer, so no runtime file changes except the version: eight kinds of project that need none of these toolchains compare
+  identical with 4.5.0 ([the record](verification-4.5.1.md)).
+
+See [the verification record](verification-4.5.1.md).
+
 ## 4.5.0 — one engine, one bibliography program, no installer profiles
 
 Step 3.4 of [the plan after 4.4.0](plan-after-4.4.0.md), with the owner's decisions of 14 October 2026: no biber, and the `biblatex` export format goes too.

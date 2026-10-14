@@ -29,6 +29,7 @@ removed from one record). The first version's pull requests and runs went with i
 - [Plan after 3.0.2](plan-after-3.0.2.md) (closed): the audit's follow-up in phases; Phase 4 retired, Phases 5 to 7 met, moot or moved.
 - [Version 3.5.0 verification](verification-3.5.0.md): the pinned workflow actions, and what an upgrade does to a project's workflow.
 - [Version 3.6.0 verification](verification-3.6.0.md): `validation.ignore`, and what it never ignores.
+- [Version 4.5.1 verification](verification-4.5.1.md): `init` stops at a paper that needs lualatex, xelatex or biber and prints the `--build-command`, tested with the real tools.
 - [Version 4.5.0 verification](verification-4.5.0.md): one engine and one bibliography program, no installer profiles, and 232 old-against-new comparisons.
 - [Version 4.4.2 verification](verification-4.4.2.md): the module table's unused fields removed, and 104 runtime comparisons, old against new.
 - [Version 4.4.1 verification](verification-4.4.1.md): the runtime refreshed apart from the project's files, `diff` rendering once, and 210 installer runs compared old against new.
@@ -111,6 +112,9 @@ enough to run both (`apt-get update` first if the package index is empty):
 ```sh
 apt-get install -y --no-install-recommends texlive-latex-base texlive-latex-recommended texlive-fonts-recommended texlive-binaries latexmk chktex
 ```
+
+The tests of what `init` tells a lualatex, xelatex or biber paper to do build one with the real tool, and skip without it; for them add
+`texlive-luatex texlive-xetex biber texlive-bibtex-extra texlive-latex-extra`.
 
 The portability script creates fresh synthetic projects under a temporary folder
 (`LATEX_AI_PORTABILITY_PARENT` names another), keeps logs and PDFs, and never initializes Git. It exercises

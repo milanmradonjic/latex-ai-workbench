@@ -82,6 +82,7 @@ the per-document targets. The full version stays available as the first commit o
 - **4.4.2** (step 3.2) removed the module table's unused fields ([verification](verification-4.4.2.md)).
 - **Step 3.3** removed nothing: the owner decided to keep the locks and the `running` state, so there is no release (see [the plan](plan-after-4.4.0.md)).
 - **4.5.0** (step 3.4) left one engine (pdflatex), one bibliography program (BibTeX) and no installer profiles ([verification](verification-4.5.0.md)).
+- **4.5.1** made `init` stop at a paper that needs lualatex, xelatex or biber and print the `--build-command` to declare instead ([verification](verification-4.5.1.md)).
 
 - **Still to do**, in this order ([the plan after 4.4.0](plan-after-4.4.0.md)): per-document targets, snapshots, and the doctor's stamp report.
 
