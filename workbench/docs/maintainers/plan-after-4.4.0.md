@@ -117,7 +117,7 @@ Each step is one release and one pull request.
   day, one to two months) each use two repositories by turns, and one older than the previous period is deleted; restoring is Git's own `checkout`, printed by `make snapshots`
   (no `make snapshot-restore`). **Done when** a snapshot and a restore are shown on a project with and without
   its own Git, and `upgrading.md` and `migrating.md` take `make snapshot` as their first step. **Done — 14 October 2026**,
-  [pull request #PR_NUMBER](https://github.com/milanmradonjic/latex-ai-workbench/pull/PR_NUMBER), workbench 4.7.0.
+  [pull request #11](https://github.com/milanmradonjic/latex-ai-workbench/pull/11), workbench 4.7.0.
 - **3.7 The doctor's stamp report, and the update recipe in the skill file.** `make doctor` reports the project's stamp, the template's and which generated files
   differ; the recipe moves into the skill file, as the scope says. **Done when** an agent other than the author has followed the recipe on a copy, and its diff and
   `make check` result are in the verification record.
