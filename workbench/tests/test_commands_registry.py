@@ -29,7 +29,9 @@ class CommandRegistry(unittest.TestCase):
 
     def test_the_argument_parser_offers_exactly_the_registered_actions(self):
         help_text = subprocess.run([sys.executable, "-B", str(PACKAGE / "runtime.py"), "--help"], capture_output=True, text=True, check=True).stdout
-        self.assertEqual(set(re.search(r"\{([^}]*)\}", help_text)[1].split(",")), set(commands.NAMES))
+        choices = [set(group.split(",")) for group in re.findall(r"\{([^}]*)\}", help_text)]  # the actions are the choices that include `check`; an option may have choices of its own
+        self.assertIn(set(commands.NAMES), choices)
+        self.assertEqual([group for group in choices if "check" in group], [set(commands.NAMES)] * len([group for group in choices if "check" in group]))
         self.assertEqual(runtime.ACTIONS, commands.NAMES)
 
     def test_the_names_shown_to_readers_are_derived_not_restated(self):

@@ -57,6 +57,7 @@ A shadow Git repository outside the project, so that it works for projects with 
 A `PERIOD` file in each repository records the period it holds; when it differs from the current one the repository is deleted and
 started again. The script removes only folders under `~/.snapshots/<project>/` and refuses anything else. Snapshots are taken before and
 after an update; a daily scheduled run is an optional step the owner sets up. It protects against mistakes, not disk failure.
+*This design was replaced on 14 October 2026 (see "Decided since" below, and [snapshots](../snapshots.md)): three stores and counted retention, because rotation by week and month lets a clock that jumps forward delete the history.*
 
 ## Risks accepted
 
@@ -85,6 +86,7 @@ the per-document targets. The full version stays available as the first commit o
 - **4.5.1** made `init` stop at a paper that needs lualatex, xelatex or biber and print the `--build-command` to declare instead ([verification](verification-4.5.1.md)).
 - **4.6.0** (step 3.5) added `make all` and a `make NAME` for each document of a project that has several ([verification](verification-4.6.0.md)).
 - **4.7.0** (step 3.6) added `make snapshot` and `make snapshots`: copies of every file outside the project, in two rotating tiers ([verification](verification-4.7.0.md)).
+- **4.8.0** replaced those tiers by three stores with counted retention, at the owner's request ([verification](verification-4.8.0.md)).
 
 - **Still to do**, in this order ([the plan after 4.4.0](plan-after-4.4.0.md)): the doctor's stamp report.
 
@@ -93,6 +95,9 @@ the per-document targets. The full version stays available as the first commit o
 - **The licence is MIT** (13 October 2026), with the repository owner's GitHub name as the copyright holder.
 - **The locks and the `running` state stay** (14 October 2026), reversing the scope's earlier decision to remove them: a second build the workbench starts is refused, status says "running" while a build runs, and a build whose owner was killed hard but whose compiler lives on still blocks the next one. Folding `running` into `failed` would have given up the last two.
 - **The `biblatex` export format goes too** (14 October 2026), with biber: the export format is `bibtex`, Zotero's Better BibTeX.
+- **Snapshots are three stores with counted retention** (14 October 2026, the owner's design, after 4.7.0 had been merged): `manual` (what `make snapshot` takes; the workbench never deletes from it), `weekly` (a launchd job asks
+  every day and the first snapshot of each calendar week is taken, the newest 6 kept) and `frequent` (a launchd job every 30 minutes; a snapshot is taken only when files changed, the newest 60 kept). Retention is by count, so the
+  clock never decides what is deleted. Setting up the launchd jobs is the owner's step; the docs give the files, untested.
 - **No biber** (14 October 2026): the engine is `pdflatex` and the bibliography backend is `none` or `bibtex`; a project that needs more declares a `build_command`.
 
 ## Not yet decided

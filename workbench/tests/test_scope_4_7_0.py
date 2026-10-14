@@ -1,9 +1,10 @@
-"""Workbench 4.7.0, step 3.6 of docs/maintainers/plan-after-4.4.0.md: `make snapshot` and `make snapshots`.
+"""Workbench 4.7.0, step 3.6 of docs/maintainers/plan-after-4.4.0.md: `make snapshot` and `make snapshots`; what they keep, how it is kept, and what they refuse.
 
-A snapshot is a commit of every file of the project in a Git repository of its own, kept outside the project, in two tiers that rotate: the fine tier (every
-`make snapshot`, kept one to two weeks) and the daily tier (the first of each day, kept one to two months). Each tier has two repositories used by turns, and a
-repository older than the previous period is deleted. The code that deletes is held to a short list of refusals, tested here one by one. Every test runs with a
-temporary HOME and its own snapshot folder, so none of them touches the machine it runs on.
+A snapshot is a commit of every file of the project in a Git repository of its own, kept outside the project. Release 4.8.0 replaced the two rotating tiers of 4.7.0
+by three stores (`manual`, `weekly`, `frequent`) with counted retention, and its tests are in test_scope_4_8_0.py; what 4.7.0 established and 4.8.0 kept is here:
+the contents of a snapshot, the bytes kept exactly, the isolation from the user's Git, the refusals (the code that deletes is held to a short list, tested one by one),
+the hardening an independent review asked for, and the commands. Every test runs with a temporary HOME and its own snapshot folder, so none of them touches the
+machine it runs on.
 """
 import contextlib
 import errno
@@ -47,8 +48,8 @@ def shadow():
 
 
 def at(day=0, hour=12):
-    """A moment of the test calendar: 2026-10-15 (the first day of a fine-tier week) plus days, UTC."""
-    return datetime(2026, 10, 15, hour, tzinfo=timezone.utc) + timedelta(days=day)
+    """A moment of the test calendar: Wednesday 2026-10-14 plus days, UTC. Day 5 is the next Monday, and a whole number of weeks is a Wednesday again."""
+    return datetime(2026, 10, 14, hour, tzinfo=timezone.utc) + timedelta(days=day)
 
 
 def git(repository, *args):
@@ -61,14 +62,24 @@ def stores(base):
     return [path for path in sorted(base.iterdir()) if not path.name.startswith(".")]
 
 
+def numbers(repository):
+    """The numbers of a store's snapshots, newest first."""
+    return [int(ref.rsplit("/", 1)[1]) for ref in git(repository, "for-each-ref", "--sort=-refname", "--format=%(refname)", "refs/snapshots/").decode().split()]
+
+
+def newest(repository):
+    """The commit of the store's newest snapshot."""
+    return git(repository, "for-each-ref", "--sort=-refname", "--count=1", "--format=%(objectname)", "refs/snapshots/").decode().strip()
+
+
 def history(store):
-    """{repository: its commit subjects, newest first} for every snapshot repository of a project's store."""
-    return {repository.name: git(repository, "log", "--format=%s").decode().splitlines()
+    """{store: the labels of its snapshots, newest first} for every snapshot repository of a project's folder."""
+    return {repository.name: git(repository, "for-each-ref", "--sort=-refname", "--format=%(subject)", "refs/snapshots/").decode().splitlines()
             for repository in sorted(store.iterdir()) if (repository / "HEAD").is_file()}
 
 
-def names(repository, revision="HEAD"):
-    return set(git(repository, "ls-tree", "-r", "-z", "--name-only", revision).decode().split("\0")) - {""}
+def names(repository, revision=None):
+    return set(git(repository, "ls-tree", "-r", "-z", "--name-only", revision or newest(repository)).decode().split("\0")) - {""}
 
 
 def digest(folder):
@@ -93,9 +104,9 @@ class Case(ProjectCase):
         self.base = self.root / "snapshots"
         (self.project / "main.tex").write_text(SOURCE)
 
-    def take(self, day=0, hour=12, note="", **options):
+    def take(self, day=0, hour=12, note="", tier="manual", **options):
         with contextlib.redirect_stdout(io.StringIO()) as output:
-            result = shadow().take(self.project, note=note, base=self.base, now=at(day, hour), **options)
+            result = shadow().take(self.project, tier=tier, note=note, base=self.base, now=at(day, hour), **options)
         self.output = output.getvalue()
         return result
 
@@ -109,71 +120,28 @@ class Case(ProjectCase):
     def history(self):
         return history(self.store())
 
-    def repository(self, tier="fine"):
-        (name,) = [name for name in self.history() if name.startswith(tier + "-")]
-        return self.store() / name
+    def repository(self, tier="manual"):
+        return self.store() / tier
 
     def own_git(self, *paths):
         for arguments in (["init", "-q"], ["add", *(paths or ["-A"])], ["commit", "-q", "-m", "first"]):
             subprocess.run(["git", *arguments], cwd=self.project, env={**fixture_env(), **IDENTITY}, check=True, capture_output=True)
 
 
-class Retention(Case):
-    def test_the_fine_tier_keeps_this_period_and_the_one_before(self):
-        for day, text in ((0, "a"), (7, "b"), (14, "c")):
-            self.edit(text)
-            self.take(day, note=text)
-            fine = {name: subjects for name, subjects in self.history().items() if name.startswith("fine-")}
-            self.assertEqual(sorted(fine.values()), {0: [["a"]], 7: [["a"], ["b"]], 14: [["b"], ["c"]]}[day])  # the third week replaces the first, not the second
-        self.assertEqual(sorted(fine), ["fine-0", "fine-1"])
-
-    def test_every_snapshot_of_a_period_goes_to_that_periods_repository_newest_first(self):
-        for hour, text in ((9, "a"), (11, "b"), (13, "c")):
-            self.edit(text)
-            self.take(0, hour, note=text)
-        self.assertEqual([subjects for name, subjects in self.history().items() if name.startswith("fine-")], [["c", "b", "a"]])
-
-    def test_a_repository_older_than_the_previous_period_goes_even_when_the_other_one_is_in_use(self):
-        self.take(0, note="old")
-        self.edit("d")
-        self.take(21, note="new")  # three weeks on: the other repository is used, and the first is far past its two weeks
-        self.assertEqual([subjects for name, subjects in self.history().items() if name.startswith("fine-")], [["new"]])
-
-    def test_the_daily_tier_takes_the_first_snapshot_of_each_day(self):
-        for day, hour, text in ((0, 9, "a"), (0, 17, "b"), (1, 9, "c"), (1, 10, "d")):
-            self.edit(text)
-            self.take(day, hour, note=text)
-        history = self.history()
-        self.assertEqual([subjects for name, subjects in history.items() if name.startswith("daily-")], [["c", "a"]])
-        self.assertEqual([subjects for name, subjects in history.items() if name.startswith("fine-")], [["d", "c", "b", "a"]])
-
-    def test_the_daily_tier_keeps_this_month_and_the_one_before(self):
-        for day, text in ((0, "a"), (30, "b"), (60, "c")):  # 15 October, 14 November, 14 December
-            self.edit(text)
-            self.take(day, note=text)
-            daily = sorted(subjects for name, subjects in self.history().items() if name.startswith("daily-"))
-            self.assertEqual(daily, {0: [["a"]], 30: [["a"], ["b"]], 60: [["b"], ["c"]]}[day])
-        self.assertEqual(sorted(name for name in self.history() if name.startswith("daily-")), ["daily-0", "daily-1"])
-
-    def test_a_daily_repository_older_than_the_previous_month_goes_whichever_one_is_in_use(self):
-        self.take(0, note="old")
-        self.edit("d")
-        self.take(91, note="new")  # 14 January: the other repository is used
-        self.assertEqual([subjects for name, subjects in self.history().items() if name.startswith("daily-")], [["new"]])
-
+class Basics(Case):
     def test_nothing_changed_makes_no_snapshot(self):
         first = self.take(note="first")
         again = self.take(0, 13, note="again")
         self.assertEqual((first["changed"], again["changed"]), (True, False))
         self.assertEqual(again["commit"], first["commit"])
         self.assertIn("Nothing changed", self.output)
-        self.assertEqual(sum(len(subjects) for subjects in self.history().values()), 2)  # one in each tier
+        self.assertEqual(numbers(self.repository()), [1])
 
-    def test_a_label_is_the_commit_subject_and_defaults_to_snapshot(self):
+    def test_a_label_is_the_snapshots_subject_and_defaults_to_snapshot(self):
         self.take(note="before the rewrite of section 3")
         self.edit("b")
         self.take(0, 13)
-        self.assertEqual(self.history()[self.repository().name], ["snapshot", "before the rewrite of section 3"])
+        self.assertEqual(self.history()["manual"], ["snapshot", "before the rewrite of section 3"])
 
     def test_the_store_is_named_after_the_project_and_its_path(self):
         self.take()
@@ -192,7 +160,6 @@ class Contents(Case):
     def test_everything_but_the_excluded_is_included_and_the_projects_own_ignore_rules_are_not_followed(self):
         self.take()
         self.assertEqual(names(self.repository()), set(FILES) | {".latex-ai.json"})
-        self.assertEqual(names(self.repository("daily")), names(self.repository()))
 
     def test_the_count_is_of_what_is_kept(self):
         self.assertEqual(self.take()["files"], len(names(self.repository())))
@@ -218,7 +185,7 @@ class Contents(Case):
     def test_a_file_is_kept_byte_for_byte(self):
         (self.home / ".gitconfig").write_text("[core]\n\tautocrlf = true\n")  # where the user's own settings live
         self.take()
-        self.assertEqual(git(self.repository(), "show", "HEAD:crlf.txt"), b"a\r\nb\r\n")
+        self.assertEqual(git(self.repository(), "show", f"{newest(self.repository())}:crlf.txt"), b"a\r\nb\r\n")
 
     def test_a_project_with_its_own_git_has_that_repository_left_out(self):
         self.own_git("main.tex")  # the fixture's own odd files are not for this Git to add
@@ -232,7 +199,7 @@ class Contents(Case):
         os.symlink("main.tex", self.project / "link.tex")
         os.symlink(outside, self.project / "shared")
         self.take()
-        listed = git(self.repository(), "ls-tree", "-r", "HEAD").decode()
+        listed = git(self.repository(), "ls-tree", "-r", newest(self.repository())).decode()
         self.assertRegex(listed, r"120000 blob \w+\tlink\.tex")
         self.assertRegex(listed, r"120000 blob \w+\tshared")
         self.assertNotIn("inner.txt", listed)
@@ -301,11 +268,11 @@ class Bytes(Case):
         self.take()
         repository = self.repository()
         for name, data in original.items():
-            self.assertEqual(git(repository, "show", f"HEAD:{name}"), data, name)
+            self.assertEqual(git(repository, "show", f"{newest(repository)}:{name}"), data, name)
         for name in original:
             (self.project / name).write_bytes(b"changed\n")
         theirs = {key: value for key, value in self.env.items() if key != "GIT_CONFIG_GLOBAL"}  # the user's own settings apply to the restore
-        self.run_command("git", "--git-dir", str(repository), "--work-tree", str(self.project), "checkout", "HEAD", "--", ".", env=theirs)
+        self.run_command("git", "--git-dir", str(repository), "--work-tree", str(self.project), "checkout", newest(repository), "--", ".", env=theirs)
         for name, data in original.items():
             self.assertEqual((self.project / name).read_bytes(), data, name)
         self.assertFalse((self.root / "hook-ran").exists())
@@ -325,7 +292,7 @@ class Isolation(Case):
             self.take(note="isolated")
         self.assertEqual(digest(other), before)
         self.assertEqual(names(self.repository()), {"main.tex"})
-        self.assertEqual(git(self.repository(), "log", "-1", "--format=%an <%ae>").decode().strip(), "snapshot <snapshot@localhost.invalid>")
+        self.assertEqual(git(self.repository(), "log", "-1", "--format=%an <%ae>", newest(self.repository())).decode().strip(), "snapshot <snapshot@localhost.invalid>")
         self.assertNotIn("trunk", (self.repository() / "HEAD").read_text())  # the user's init.defaultBranch is theirs, not the snapshots'
 
     def test_the_projects_own_repository_is_byte_identical_after_a_snapshot(self):
@@ -344,53 +311,42 @@ class Isolation(Case):
 
 
 class Refusals(Case):
-    """The only code of the workbench that deletes outside the project: each way it could delete the wrong thing is refused."""
+    """What the workbench deletes is snapshots, one reference at a time, inside a repository it made. Each way it could touch something else is refused."""
 
-    def stale(self):
-        """A snapshot of a past period, so that the next one deletes its repository."""
-        self.take(0, note="old")
-        self.edit("d")
+    def made(self):
+        self.take(0, note="first")
+        self.edit("b")
         return self.repository(), self.store()
 
-    def refused(self):
-        self.take(21, note="new")  # raises; the caller then looks at what is left
-
     def test_a_repository_that_is_a_link_is_never_followed(self):
-        repository, store = self.stale()
+        repository, store = self.made()
         victim = self.root / "victim"
         repository.rename(victim)
         os.symlink(victim, repository)
         with self.assertRaises(core.WorkbenchError):
-            self.refused()
-        self.assertTrue((victim / "HEAD").is_file())
+            self.take(0, 13, note="second")
+        self.assertEqual(numbers(victim), [1])
 
-    def test_a_folder_without_the_marker_is_not_a_repository_of_ours_and_is_never_deleted(self):
-        repository, store = self.stale()
+    def test_a_folder_without_the_marker_is_not_a_repository_of_ours_and_nothing_is_written_into_it(self):
+        repository, store = self.made()
         (repository / "SNAPSHOT-REPOSITORY").unlink()
         with self.assertRaises(core.WorkbenchError):
-            self.refused()
-        self.assertTrue((repository / "HEAD").is_file())
+            self.take(0, 13, note="second")
+        self.assertEqual(numbers(repository), [1])
 
     def test_a_store_without_the_marker_is_not_ours_and_nothing_in_it_is_touched(self):
-        repository, store = self.stale()
+        repository, store = self.made()
         (store / "PROJECT").unlink()
         with self.assertRaises(core.WorkbenchError):
-            self.refused()
-        self.assertTrue((repository / "HEAD").is_file())
+            self.take(0, 13, note="second")
+        self.assertEqual(numbers(repository), [1])
 
-    def test_a_period_that_cannot_be_read_is_not_a_reason_to_delete(self):
-        repository, store = self.stale()
-        (repository / "PERIOD").write_text("garbage")
+    def test_a_store_made_for_another_path_is_not_used(self):
+        repository, store = self.made()
+        (store / "PROJECT").write_text("/somewhere/else\n")
         with self.assertRaises(core.WorkbenchError):
-            self.refused()
-        self.assertTrue((repository / "HEAD").is_file())
-
-    def test_a_refusal_in_one_tier_leaves_the_other_without_a_new_snapshot(self):
-        self.stale()
-        (self.repository("daily") / "SNAPSHOT-REPOSITORY").unlink()
-        with self.assertRaises(core.WorkbenchError):
-            self.take(1, note="refused")  # the next day: the fine tier would take it, the daily tier refuses
-        self.assertEqual([subjects for name, subjects in self.history().items() if name.startswith("fine-")], [["old"]])
+            self.take(0, 13, note="second")
+        self.assertEqual(numbers(repository), [1])
 
     def test_a_snapshot_folder_inside_the_project_is_refused(self):
         with self.assertRaises(core.WorkbenchError):
@@ -398,25 +354,21 @@ class Refusals(Case):
         self.assertFalse((self.project / "snapshots").exists())
 
     def test_nothing_else_in_the_store_or_beside_it_is_touched(self):
-        self.take(0, note="a")
+        self.take(0, note="a", tier="frequent")
         store = self.store()
         (store / "keep-me").mkdir()
         (store / "keep-me/x").write_text("x")
         other = self.base / "other-0123abcd"
         other.mkdir()
-        (other / "fine-0").mkdir()
-        (other / "fine-0/x").write_text("another project's")
-        for day, text in ((7, "b"), (14, "c"), (28, "d")):
-            self.edit(text)
-            self.take(day, note=text)
+        (other / "frequent").mkdir()
+        (other / "frequent/x").write_text("another project's")
+        with patch.dict(shadow().KEEP, {"frequent": 2}):
+            for number in range(6):
+                self.edit(str(number))
+                self.take(0, 13, note=str(number), tier="frequent")
+        self.assertEqual(numbers(store / "frequent"), [7, 6])
         self.assertEqual((store / "keep-me/x").read_text(), "x")
-        self.assertEqual((other / "fine-0/x").read_text(), "another project's")
-
-    def test_a_project_whose_clock_went_backwards_loses_nothing(self):
-        self.take(14, note="later")
-        self.edit("b")
-        self.take(0, note="earlier")  # a future repository is never stale
-        self.assertEqual(sorted(sum((s for n, s in self.history().items() if n.startswith("fine-")), [])), ["earlier", "later"])
+        self.assertEqual((other / "frequent/x").read_text(), "another project's")
 
 
 class Hardening(Case):
@@ -431,35 +383,36 @@ class Hardening(Case):
             output = run.communicate()[0]
             self.assertEqual(run.returncode, 0, output)
         for repository in (path for path in self.store().iterdir() if (path / "HEAD").is_file()):
-            for commit in git(repository, "rev-list", "HEAD").decode().split():
+            for commit in git(repository, "for-each-ref", "--format=%(objectname)", "refs/snapshots/").decode().split():
                 self.assertEqual(len(names(repository, commit)), 601, "a snapshot that is missing files")
 
     def test_a_second_snapshot_that_cannot_get_the_lock_says_so_and_writes_nothing(self):
         self.take()
-        with core.operation_lock(self.base, "snapshot"), self.assertRaisesRegex(core.WorkbenchError, "Another snapshot"):
+        with patch.object(shadow(), "PATIENCE", 0.2), core.operation_lock(self.base, "snapshot-" + shadow().project_key(self.project)), \
+                self.assertRaisesRegex(core.WorkbenchError, "Another snapshot of this project"):
             self.edit("b")
             self.take(0, 13)
-        self.assertEqual(sum(len(subjects) for subjects in self.history().values()), 2)
+        self.assertEqual(numbers(self.repository()), [1])
 
     def test_a_run_that_stops_half_way_through_making_a_repository_leaves_nothing_that_blocks_the_next(self):
-        def stopping(path, period):
+        def stopping(path):
             (path / "half").write_text("x")
             raise OSError(errno.ENOSPC, "No space left on device")
         with patch.object(shadow(), "initialize", stopping), self.assertRaises(OSError):
             self.take()
         self.assertTrue(self.take()["changed"])
-        self.assertEqual(sum(len(subjects) for subjects in self.history().values()), 2)
+        self.assertEqual(numbers(self.repository()), [1])
 
     def test_a_label_of_blanks_is_no_label(self):
         self.take(note="   ")
         shadow().listing(self.project, base=self.base)
-        self.assertEqual([subjects for name, subjects in self.history().items() if name.startswith("fine-")], [["snapshot"]])
+        self.assertEqual(self.history()["manual"], ["snapshot"])
 
     def test_the_folders_are_private_to_the_user(self):
         if os.name == "nt":
             self.skipTest("POSIX permissions")
         self.take()
-        for path in (self.base, self.store(), self.repository(), self.repository("daily")):
+        for path in (self.base, self.store(), self.repository()):
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o700, path)
 
     def test_a_project_name_too_long_for_a_folder_name_still_has_a_store(self):
@@ -488,26 +441,6 @@ class Hardening(Case):
         with patch.object(Path, "home", side_effect=RuntimeError("no home")), self.assertRaisesRegex(core.WorkbenchError, "home folder") as raised:
             shadow().location()
         self.assertIn("LATEX_AI_SNAPSHOT_DIR", raised.exception.hint)
-
-    def test_a_store_made_for_another_path_is_not_used(self):
-        self.take()
-        (self.store() / "PROJECT").write_text("/somewhere/else\n")
-        with self.assertRaises(core.WorkbenchError):
-            self.take(0, 13, note="refused")
-
-    def test_a_snapshot_that_only_the_daily_tier_takes_says_so(self):
-        self.take(16, note="a")  # 31 October
-        self.take(17, note="a")  # 1 November: the same files, in the same fine week, but the daily tier starts a new month
-        self.assertNotIn("Nothing changed", self.output)
-        self.assertIn("daily tier", self.output)
-        self.assertEqual([subjects for name, subjects in self.history().items() if name.startswith("fine-")], [["a"]])
-
-    def test_a_repository_deleted_for_its_age_is_named_in_the_output(self):
-        self.take(0, note="old")
-        self.edit("b")
-        self.take(2000, note="far on")
-        self.assertRegex(self.output, r"Removed fine-\d: older than the previous week \(its newest snapshot: 2026-10-15\)")
-        self.assertRegex(self.output, r"Removed daily-\d: older than the previous month")
 
 
 class Commands(Case):

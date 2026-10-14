@@ -14,7 +14,7 @@ import tempfile
 import time
 import processes
 
-VERSION = "4.7.0"
+VERSION = "4.8.0"
 CONFIG = ".latex-ai.json"
 # Trees that are never project sources: version control, workbench state, environments, caches and installed packages. Every
 # walk and every check of a declared path agrees on them; the installer adds the folders it alone leaves out.
@@ -313,7 +313,7 @@ def operation_lock(project, operation, wait=False, busy=None):
         raise WorkbenchError(f"Cannot create the {operation} lock in {LOCKS}: {error}",
                              hint="the project directory must be writable by whoever runs this command") from error
     with stream:
-        deadline = time.monotonic() + (5 if wait else 0)
+        deadline = time.monotonic() + (5 if wait is True else wait)  # True: a few seconds; a number: that many
         while True:
             try:
                 if os.name == "nt":
