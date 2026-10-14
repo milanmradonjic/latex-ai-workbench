@@ -10,6 +10,7 @@ that exist in this project, and `make latex-ai-guide` is a short manual for it. 
 | Document is stale | `make latex-ai-status` names what changed under the document (sources, build settings or outputs). Preview the plan and rebuild consuming documents. Verify hidden dependencies are declared. |
 | Build failed | Read the first compiler error and current log reported by the command. Correct the source and rerun the document check. |
 | "Build inputs changed during execution" | The build rewrote a file it reads, and the rewrite differed on the protected second compilation. The message names the files. Make the generator write only when the content differs (Make rules usually do), or keep a nondeterministic generator (timestamps, random seeds) out of the build command. |
+| A file was lost or overwritten | If a snapshot was taken, `make snapshots` lists the copies and prints the Git command that restores a file from one ([snapshots](snapshots.md)); otherwise, version control. |
 | Source restored but status still failed | Rebuild; restoring bytes does not certify the failed attempt. |
 | Export refused | Build/check the document successfully, then run `make latex-ai-pdf-artifact DOC=name`. |
 | Another build is active | Status lists its owner PID and live compiler groups. Wait, or inspect only your own build as described below. |

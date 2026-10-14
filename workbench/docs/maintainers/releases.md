@@ -3,6 +3,34 @@
 Workbench 4 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 4.7.0 — `make snapshot` and `make snapshots`
+
+Step 3.6 of [the plan after 4.4.0](plan-after-4.4.0.md): a copy of every file of the project, kept outside it, to restore from. The owner accepted the design on 14 October 2026.
+
+- **Added:** two runtime actions and the file that serves them, `snapshot.py`, installed in every project (no module is needed). `make snapshot` (`SNAPSHOT_NOTE="why"` labels it) commits the project's
+  files to a Git repository under `~/.snapshots/<name>-<hash of the project's path>/` (`LATEX_AI_SNAPSHOT_DIR` names another folder, never one inside the project); `make snapshots` lists them and prints
+  the Git command that restores a file, or every file, from the newest. The project's own Git, if it has one, is not touched, and nothing is written into the project.
+- **Two tiers, two repositories each, used by turns:** the fine tier takes every snapshot that finds a change and keeps one to two weeks; the daily tier takes the first snapshot of each (UTC) day and
+  keeps one to two months. A repository older than the previous week or month is deleted. That is the only deleting outside the project, and it refuses a link, a folder without the marker file the
+  workbench wrote in it, a store without its marker, and a repository whose age it cannot read. (The scope said a repository whose period differs from the current one is deleted and started again; a gap of
+  more than two periods would then have left the old one on disk, so the rule is: older than the previous period.)
+- **What is in a snapshot:** every file and link except `.git`, `.latex-ai/artifacts/` and `.latex-ai/backups/`, the compiler's files, the output folder of a document that builds into a folder of its own,
+  environments and caches, and files over 25 MB (named in the output). The project's `.gitignore` does not apply. A folder that cannot be read stops the snapshot with its name.
+- **Isolated from the user's Git:** no `GIT_` variable, configuration file, template or hook reaches the snapshot repositories, and they use an identity of their own. The bytes are kept exactly: a repository's
+  `info/attributes` outranks the project's `.gitattributes` and the user's `core.autocrlf`, so line endings, `$Id$`, filters and re-encoding do not apply at the snapshot or at a restore, and the user's hooks do not run.
+- **Hardened after an independent review** (which reproduced each of these): one snapshot at a time (a lock in the snapshot folder; two at once had left an empty snapshot); a repository is built whole under a temporary name and
+  renamed, so an interrupted run or a full disk does not leave a folder the next run refuses; the folders are private (mode 700), since a snapshot holds every file; a compiler's file is left out only beside a `.tex` of its
+  name (a `train.log` or `solver.out` is data); the count is of what is kept; a file that vanishes during the walk is not an error; a label of blanks is no label, and one that starts with a dash is a label; the output says
+  which repository it deletes and when its newest snapshot was; an unknown home folder, a long project name and a path that is not UTF-8 give a message or a store, not a traceback.
+- **Added to the Makefile `init` writes:** `export SNAPSHOT_NOTE` and the two commands with their short names, eleven lines in all. `diff` shows a project from 4.6 and before exactly those lines, and `runtime` does not
+  touch the Makefile. The reference's Makefile gained them by hand, and the guard's stored Makefiles were regenerated on purpose.
+- **Docs:** [snapshots](../snapshots.md) is new; `upgrading.md` and `migrating.md` take a snapshot as their first step (the new release can snapshot a project that has no workbench yet:
+  `python3 /path/to/workbench/runtime.py snapshot --project PROJECT`); the manual, `make help`, the task list, daily use and troubleshooting name it.
+- **Moved:** `environment_root` from `runtime.py` to `core.py`, which the planner and the snapshot walk now share.
+- **Unchanged:** every other file `init` writes, every other runtime action, the receipts. Differences between 4.6.0 and this tree on identical projects are only these additions ([the record](verification-4.7.0.md)).
+
+See [the verification record](verification-4.7.0.md).
+
 ## 4.6.0 — `make all`, and `make NAME` for each document
 
 Step 3.5 of [the plan after 4.4.0](plan-after-4.4.0.md): per-document targets, which change the generated Makefile on purpose.

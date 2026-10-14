@@ -108,10 +108,16 @@ Each step is one release and one pull request.
   package. **Decided 14 October 2026** (by the plan, since no design question arose): `make all` builds every document one after another through one action, `build --all`, since the
   build lock refuses two builds at once; `make NAME` builds that document; a project with one document gets `all` and no `NAME`; a name is free unless the workbench uses it or a
   document's `build_command` names it as a goal (then `all` is not refused as recursive either, being the conventional name of a project's own rule). **Done when** the generated-files guard is updated on purpose, the release notes name the changed lines of the Makefile block, `make guide` names the
-  targets, and `diff` shows an existing project exactly what differs.
+  targets, and `diff` shows an existing project exactly what differs. **Done — 14 October 2026**,
+  [pull request #10](https://github.com/milanmradonjic/latex-ai-workbench/pull/10) (`ffdc597`), workbench 4.6.0.
 - **3.6 Snapshots.** `make snapshot` and `make snapshots`: a shadow Git repository under `~/.snapshots/<project>/` in two rotating tiers, as the scope describes. The
-  script removes only folders under that path. Its tests run with a temporary `HOME`. **Done when** a snapshot and a restore are shown on a project with and without
-  its own Git, and `upgrading.md` and `migrating.md` take `make snapshot` as their first step.
+  script removes only folders under that path. Its tests run with a temporary `HOME`. **Decided 14 October 2026** (the owner accepted the recommended answers): everything in the
+  project is kept except `.git`, build output and files over 25 MB (named in the output), and the project's `.gitignore` does not apply; the store is
+  `~/.snapshots/<name>-<hash of the project's path>/`, with `LATEX_AI_SNAPSHOT_DIR` to change it; the fine tier (every snapshot, one to two weeks) and the daily tier (the first of each
+  day, one to two months) each use two repositories by turns, and one older than the previous period is deleted; restoring is Git's own `checkout`, printed by `make snapshots`
+  (no `make snapshot-restore`). **Done when** a snapshot and a restore are shown on a project with and without
+  its own Git, and `upgrading.md` and `migrating.md` take `make snapshot` as their first step. **Done — 14 October 2026**,
+  [pull request #11](https://github.com/milanmradonjic/latex-ai-workbench/pull/11), workbench 4.7.0.
 - **3.7 The doctor's stamp report, and the update recipe in the skill file.** `make doctor` reports the project's stamp, the template's and which generated files
   differ; the recipe moves into the skill file, as the scope says. **Done when** an agent other than the author has followed the recipe on a copy, and its diff and
   `make check` result are in the verification record.

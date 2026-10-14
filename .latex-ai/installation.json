@@ -1,16 +1,17 @@
 {
   "schema_version": 3,
-  "version": "4.6.0",
+  "version": "4.7.0",
   "files": {
-    ".latex-ai/commands.py": "3265e45402afcde0e9371fb24396a2d18d9e923a0f88ac593b2e2cefbd369457",
-    ".latex-ai/core.py": "2e38515bfd42698c34681c9be4d7d16255602455bf3fe2b399f3e8caf75f7bbf",
+    ".latex-ai/commands.py": "0d9f29896ac5675bc6f2cbd668b9f679eea0c941c0eaa67752014c19aed45bc3",
+    ".latex-ai/core.py": "8260a2c2c05e9d01bcc7a9e84e3ed414fb83a2591058e26c7d63455f82cf821e",
     ".latex-ai/diagnostics.py": "6c9da86249153916e55a5a3b737d28037c71dce3e6ab39c61b44dfe25b820158",
     ".latex-ai/documents.py": "e80bc1199c6abbdde06d9ee4aeb74fd5e7cbd763266d6ac359c8703fbacdd10e",
-    ".latex-ai/guide.py": "8b7656b9edbcdaa3b270dd419ce26e760e2fd38c0172a26895b8538a1c806933",
+    ".latex-ai/guide.py": "ac021d96a63bf69e47dcda25be4e60b3c7d1f9d0788754cb6f67105a45b205ea",
     ".latex-ai/latex.py": "a7d9a79ba1fe2ef59d0c4228ac54f48c4fbcca915247e9b6d212c905ea7061b3",
     ".latex-ai/output_transaction.py": "00e845f4dc3377b4a4aa51882e5ede3e74d045ef600f890a9478c121edf73e18",
     ".latex-ai/processes.py": "5d756eaa5c8b1549427654d350435331b6a177b2c594d2dc1c448ffbaf9b7f32",
     ".latex-ai/schema.py": "6898e427e7878b9c8e1744e77ea538429bed8859c4b6d1d11f3374e100e3e7f5",
-    ".latex-ai/workbench.py": "584c1314c02f6d5ec6c2c085e9de1e76648579eebce4a6bc7c3372d0b986d243"
+    ".latex-ai/snapshot.py": "d2c4feceee8c885e3fde79122a2f4cc583c47596c64ed8403bbd29b2a76cee86",
+    ".latex-ai/workbench.py": "f99dc9598c4532e46c0129f0c3de98e70a1964874419cf91d37cbec693933afc"
   }
 }

@@ -36,6 +36,9 @@ integrity checks, then lint (so a TeX error is reported even when ChkTeX also ob
 `make doctor` reports required tools; `make pdf-artifact` collects the configured
 PDF. `make check` validates bibliography and compiler results.
 
+Before a risky change (an update, a large edit, an agent let loose on the files) run `make snapshot`: it keeps a copy of every file outside the project, with or without
+Git, and `make snapshots` says how to restore from it. See [snapshots](snapshots.md).
+
 Do not clean routinely. Build logs, unresolved citations, references, duplicate
 labels and bibliography/backend failures are errors. Typesetting and unrelated
 package warnings are reported for judgment. Checks do not establish scientific

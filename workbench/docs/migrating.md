@@ -5,8 +5,8 @@ is written until none is left. An existing project (one with its own Makefile, `
 over by an agent following this recipe: the workbench's files go in, and the project's own content is carried across by hand, with a diff to check it.
 The recipe was tried on a real paper with two coupled documents, its own build script and an older workbench installed; it took about ten steps.
 
-1. **Take a snapshot you can return to.** The project is committed in Git, or the whole folder is copied. A project without Git has no undo, so
-   `git init` and a first commit (the owner's step) or a copy comes first. Do not migrate without one.
+1. **Take a snapshot you can return to.** `python3 /path/to/new-workbench/runtime.py snapshot --project /path/to/project --note "before migrating"` keeps a copy of every file outside
+   the project, whether or not it has Git or an older workbench ([snapshots](snapshots.md) says how to restore from it). A commit is a second way back. Do not migrate without one of them.
 2. **Read what the project has.** The Makefile (which targets build the PDF, which make figures, which test), build scripts, `latexmkrc`,
    `AGENTS.md` (which sections are the project's own and which the workbench's older text), `.vscode/`, `.gitignore`, `.github/workflows/`, and
    `.latex-ai.json` if an older workbench wrote one.

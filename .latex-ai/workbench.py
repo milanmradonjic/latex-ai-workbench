@@ -21,7 +21,8 @@ import commands
 import diagnostics
 import guide
 import processes
-from core import CONFIG, GENERATED_TREES, VERSION, MODULES, RUNTIME_FILES, WorkbenchError, atomic_write, damaged_text, git_read_env, input_identity, operation_lock, line_buffered, local_path, run, has_module, module_config, path_name, tracked_name, effective_config, module_names, validation_actions, validation_argv, VALIDATION_ACTIONS, CAPTURE_COMMANDS, read_tex
+import snapshot
+from core import CONFIG, GENERATED_TREES, VERSION, MODULES, RUNTIME_FILES, WorkbenchError, atomic_write, damaged_text, environment_root, git_read_env, input_identity, operation_lock, line_buffered, local_path, run, has_module, module_config, path_name, tracked_name, effective_config, module_names, validation_actions, validation_argv, VALIDATION_ACTIONS, CAPTURE_COMMANDS, read_tex
 from schema import document_settings, load_config, required_tools, resolve, specifications
 
 
@@ -120,11 +121,6 @@ def full_check(project, config, documents=None):
         file_checks(project, {"paths": project_files(project), "policy": True, "full": True})
     print("Full check passed: " + (", ".join(name for name in MODULES if has_module(config, name)) or "core files and policy"))
     return results
-
-
-def environment_root(path):
-    """A Python virtual or conda environment, whatever it is named."""
-    return (path / "pyvenv.cfg").is_file() or (path / "conda-meta").is_dir()
 
 
 def project_files(project):
@@ -559,7 +555,7 @@ def main():
     parser.add_argument("action", choices=ACTIONS)
     parser.add_argument("--document", help="Named LaTeX document; omitted uses the default for document operations")
     parser.add_argument("--all", action="store_true", help="build: every declared document, one after another")
-    parser.add_argument("--note", default="", help="issue: what you observed and what you expected")
+    parser.add_argument("--note", default="", help="issue: what you observed and what you expected; snapshot: its label")
     parser.add_argument("--command", dest="failed_command", default="", help="issue: the command that misbehaved")
     parser.add_argument("--project", type=Path, default=Path.cwd(), help="Project root (default: current directory); an installed runtime belongs to its own project")
     parser.add_argument("--base", default=os.environ.get("LATEX_AI_BASE"), help="Git revision to compare; default HEAD plus local/untracked changes")
@@ -612,6 +608,14 @@ def structured_command(project, args):
 # `view`), the persisted configuration and the parsed arguments, and returns an exit status or None for success.
 def do_issue(project, config, persisted, args):
     return issue(project, args)
+
+
+def do_snapshot(project, config, persisted, args):
+    args.result = snapshot.take(project, note=args.note)
+
+
+def do_snapshots(project, config, persisted, args):
+    args.result = snapshot.listing(project)
 
 
 def do_help(project, config, persisted, args):

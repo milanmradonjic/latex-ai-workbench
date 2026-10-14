@@ -2,7 +2,7 @@
 
 This records the release that adds `make all` and a `make NAME` for each document of a project that has several (step 3.5 of [the plan after 4.4.0](plan-after-4.4.0.md)).
 Tested on 2026-10-14 on Linux (x86_64, GNU Make 4.3, Python 3.13.16, 3.12.13 and 3.11.17) with TeX Live 2023 from Debian: `latexmk`, `chktex`, `bibtex`, `lualatex`, `xelatex` and `biber`.
-The hosted results follow in the next record.
+The hosted results are at the end of this record (added by [the next record](verification-4.7.0.md)'s pull request).
 
 | Check | Result |
 |---|---|
@@ -27,11 +27,11 @@ The hosted results follow in the next record.
 
 ## Hosted verification
 
-The hosted results of this pull request follow in the next record.
+All six required checks passed on the pull request ([#10](https://github.com/milanmradonjic/latex-ai-workbench/pull/10): [`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38584637962) in 2m01s with TeX Live 2026; the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38584637942), 59s (3.11) to 1m50s (3.14) each), and again on the merge commit `ffdc597` on `main` ([`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38585239685); the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38585239650)).
 
 ## Not verified
 
-- **Hosted runs of this pull request**, with TeX Live 2026 in the `validate` job.
+- **The hosted unit tests with real TeX.** The Python jobs have no TeX Live, so the tests that follow a hint with real tools skip there; `validate` runs `portability`, not the unit tests.
 - **A project that already has its own `all` or document-named rule, upgraded:** the rules are merged by GNU Make (a recipe in both is overridden with a warning); not exercised beyond the generated Makefile's text.
 - **Other platforms and versions locally.** macOS (which ships GNU Make 3.81; the targets are plain rules and `.PHONY`), Windows, and Python 3.10 and 3.14.
 

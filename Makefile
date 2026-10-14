@@ -8,6 +8,7 @@ lint:
 check:
 	@$(PYTHON) .latex-ai/workbench.py check
 export ISSUE_NOTE ISSUE_COMMAND
+export SNAPSHOT_NOTE
 export DOC
 .PHONY: latex-ai-validate
 latex-ai-validate:
@@ -92,3 +93,13 @@ latex-ai-issue:
 	@$(PYTHON) .latex-ai/workbench.py issue --note "$$ISSUE_NOTE" --command "$$ISSUE_COMMAND"
 .PHONY: issue
 issue: latex-ai-issue
+.PHONY: latex-ai-snapshot
+latex-ai-snapshot:
+	@$(PYTHON) .latex-ai/workbench.py snapshot --note="$$SNAPSHOT_NOTE"
+.PHONY: snapshot
+snapshot: latex-ai-snapshot
+.PHONY: latex-ai-snapshots
+latex-ai-snapshots:
+	@$(PYTHON) .latex-ai/workbench.py snapshots
+.PHONY: snapshots
+snapshots: latex-ai-snapshots
