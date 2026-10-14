@@ -92,6 +92,9 @@ def document_checks(project, config, names=None):
         print(f"Document {target.name}: {target.view['root']}")
         try:
             build(project, target.view)
+            import latex
+            file_checks(project, {"paths": sorted(latex.manuscript_dependencies(project, target.view)),
+                                  "policy": False, "integrity_only": True})
             verify(project, target.view)
             lint(project, target.view)
         except EXPECTED as error:
@@ -140,7 +143,9 @@ def project_files(project):
             # Look on disk, not in Git's listing: an ignored pyvenv.cfg never appears there.
             # Ancestors only (never the project root itself), each directory checked once.
             for end in range(1, len(parts)):
-                if environments.setdefault(parts[:end], environment_root(project.joinpath(*parts[:end]))):
+                if parts[:end] not in environments:
+                    environments[parts[:end]] = environment_root(project.joinpath(*parts[:end]))
+                if environments[parts[:end]]:
                     return True
             return False
         return [name for name in names
@@ -244,7 +249,8 @@ def package_dir(project, config):
 # What the planner routes by suffix. A suffix is named once: the data formats are in the manuscript table (a CSV may feed a
 # figure) and, being text, in what the file checks read; none is in the table of ordinary documents.
 DATA_SUFFIXES = frozenset({".csv", ".tsv"})
-MANUSCRIPT_SUFFIXES = frozenset({".tex", ".bib", ".sty", ".cls", ".bst", ".bbx", ".cbx", ".lbx", ".tikz", ".png", ".jpg", ".jpeg",
+TEX_SUFFIXES = frozenset({".tex", ".bib", ".sty", ".cls", ".bst", ".bbx", ".cbx", ".lbx", ".tikz"})
+MANUSCRIPT_SUFFIXES = TEX_SUFFIXES | frozenset({".png", ".jpg", ".jpeg",
                                  ".pdf", ".svg", ".eps", ".ps", ".webp", ".tif", ".tiff"}) | DATA_SUFFIXES
 DOCUMENT_SUFFIXES = frozenset({".md", ".markdown", ".txt", ".rst", ".adoc", ".json", ".yaml", ".yml", ".toml", ".py"})
 CHECKED_SUFFIXES = DOCUMENT_SUFFIXES | DATA_SUFFIXES | {".rules", ".tex", ".bib"}
@@ -262,7 +268,7 @@ def validation_plan(project, config, paths=None, base=None):
     if paths is None:
         paths, fallback = changed_files(project, base)
     paths = sorted({tracked_name(project, name) for name in paths})
-    dependencies = manuscript_dependencies(project, config)
+    dependencies = set()
     from_documents = {}
     if has_module(config, "latex"):
         from documents import dependency_index
@@ -368,20 +374,23 @@ def broken_markdown_link(project, path, text):
 
 
 def file_checks(project, plan):
+    integrity_only = plan.get("integrity_only", False)
     for name in plan["paths"]:
         try:
             path = local_path(project, name)
         except WorkbenchError:
             continue  # a link that leaves the project: the plan tracks its content, but it is not project text
         extension = path.suffix.lower()
-        if not path.is_file() or extension not in CHECKED_SUFFIXES:
+        if not path.is_file() or extension not in (CHECKED_SUFFIXES | TEX_SUFFIXES if integrity_only else CHECKED_SUFFIXES):
             continue  # Deleted files still participate in routing.
         try:
-            text = read_tex(path) if extension == ".tex" else path.read_text(encoding="utf-8-sig")  # TeX may declare an 8-bit encoding
+            text = read_tex(path) if extension in TEX_SUFFIXES else path.read_text(encoding="utf-8-sig")  # TeX may declare an 8-bit encoding
         except ValueError as error:
             raise WorkbenchError(f"{name} is not UTF-8 text: {error}")
         if damaged_text(text):
             raise WorkbenchError(f"NUL or merge conflict marker in {name}")
+        if integrity_only:
+            continue
         if extension == ".json":
             try:
                 json.loads(text)
@@ -400,7 +409,8 @@ def file_checks(project, plan):
         if "AGENTS.md" not in (project / "CLAUDE.md").read_text():
             raise WorkbenchError("CLAUDE.md must delegate to AGENTS.md")
         print("Policy structure checked" + ("" if plan.get("full") else "; review policy/permission semantics in the diff"))
-    print(("File checks passed for every project file" if plan.get("full") else "Changed-file checks passed") + " (JSON/Python syntax, text conflicts, local Markdown links)")
+    print("Manuscript text integrity checks passed" if integrity_only else
+          ("File checks passed for every project file" if plan.get("full") else "Changed-file checks passed") + " (JSON/Python syntax, text conflicts, local Markdown links)")
 
 
 def validate_changes(project, plan, files_only=False):

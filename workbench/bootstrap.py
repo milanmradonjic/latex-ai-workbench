@@ -192,9 +192,9 @@ def detect_config(project, inventory, args):
         raise WorkbenchError(f"Root not found: {selected}")
     sources = source_tree(project, root)
     text = "\n".join(s for _, s in sources)
-    backend = "bibtex" if "\\bibliography{" in text else "none"
-    files = []
+    backend, files = "none", []
     for match in re.finditer(r"\\bibliography\s*\{([^{}\\]+)\}", text):
+        backend = "bibtex"
         for value in match[1].split(","):
             value = value.strip()
             if not value.endswith(".bib"):

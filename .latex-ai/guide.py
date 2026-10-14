@@ -63,7 +63,7 @@ def project_check_rule(project):
     other than the workbench's own, a second rule that adds any of those, or an include or eval that might define one. ``validate`` then runs
     ``make check`` rather than select documents, so that the project's own check is never skipped. When in doubt, True."""
     text = makefile_text(project)
-    if re.search(r"^\s*-?s?include\s", text, re.M) or "$(eval" in text or "${eval" in text or re.search(r"^[^\s#:=]*\$[^:=#]*::?(?![:=])", text, re.M):
+    if ".RECIPEPREFIX" in text or re.search(r"^\s*-?s?include\s", text, re.M) or "$(eval" in text or "${eval" in text or re.search(r"^[^\s#:=]*\$[^:=#]*::?(?![:=])", text, re.M):
         return True  # a target or an include that is computed may be check
     lines = text.replace("\\\n", " ").splitlines()
     for index, line in enumerate(lines):
