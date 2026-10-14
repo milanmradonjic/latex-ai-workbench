@@ -7,8 +7,9 @@ refused with a hint, and nothing is converted.
 
 ## The recipe
 
-1. **Be able to undo.** `git status` is clean, or your work is committed on a branch: that is the snapshot to return to
-   (a rolling `make snapshot` is planned; see [the minimal scope](maintainers/minimal-scope.md)).
+1. **Be able to undo.** `make snapshot` keeps a copy of every file outside the project, with or without Git ([snapshots](snapshots.md) says how to restore from it). A project
+   that has no such target yet is snapshotted by the new release: `python3 /path/to/new-workbench/runtime.py snapshot --project /path/to/project --note "before updating"`.
+   A clean `git status`, or your work committed on a branch, is a second way back.
 2. **Read what changed.** `.latex-ai/installation.json` and `make status` give the project's version; the
    [release notes](maintainers/releases.md) say what each release since changed. A removed setting is refused by name, with a hint.
 3. **See the difference.** From the new release's directory:

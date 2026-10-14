@@ -44,7 +44,7 @@ The workbench builds with pdflatex and BibTeX; a document that needs anything el
 | [I want to…](docs/tasks.md) | [Configuration](docs/configuration.md) | [Agent operating skill](skills/latex-ai-workbench/SKILL.md) |
 | [Installing](docs/installing.md) | [Validation routing](docs/validation.md) | [Updating](docs/upgrading.md) |
 | [Daily use](docs/daily-use.md) | [Bibliography](docs/bibliography.md) | [Maintainers' material](docs/maintainers/README.md) |
-| | [TeX notes and named documents](docs/tex-notes.md) | |
+| [Snapshots](docs/snapshots.md) | [TeX notes and named documents](docs/tex-notes.md) | |
 
 The whole `workbench/` directory is relocatable: keep it together, because the installer needs its
 sibling templates and backends. Installed projects need only their configuration, the vendored
