@@ -11,7 +11,7 @@ from typing import NamedTuple, Optional, Tuple
 # What a recipe takes from Make variables, by the ``selects`` of a target (DOC and the issue
 # variables reach recipes through the environment, never as Make text spliced into a shell line).
 RECIPE_ARGUMENTS = {"": "", "document": ' --document "$$DOC"', "all": " --all",
-                    "note": ' --note "$$ISSUE_NOTE" --command "$$ISSUE_COMMAND"', "label": ' --note "$$SNAPSHOT_NOTE"'}
+                    "note": ' --note "$$ISSUE_NOTE" --command "$$ISSUE_COMMAND"', "label": ' --note="$$SNAPSHOT_NOTE"'}
 
 
 RESERVED_PREFIX = "latex-ai-"  # every Make name the installer reserves starts with it

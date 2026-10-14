@@ -14,15 +14,17 @@ import shlex
 import shutil
 import stat
 import subprocess
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
-from core import CONFIG, GENERATED_TREES, OUTPUT_SUFFIXES, WorkbenchError, atomic_write, environment_root
+from core import CONFIG, GENERATED_TREES, OUTPUT_SUFFIXES, WorkbenchError, environment_root, operation_lock
 from guide import command_name
 
 LIMIT = 25 * 1024 * 1024  # a larger file is named in the output and not copied
 PERIODS = {"fine": lambda now: int(now.timestamp() // 86400) // 7,    # a week of UTC days
            "daily": lambda now: now.year * 12 + now.month - 1}        # a calendar month
+UNITS = {"fine": "week", "daily": "month"}
 MEANING = {"fine": "every snapshot, kept one to two weeks", "daily": "the first of each day, kept one to two months"}
 FOLDER_MARK, REPOSITORY_MARK, PERIOD = "PROJECT", "SNAPSHOT-REPOSITORY", "PERIOD"  # what marks a folder, and a repository, as made by this module
 PRUNED = GENERATED_TREES - {".latex-ai"}                    # the runtime itself is kept: a restored project needs the version that wrote its configuration
@@ -30,11 +32,18 @@ LEFT_OUT = {".latex-ai/artifacts", ".latex-ai/backups"}     # state of the runni
 BUILD_FILES = tuple(suffix for suffix in OUTPUT_SUFFIXES if suffix != ".pdf")  # a PDF beside the sources may be a figure; the rest is what a compiler writes
 IDENTITY = {"GIT_AUTHOR_NAME": "snapshot", "GIT_AUTHOR_EMAIL": "snapshot@localhost.invalid",
             "GIT_COMMITTER_NAME": "snapshot", "GIT_COMMITTER_EMAIL": "snapshot@localhost.invalid"}
+BYTES_AS_THEY_ARE = "* -text -eol -ident -filter -working-tree-encoding\n"  # info/attributes outranks the project's .gitattributes and the user's core.autocrlf, at snapshot and at restore
 
 
 def location():
     """The folder that holds the snapshots of every project."""
-    return Path(os.environ.get("LATEX_AI_SNAPSHOT_DIR") or Path.home() / ".snapshots").expanduser().resolve()
+    if os.environ.get("LATEX_AI_SNAPSHOT_DIR"):
+        return Path(os.environ["LATEX_AI_SNAPSHOT_DIR"]).expanduser().resolve()
+    try:
+        return (Path.home() / ".snapshots").resolve()
+    except RuntimeError:
+        raise WorkbenchError("Cannot tell where the home folder is, so there is no default place for the snapshots",
+                             hint="give LATEX_AI_SNAPSHOT_DIR a folder outside the project") from None
 
 
 def need_git():
@@ -43,10 +52,10 @@ def need_git():
 
 
 def git(path, project, *arguments, input=None, check=True, now=None):
-    """One Git command on a snapshot repository (and the project's files as its work tree). Nothing of the user's own Git reaches it: no GIT_ variable,
-    no configuration file, no template, no hook."""
+    """One Git command on a snapshot repository (and the project's files as its work tree). Nothing of the user's own Git reaches it: no GIT_ variable, no
+    configuration file (HOME and XDG_CONFIG_HOME are moved, which every Git version honours), no template, no hook."""
     env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
-    env.update(IDENTITY, GIT_DIR=str(path), GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+    env.update(IDENTITY, GIT_DIR=str(path), GIT_CONFIG_NOSYSTEM="1", HOME=str(path), XDG_CONFIG_HOME=str(path))
     if project:
         env["GIT_WORK_TREE"] = str(project)
     if now:
@@ -57,15 +66,24 @@ def git(path, project, *arguments, input=None, check=True, now=None):
     return done.stdout.decode(errors="replace").strip()
 
 
+def build(parent, name, fill):
+    """Make a folder whole or not at all: it is filled under a temporary name inside its parent (private to the user) and then renamed, so that a run that
+    is interrupted or finds the disk full leaves nothing that looks like a folder of ours but is not complete."""
+    path = Path(tempfile.mkdtemp(prefix=".making-", dir=parent))
+    fill(path)
+    os.rename(path, parent / name)
+
+
 def open_store(project, base, create):
-    """The folder of this project's snapshots, made when asked; a folder of that name that this module did not make is refused, and is not touched."""
-    name = re.sub(r"[^\w.-]+", "_", project.name) or "project"
-    store = base / f"{name}-{hashlib.sha256(str(project).encode()).hexdigest()[:8]}"
-    if store.is_symlink() or (store.exists() and not (store / FOLDER_MARK).is_file()):
-        raise WorkbenchError(f"{store} exists, but the workbench did not make it; nothing in it was touched",
+    """The folder of this project's snapshots, made when asked; a folder of that name that this module did not make for this project is refused, untouched."""
+    name = re.sub(r"[^\w.-]+", "_", project.name)[:60] or "project"
+    store = base / f"{name}-{hashlib.sha256(os.fsencode(project)).hexdigest()[:8]}"
+    mark = store / FOLDER_MARK
+    if store.is_symlink() or (store.exists() and not (mark.is_file() and mark.read_bytes().strip() == os.fsencode(project))):
+        raise WorkbenchError(f"{store} exists, but the workbench did not make it for this project; nothing in it was touched",
                              hint="move or delete it, or give LATEX_AI_SNAPSHOT_DIR another folder")
     if create and not store.exists():
-        atomic_write(store / FOLDER_MARK, f"{project}\n")
+        build(base, store.name, lambda path: (path / FOLDER_MARK).write_bytes(os.fsencode(project) + b"\n"))
     return store if store.exists() else None
 
 
@@ -85,37 +103,56 @@ def period_of(path):
                              hint="delete the folder yourself if its snapshots are not wanted") from None
 
 
+def initialize(path, period):
+    git(path, None, "init", "--quiet", "--bare", "--template=")
+    git(path, None, "config", "core.hooksPath", os.devnull)  # the user's hooks do not run at a restore
+    (path / "info").mkdir(exist_ok=True)
+    (path / "info/attributes").write_text(BYTES_AS_THEY_ARE)
+    (path / REPOSITORY_MARK).write_text("made by the workbench; the snapshots of one tier, in rotation\n")
+    (path / PERIOD).write_text(f"{period}\n")
+
+
 def current(store, tier, now):
-    """The repository the tier writes to now: first every repository older than the previous period is deleted, then the one of this period is made if it is missing."""
+    """The repository the tier writes to now: first every repository older than the previous period is deleted (and the output says so), then the one of this
+    period is made if it is missing."""
     period = PERIODS[tier](now)
     for slot in (0, 1):
         name = f"{tier}-{slot}"
         if (store / name).exists() or (store / name).is_symlink():
             path = repository(store, name)
             if period_of(path) < period - 1:
+                newest = git(path, None, "log", "-1", "--date=short", "--format=%cd", check=False) or "none"
+                print(f"Removed {name}: older than the previous {UNITS[tier]} (its newest snapshot: {newest})")
                 shutil.rmtree(path)
-    path = store / f"{tier}-{period % 2}"
-    if not path.exists():
-        git(path, None, "init", "--quiet", "--bare", "--template=")
-        atomic_write(path / REPOSITORY_MARK, "made by the workbench; the snapshots of one tier, in rotation\n")
-        atomic_write(path / PERIOD, f"{period}\n")
-    return repository(store, path.name)
+    name = f"{tier}-{period % 2}"
+    if not (store / name).exists():
+        build(store, name, lambda path: initialize(path, period))
+    return repository(store, name)
 
 
 def output_folders(project):
-    """The folders that hold only build output, as the configuration declares them; read leniently, since a snapshot has to work when the configuration is broken."""
+    """The folders that hold only build output, as the configuration declares them (a document's own output_dir, or the default it inherits); read leniently,
+    since a snapshot has to work when the configuration is broken."""
     try:
-        documents = [d for d in json.loads((project / CONFIG).read_text(encoding="utf-8"))["modules"]["latex"]["documents"].values() if isinstance(d, dict)]
+        latex = json.loads((project / CONFIG).read_text(encoding="utf-8"))["modules"]["latex"]
+        inherited = latex.get("defaults", {}).get("output_dir")
+        documents = [d for d in latex["documents"].values() if isinstance(d, dict)]
+        roots = [PurePosixPath(posixpath.normpath(d["root"])) for d in documents if isinstance(d.get("root"), str)]
+        outputs = {PurePosixPath(posixpath.normpath(d.get("output_dir", inherited))) for d in documents if isinstance(d.get("output_dir", inherited), str)}
     except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return set()
-    roots = [PurePosixPath(posixpath.normpath(d["root"])) for d in documents if isinstance(d.get("root"), str)]
-    outputs = {PurePosixPath(posixpath.normpath(d["output_dir"])) for d in documents if isinstance(d.get("output_dir"), str)}
     return {out.as_posix() for out in outputs if out.parts and not any(root.is_relative_to(out) for root in roots)}
 
 
+def compiler_file(here, name):
+    """A file a compiler wrote beside its source: one of the compiler's suffixes, and a .tex of the same stem next to it. A train.log or a solver.out is data, and kept."""
+    return any(name.endswith(suffix) and (here / (name[:-len(suffix)] + ".tex")).is_file() for suffix in BUILD_FILES)
+
+
 def project_files(project):
-    """(the files to keep, the files over the limit as (name, size)): every file and link of the project except Git's own folders, environments, caches,
-    the compiler's files and the build output folders. The project's .gitignore does not apply: what it ignores is often what a person would miss."""
+    """(the files to keep, the files over the limit as (name, size)): every file and link of the project except Git's own folders and files (a submodule's `.git`),
+    environments, caches, the compiler's files and the build output folders. The project's .gitignore does not apply: what it ignores is often what a person would
+    miss. Sockets and pipes are not files, and are not kept."""
     left_out = LEFT_OUT | output_folders(project)
     kept, large = [], []
 
@@ -125,11 +162,14 @@ def project_files(project):
     for directory, folders, files in os.walk(project, onerror=fail):
         here = Path(directory)
         links = [name for name in folders if (here / name).is_symlink()]  # a link to a folder is kept as a link, and not followed
-        folders[:] = sorted(name for name in folders if name not in links and name not in PRUNED and not environment_root(here / name)
+        folders[:] = sorted(name for name in folders if name not in links and name.lower() not in PRUNED and not environment_root(here / name)
                             and (here / name).relative_to(project).as_posix() not in left_out)
         for name in sorted(files + links):
-            info = (here / name).lstat()
-            if name.endswith(BUILD_FILES) or not (stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)):
+            try:
+                info = (here / name).lstat()
+            except FileNotFoundError:
+                continue  # gone since the folder was listed: a compiler's temporary file
+            if name.lower() == ".git" or compiler_file(here, name) or not (stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode)):
                 continue
             relative = (here / name).relative_to(project).as_posix()
             if info.st_size > LIMIT:
@@ -147,13 +187,14 @@ def commit_files(path, project, files, note, now):
     parent = git(path, project, "rev-parse", "--verify", "--quiet", "HEAD", check=False)
     if parent and git(path, project, "rev-parse", f"{parent}^{{tree}}") == tree:
         return parent, False
-    commit = git(path, project, "commit-tree", tree, "-m", note or "snapshot", *(["-p", parent] if parent else []), now=now)
+    commit = git(path, project, "commit-tree", tree, "-m", note.strip() or "snapshot", *(["-p", parent] if parent else []), now=now)
     git(path, project, "update-ref", "HEAD", commit)
     return commit, True
 
 
 def take(project, note="", base=None, now=None):
-    """Snapshot the project: always into the fine tier, and into the daily tier when it has none yet today. Prints what happened, and returns it."""
+    """Snapshot the project: always into the fine tier, and into the daily tier when it has none yet today. Prints what happened, and returns it.
+    One snapshot at a time: a second one waits a few seconds for the first, and says so if it is still running."""
     project, now = Path(project).resolve(), now or datetime.now(timezone.utc)
     base = Path(base).resolve() if base else location()
     if base.is_relative_to(project):
@@ -161,14 +202,16 @@ def take(project, note="", base=None, now=None):
                              hint="give LATEX_AI_SNAPSHOT_DIR a folder outside the project, or leave it unset (the default is ~/.snapshots)")
     need_git()
     files, large = project_files(project)
-    store = open_store(project, base, create=True)
-    fine, daily = current(store, "fine", now), current(store, "daily", now)  # both are opened, and the old ones deleted, before anything is written
-    commit, changed = commit_files(fine, project, files, note, now)
-    last = git(daily, None, "log", "-1", "--format=%ct", check=False)
-    first_today = not last or int(last) // 86400 != int(now.timestamp()) // 86400
-    if first_today:
-        commit_files(daily, project, files, note, now)
-    print((f"Snapshot {commit[:7]}: {len(files)} files" + (" (the first of today: kept in the daily tier too)" if first_today else "")) if changed
+    base.mkdir(mode=0o700, parents=True, exist_ok=True)  # private: a snapshot holds every file of the project, whoever may read them
+    with operation_lock(base, "snapshot", wait=True, busy="Another snapshot is being taken; wait for it, then run this again"):
+        store = open_store(project, base, create=True)
+        fine, daily = current(store, "fine", now), current(store, "daily", now)  # both are opened, and the old ones deleted, before anything is written
+        commit, changed = commit_files(fine, project, files, note, now)
+        last = git(daily, None, "log", "-1", "--format=%ct", check=False)
+        first_today = not last or int(last) // 86400 != int(now.timestamp()) // 86400
+        daily_commit, daily_changed = commit_files(daily, project, files, note, now) if first_today else (None, False)
+    tiers = [tier for tier, made in (("fine", changed), ("daily", daily_changed)) if made]
+    print(f"Snapshot {(commit if changed else daily_commit)[:7]}: {len(files)} files ({' and '.join(tiers)} tier{'s' if len(tiers) > 1 else ''})" if tiers
           else f"Nothing changed since snapshot {commit[:7]} ({len(files)} files)")
     for name, size in large:
         print(f"Left out, over {LIMIT // 1024 // 1024} MB: {name} ({size / 1024 / 1024:.1f} MB)")
@@ -182,11 +225,12 @@ def listing(project, base=None):
     project = Path(project).resolve()
     store = open_store(project, Path(base).resolve() if base else location(), create=False)
     rows = []
+    if store is not None:
+        need_git()
     for tier in PERIODS:
         for slot in (0, 1):
             if store is not None and (store / f"{tier}-{slot}").exists():
                 path = repository(store, f"{tier}-{slot}")
-                need_git()
                 for line in git(path, None, "log", "--format=%h %ct %s", check=False).splitlines():
                     short, seconds, label = line.split(" ", 2)
                     rows.append({"tier": tier, "repository": path.name, "commit": short, "time": int(seconds), "label": label, "path": str(path)})
@@ -205,5 +249,5 @@ def listing(project, base=None):
     print(f"\nWith Git, from the newest ({newest['commit']}); for another, use its id and its repository, the folder of that name in the store:"
           f"\n  what changed since it:   {prefix} diff {newest['commit']} --stat"
           f"\n  one file back:           {prefix} checkout {newest['commit']} -- FILE"
-          f"\n  every file it has back:  {prefix} checkout {newest['commit']} -- .   (a file made since stays)")
+          f"\n  every file it has back:  {prefix} checkout {newest['commit']} -- .   (a file made since stays, and edits since are overwritten: make a snapshot first)")
     return {"snapshots": rows}

@@ -6,6 +6,7 @@ repository older than the previous period is deleted. The code that deletes is h
 temporary HOME and its own snapshot folder, so none of them touches the machine it runs on.
 """
 import contextlib
+import errno
 import hashlib
 import importlib
 import io
@@ -14,6 +15,7 @@ import os
 import re
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 import unittest
@@ -32,6 +34,7 @@ SOURCE = "\\documentclass{article}\\begin{document}x\\end{document}\n"
 IDENTITY = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.invalid", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.invalid"}
 FILES = {"main.tex": SOURCE, "refs.bib": "@misc{k}\n", "notes/todo.txt": "z", "figure.pdf": "%PDF-1.5", ".gitignore": "secret.txt\n", "secret.txt": "kept anyway",
          "a b.tex": "", "é.tex": "", "[x]*.tex": "", "-n.tex": "", ".latex-ai/workbench.py": "# runtime", "crlf.txt": "a\r\nb\r\n", "vendor/lib/x.txt": "a nested repository's file",
+         "scripts/train.log": "", "results/solver.out": "", "data/run.toc": "", "refs.bbl": "", "analysis/notes.aux": "",  # a compiler's suffixes, and no .tex of that name beside them
          **({} if os.name == "nt" else {"line\nbreak.tex": ""})}
 EXCLUDED = ("main.aux", "main.log", "main.synctex.gz", "outputs/main.pdf", "outputs/main.fls", ".latex-ai/artifacts/locks/build.lock",
             ".latex-ai/backups/20260101T000000Z/old.py", "__pycache__/x.pyc", "docs/__pycache__/y.pyc", "node_modules/p/index.js", ".venv/lib/x.py",
@@ -51,6 +54,11 @@ def at(day=0, hour=12):
 def git(repository, *args):
     result = subprocess.run(["git", "--git-dir", str(repository), *args], capture_output=True, env=fixture_env(), check=True)
     return result.stdout
+
+
+def stores(base):
+    """The folders of a snapshot folder that belong to projects: not the lock's, which starts with a dot."""
+    return [path for path in sorted(base.iterdir()) if not path.name.startswith(".")]
 
 
 def history(store):
@@ -95,7 +103,7 @@ class Case(ProjectCase):
         (self.project / "main.tex").write_text(text)
 
     def store(self):
-        (store,) = list(self.base.iterdir())
+        (store,) = stores(self.base)
         return store
 
     def history(self):
@@ -186,6 +194,27 @@ class Contents(Case):
         self.assertEqual(names(self.repository()), set(FILES) | {".latex-ai.json"})
         self.assertEqual(names(self.repository("daily")), names(self.repository()))
 
+    def test_the_count_is_of_what_is_kept(self):
+        self.assertEqual(self.take()["files"], len(names(self.repository())))
+
+    def test_a_default_output_folder_is_left_out_too(self):
+        (self.project / "build").mkdir()
+        (self.project / "build/x.txt").write_text("x")
+        (self.project / core.CONFIG).write_text(json.dumps({"modules": {"latex": {"default_document": "a", "defaults": {"output_dir": "build"}, "documents": {"a": {"root": "main.tex"}}}}}))
+        self.take()
+        self.assertNotIn("build/x.txt", names(self.repository()))
+
+    def test_a_file_that_vanishes_during_the_walk_does_not_stop_the_snapshot(self):
+        real = os.walk
+
+        def walking(top, **options):
+            for directory, folders, files in real(top, **options):
+                yield directory, folders, files + ["ghost.tex"]  # listed, then gone
+        with patch.object(os, "walk", walking):
+            self.take()
+        self.assertIn("main.tex", names(self.repository()))
+        self.assertNotIn("ghost.tex", names(self.repository()))
+
     def test_a_file_is_kept_byte_for_byte(self):
         (self.home / ".gitconfig").write_text("[core]\n\tautocrlf = true\n")  # where the user's own settings live
         self.take()
@@ -258,6 +287,30 @@ class Contents(Case):
             self.take()
 
 
+class Bytes(Case):
+    def test_the_bytes_are_kept_whatever_gitattributes_and_the_users_git_say_and_a_restore_runs_no_hook(self):
+        (self.project / ".gitattributes").write_text("* text=auto eol=lf\n*.tex ident\n*.u16 working-tree-encoding=UTF-16\nloud.txt filter=shout\n")
+        original = {"main.tex": b"\\documentclass{article}\r\n$Id: abc 123 $\r\n", "data.txt": b"a\r\nb\r\n", "note.u16": "h\u00e9llo\n".encode("utf-16"), "loud.txt": b"quiet\n"}
+        for name, data in original.items():
+            (self.project / name).write_bytes(data)
+        hooks = self.root / "hooks"
+        hooks.mkdir()
+        (hooks / "post-checkout").write_text(f"#!/bin/sh\ntouch {self.root / 'hook-ran'}\n")
+        (hooks / "post-checkout").chmod(0o755)
+        (self.home / ".gitconfig").write_text(f"[core]\n\tautocrlf = true\n\thooksPath = {hooks}\n[filter \"shout\"]\n\tsmudge = tr a-z A-Z\n\tclean = cat\n")
+        self.take()
+        repository = self.repository()
+        for name, data in original.items():
+            self.assertEqual(git(repository, "show", f"HEAD:{name}"), data, name)
+        for name in original:
+            (self.project / name).write_bytes(b"changed\n")
+        theirs = {key: value for key, value in self.env.items() if key != "GIT_CONFIG_GLOBAL"}  # the user's own settings apply to the restore
+        self.run_command("git", "--git-dir", str(repository), "--work-tree", str(self.project), "checkout", "HEAD", "--", ".", env=theirs)
+        for name, data in original.items():
+            self.assertEqual((self.project / name).read_bytes(), data, name)
+        self.assertFalse((self.root / "hook-ran").exists())
+
+
 class Isolation(Case):
     def test_neither_the_users_git_configuration_nor_inherited_git_variables_reach_the_snapshot(self):
         other = self.root / "other"
@@ -265,7 +318,7 @@ class Isolation(Case):
         before = digest(other)
         hostile = self.home / ".gitconfig"
         hostile.write_text("[commit]\n\tgpgsign = true\n[gpg]\n\tprogram = /bin/false\n[core]\n\thooksPath = /nonexistent\n[init]\n\ttemplateDir = /nonexistent\n"
-                           "[user]\n\tuseConfigOnly = true\n")
+                           "[user]\n\tuseConfigOnly = true\n[init]\n\tdefaultBranch = trunk\n")
         inherited = {"GIT_DIR": str(other / ".git"), "GIT_WORK_TREE": str(other), "GIT_INDEX_FILE": str(other / "index"),
                      "GIT_AUTHOR_NAME": "someone else", "GIT_COMMITTER_EMAIL": "else@example.invalid"}
         with patch.dict(os.environ, inherited):
@@ -273,6 +326,7 @@ class Isolation(Case):
         self.assertEqual(digest(other), before)
         self.assertEqual(names(self.repository()), {"main.tex"})
         self.assertEqual(git(self.repository(), "log", "-1", "--format=%an <%ae>").decode().strip(), "snapshot <snapshot@localhost.invalid>")
+        self.assertNotIn("trunk", (self.repository() / "HEAD").read_text())  # the user's init.defaultBranch is theirs, not the snapshots'
 
     def test_the_projects_own_repository_is_byte_identical_after_a_snapshot(self):
         self.own_git()
@@ -365,6 +419,97 @@ class Refusals(Case):
         self.assertEqual(sorted(sum((s for n, s in self.history().items() if n.startswith("fine-")), [])), ["earlier", "later"])
 
 
+class Hardening(Case):
+    """What an independent review reproduced: simultaneous runs, a run that stops half way, a label of blanks, private files, a name too long to be a folder's."""
+
+    def test_snapshots_taken_at_the_same_time_each_hold_every_file(self):
+        for number in range(600):
+            (self.project / f"f{number}.txt").write_text(str(number))
+        command = [sys.executable, "-B", str(PACKAGE / "runtime.py"), "snapshot", "--project", str(self.project)]
+        runs = [subprocess.Popen(command, env={**self.env, "LATEX_AI_SNAPSHOT_DIR": str(self.base)}, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True) for _ in range(6)]
+        for run in runs:
+            output = run.communicate()[0]
+            self.assertEqual(run.returncode, 0, output)
+        for repository in (path for path in self.store().iterdir() if (path / "HEAD").is_file()):
+            for commit in git(repository, "rev-list", "HEAD").decode().split():
+                self.assertEqual(len(names(repository, commit)), 601, "a snapshot that is missing files")
+
+    def test_a_second_snapshot_that_cannot_get_the_lock_says_so_and_writes_nothing(self):
+        self.take()
+        with core.operation_lock(self.base, "snapshot"), self.assertRaisesRegex(core.WorkbenchError, "Another snapshot"):
+            self.edit("b")
+            self.take(0, 13)
+        self.assertEqual(sum(len(subjects) for subjects in self.history().values()), 2)
+
+    def test_a_run_that_stops_half_way_through_making_a_repository_leaves_nothing_that_blocks_the_next(self):
+        def stopping(path, period):
+            (path / "half").write_text("x")
+            raise OSError(errno.ENOSPC, "No space left on device")
+        with patch.object(shadow(), "initialize", stopping), self.assertRaises(OSError):
+            self.take()
+        self.assertTrue(self.take()["changed"])
+        self.assertEqual(sum(len(subjects) for subjects in self.history().values()), 2)
+
+    def test_a_label_of_blanks_is_no_label(self):
+        self.take(note="   ")
+        shadow().listing(self.project, base=self.base)
+        self.assertEqual([subjects for name, subjects in self.history().items() if name.startswith("fine-")], [["snapshot"]])
+
+    def test_the_folders_are_private_to_the_user(self):
+        if os.name == "nt":
+            self.skipTest("POSIX permissions")
+        self.take()
+        for path in (self.base, self.store(), self.repository(), self.repository("daily")):
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o700, path)
+
+    def test_a_project_name_too_long_for_a_folder_name_still_has_a_store(self):
+        long = self.root / ("n" * 250)
+        try:
+            long.mkdir()
+        except OSError:
+            self.skipTest("this file system does not allow it")
+        (long / "main.tex").write_text(SOURCE)
+        with contextlib.redirect_stdout(io.StringIO()):
+            shadow().take(long, base=self.base, now=at())
+        self.assertLessEqual(len(self.store().name), 70)
+
+    def test_a_project_path_that_is_not_utf8_has_a_store(self):
+        odd = self.root / os.fsdecode(b"odd-\xff-project")
+        try:
+            odd.mkdir()
+        except OSError:
+            self.skipTest("this file system does not allow it")
+        (odd / "main.tex").write_text(SOURCE)
+        with contextlib.redirect_stdout(io.StringIO()):
+            shadow().take(odd, base=self.base, now=at())
+            shadow().listing(odd, base=self.base)
+
+    def test_where_the_home_folder_is_unknown_the_message_says_what_to_set(self):
+        with patch.object(Path, "home", side_effect=RuntimeError("no home")), self.assertRaisesRegex(core.WorkbenchError, "home folder") as raised:
+            shadow().location()
+        self.assertIn("LATEX_AI_SNAPSHOT_DIR", raised.exception.hint)
+
+    def test_a_store_made_for_another_path_is_not_used(self):
+        self.take()
+        (self.store() / "PROJECT").write_text("/somewhere/else\n")
+        with self.assertRaises(core.WorkbenchError):
+            self.take(0, 13, note="refused")
+
+    def test_a_snapshot_that_only_the_daily_tier_takes_says_so(self):
+        self.take(16, note="a")  # 31 October
+        self.take(17, note="a")  # 1 November: the same files, in the same fine week, but the daily tier starts a new month
+        self.assertNotIn("Nothing changed", self.output)
+        self.assertIn("daily tier", self.output)
+        self.assertEqual([subjects for name, subjects in self.history().items() if name.startswith("fine-")], [["a"]])
+
+    def test_a_repository_deleted_for_its_age_is_named_in_the_output(self):
+        self.take(0, note="old")
+        self.edit("b")
+        self.take(2000, note="far on")
+        self.assertRegex(self.output, r"Removed fine-\d: older than the previous week \(its newest snapshot: 2026-10-15\)")
+        self.assertRegex(self.output, r"Removed daily-\d: older than the previous month")
+
+
 class Commands(Case):
     """`make snapshot` and `make snapshots` on an installed project, with the HOME of the case."""
 
@@ -402,9 +547,14 @@ class Commands(Case):
         note = 'before "the rewrite"; touch pwned `touch pwned`'
         self.run_command("make", "snapshot", f"SNAPSHOT_NOTE={note}")
         self.assertFalse((self.project / "pwned").exists())
-        (store,) = list(self.snapshots.iterdir())
+        (store,) = stores(self.snapshots)
         self.assertIn(note, [subject for subjects in history(store).values() for subject in subjects])
         self.assertIn(note, self.run_command("make", "snapshots").stdout)
+
+    def test_a_label_that_starts_with_a_dash_is_a_label(self):
+        self.run_command("make", "snapshot", "SNAPSHOT_NOTE=-wip")
+        (store,) = stores(self.snapshots)
+        self.assertIn("-wip", [subject for subjects in history(store).values() for subject in subjects])
 
     def test_a_second_snapshot_of_the_same_files_says_so(self):
         self.run_command("make", "snapshot")
@@ -415,7 +565,7 @@ class Commands(Case):
             stream.truncate(26 * 1024 * 1024)
         result = self.run_command("make", "snapshot")
         self.assertIn("big.dat", result.stdout)
-        (store,) = list(self.snapshots.iterdir())
+        (store,) = stores(self.snapshots)
         self.assertTrue(all("big.dat" not in names(store / name) for name in history(store)))
 
     def test_snapshots_before_any_says_how_to_make_one(self):
@@ -486,7 +636,7 @@ class Registered(unittest.TestCase):
     def test_the_generated_makefile_carries_them_even_with_no_module(self):
         text = bootstrap.desired_files({"schema_version": 3, "modules": {}, "integrations": {"editor": False}})["Makefile"]
         self.assertIn("export SNAPSHOT_NOTE\n", text)
-        self.assertIn('latex-ai-snapshot:\n\t@$(PYTHON) .latex-ai/workbench.py snapshot --note "$$SNAPSHOT_NOTE"\n', text)
+        self.assertIn('latex-ai-snapshot:\n\t@$(PYTHON) .latex-ai/workbench.py snapshot --note="$$SNAPSHOT_NOTE"\n', text)
         self.assertIn("latex-ai-snapshots:\n\t@$(PYTHON) .latex-ai/workbench.py snapshots\n", text)
         self.assertIn("snapshot: latex-ai-snapshot\n", text)
         self.assertIn("snapshots: latex-ai-snapshots\n", text)

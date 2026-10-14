@@ -49,7 +49,7 @@ latex-ai-issue:
 issue: latex-ai-issue
 .PHONY: latex-ai-snapshot
 latex-ai-snapshot:
-	@$(PYTHON) .latex-ai/workbench.py snapshot --note "$$SNAPSHOT_NOTE"
+	@$(PYTHON) .latex-ai/workbench.py snapshot --note="$$SNAPSHOT_NOTE"
 .PHONY: snapshot
 snapshot: latex-ai-snapshot
 .PHONY: latex-ai-snapshots
