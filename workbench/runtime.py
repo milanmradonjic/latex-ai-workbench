@@ -656,7 +656,7 @@ def do_validate(project, config, persisted, args):
 
 
 def do_modules(project, config, persisted, args):
-    report = {name: {"enabled": has_module(config, name), "requires": spec["requires"], "configuration": module_config(config, name) if has_module(config, name) else None} for name, spec in MODULES.items()}
+    report = {name: {"enabled": has_module(config, name), "configuration": module_config(config, name) if has_module(config, name) else None} for name in MODULES}
     print(json.dumps(report, indent=2))
 
 

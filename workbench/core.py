@@ -14,7 +14,7 @@ import tempfile
 import time
 import processes
 
-VERSION = "4.4.1"
+VERSION = "4.4.2"
 CONFIG = ".latex-ai.json"
 # Trees that are never project sources: version control, workbench state, environments, caches and installed packages. Every
 # walk and every check of a declared path agrees on them; the installer adds the folders it alone leaves out.
@@ -213,11 +213,11 @@ stop_process = processes.stop
 MAKEFILES = ("GNUmakefile", "makefile", "Makefile")  # the order in which GNU Make itself looks for one
 
 
-# A module declares configuration defaults and capabilities. Paths belong to the
+# A module names the runtime file that serves it and declares its configuration defaults. Paths belong to the
 # project; profiles resolve these defaults once, never during an upgrade.
 MODULES = {
-    "latex": {"runtime": "latex.py", "check_group": "latex", "tools": [], "requires": [], "defaults": {"default_document": "manuscript", "documents": {"manuscript": {"root": "main.tex"}}}},
-    "bibliography": {"runtime": "latex.py", "check_group": "bibliography", "tools": [], "requires": [], "defaults": {"files": [], "export": None}},
+    "latex": {"runtime": "latex.py", "defaults": {"default_document": "manuscript", "documents": {"manuscript": {"root": "main.tex"}}}},
+    "bibliography": {"runtime": "latex.py", "defaults": {"files": [], "export": None}},
 }
 PROFILES = {"core": [], "writing": ["latex"]}
 # Modules of workbench 3 that workbench 4 no longer has. A configuration naming one is refused with a hint, not as an unknown name.
@@ -339,9 +339,8 @@ def effective_config(config):
     return result
 
 
-def module_names(config, group=None):
-    return tuple(name for name, spec in MODULES.items()
-                 if has_module(config, name) and (group is None or spec["check_group"] == group))
+def module_names(config):
+    return tuple(name for name in MODULES if has_module(config, name))
 
 
 # Every file of the distribution whose change affects installed projects: the planner treats a change to

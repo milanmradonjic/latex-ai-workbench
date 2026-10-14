@@ -81,9 +81,9 @@ the per-document targets. The full version stays available as the first commit o
 - **4.3.0** took the upgrade machinery out of the installer, leaving `init`, `diff` and `runtime` ([verification](verification-4.3.0.md)).
 - **4.4.0** removed the Make adoption layer: `init` creates files and never merges, and an existing project is migrated by a recipe ([verification](verification-4.4.0.md)).
 - **4.4.1** (step 3.1 of [the plan](plan-after-4.4.0.md)) refreshed the runtime apart from the project's generated files ([verification](verification-4.4.1.md)).
+- **4.4.2** (step 3.2) removed the module table's unused fields ([verification](verification-4.4.2.md)).
 
-- **Still to do**, in this order ([the plan after 4.4.0](plan-after-4.4.0.md)): the dormant module machinery,
-  locks and interrupted-build recovery, the engine, backend and profile choices, per-document targets, snapshots, and the doctor's stamp report.
+- **Still to do**, in this order ([the plan after 4.4.0](plan-after-4.4.0.md)): locks and interrupted-build recovery, the engine, backend and profile choices, per-document targets, snapshots, and the doctor's stamp report.
 
 ## Decided since
 

@@ -29,6 +29,7 @@ removed from one record). The first version's pull requests and runs went with i
 - [Plan after 3.0.2](plan-after-3.0.2.md) (closed): the audit's follow-up in phases; Phase 4 retired, Phases 5 to 7 met, moot or moved.
 - [Version 3.5.0 verification](verification-3.5.0.md): the pinned workflow actions, and what an upgrade does to a project's workflow.
 - [Version 3.6.0 verification](verification-3.6.0.md): `validation.ignore`, and what it never ignores.
+- [Version 4.4.2 verification](verification-4.4.2.md): the module table's unused fields removed, and 104 runtime comparisons, old against new.
 - [Version 4.4.1 verification](verification-4.4.1.md): the runtime refreshed apart from the project's files, `diff` rendering once, and 210 installer runs compared old against new.
 - [Version 4.4.0 verification](verification-4.4.0.md): the Make adoption layer removed, `init` create-only, and a real paper migrated by the recipe.
 - [Version 4.3.0 verification](verification-4.3.0.md): the installer reduced to `init`, `diff` and `runtime`, and what that changes for an installed project.
