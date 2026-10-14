@@ -12,6 +12,7 @@ the verification record of the last release, then start the next step that is no
 - **Hosted checks.** At `ac4f0b6` the [five supported Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38477410380) and
   [`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38477410344) passed.
 - **Decided.** The licence is MIT (13 October). No biber (14 October): the engine is `pdflatex`, and the bibliography backend is `none` or `bibtex`.
+  The locks and the `running` build state stay (14 October): see step 3.3.
 - **Not yet decided.** The three gates below.
 
 ## Rules every step follows
@@ -87,10 +88,15 @@ Each step is one release and one pull request.
   overwrite safeguards are untouched. **Done — 14 October 2026**, [pull request #4](https://github.com/milanmradonjic/latex-ai-workbench/pull/4) (`975663c`), workbench 4.4.1.
 - **3.2 The dormant module machinery.** Both modules have empty `tools` and `requires`, and `module_names(group=...)` has no caller that passes a group. Remove them.
   **Done when** configuration, receipts and generated files compare identical. **Done — 14 October 2026**, [pull request #5](https://github.com/milanmradonjic/latex-ai-workbench/pull/5) (`75f4d4f`), workbench 4.4.2.
-- **3.3 Locks and interrupted-build recovery.** The scope accepts the risk: two simultaneous builds can corrupt a record, and the remedy is to rebuild. Decide first
-  whether the `running` state stays, which needs a liveness check, or folds into `failed`, and what `operation_lock`, `output_transaction`, the lock directory and
-  their tests become. **Done when** the receipts of non-concurrent builds are byte-identical before and after, the accepted risk is written in `troubleshooting.md`, and
-  an independent review has read it.
+- **3.3 Locks and interrupted-build recovery.** **Decided 14 October 2026: keep.** The scope listed the locks among what goes and accepted the risk that two
+  simultaneous builds corrupt a record. The owner chose to keep the `running` state and the locks instead, so the workbench still refuses a second build and still
+  tells the truth from another terminal while one runs, and a build killed hard whose compiler lives on still blocks the next one until that compiler ends. Nothing is
+  removed: `operation_lock` (about 40 lines in `core.py`), `output_transaction.py` (99) and `processes.py` (150, which also starts and stops the compiler) stay, with their
+  tests and the lock directory. There is no code change, so no release, and no independent review, which the rules above reserve for a change to locks. The behaviour is
+  already pinned by `test_terminated_build_owner_stops_its_compiler`, `test_killed_build_owner_keeps_ownership_while_its_compiler_runs` and
+  `test_active_adopted_build_blocks_other_cleanup_and_export`, and `troubleshooting.md` describes it under "Interrupted builds". The scope listed these among what goes, so check its
+  estimate of the kept size before relying on it. Reconsider only on evidence: a build wrongly refused, or a platform where the liveness checks cannot work (macOS and
+  Windows are still untested).
 - **3.4 Engine, backend and profile choices.** Decided: `engine` is `pdflatex`, `backend` is `none` or `bibtex`, there is no biber and there are no installer profiles.
   Remove `--engine`, `--backend`, `--profile` and `core.PROFILES`; the `lualatex`, `xelatex` and `biber` paths in `latex.py`, `schema.py` and `diagnostics.py`; their
   portability scenarios; and the engine and backend inference in `detect_config`. Keep `build_command` for anything unusual. A configuration that says

@@ -14,6 +14,7 @@ record: it is the brief for removing it in small steps, each with its tests (see
 | Documents | Several LaTeX documents per project (main, notes, supplementary, ...). One Make target per document (`make main`, `make notes`), generated only where the name is free; bare `make` builds the main document; `make all` builds the whole package. |
 | Build | Through the tool, so that every build leaves a record. pdflatex and bibtex only, one output place per document (no separate build folder with a copy beside the source). A document may declare a `build_command` for anything unusual. |
 | Stale-PDF records | Kept: a record proves a PDF was built from the current sources. |
+| Build locks | Kept (14 October 2026): a second build is refused while one runs, status reports a running build as running, and a build killed hard whose compiler lives on still blocks the next one. |
 | Lint | ChkTeX, with the baseline that accepts today's warnings and fails on new ones. |
 | Checks | `make check`; a command that validates only what changed, with `validation.ignore`; bibliography checks tied to a Zotero export; build errors parsed from the log into short diagnostics, if that stays cheap. |
 | Support | `status`, `doctor`, `issue` (a local report of a suspected defect in the tool); a minimal, project-oriented manual that can grow with the project. |
@@ -30,8 +31,6 @@ record: it is the brief for removing it in small steps, each with its tests (see
 - **Research modules**: numerics tasks, figures, freshness, provenance and the claims ledger. Figures become plain targets in the project's own
   Makefile, with a shared style file for consistent plots.
 - **Engine and backend choice**: pdflatex and bibtex are fixed.
-- **Project locks and interrupted-build recovery.** Accepted risk: two agents building at once can corrupt a build record, and the remedy is
-  to rebuild.
 - **The installer's upgrade machinery** (`audit`, `upgrade`, `recover`, the ownership manifest and its strategies, conflict detection, the
   installation journal), and the installer profiles.
 - **The long generated handbook.**
@@ -61,7 +60,6 @@ after an update; a daily scheduled run is an optional step the owner sets up. It
 
 ## Risks accepted
 
-- Without locks, simultaneous builds can corrupt a record.
 - Without the upgrade machinery, a fix reaches an existing project only through the recipe, and a wrong merge is caught only by the diff
   and the check.
 - A complicated project Makefile is handled by hand.
@@ -70,7 +68,7 @@ after an update; a daily scheduled run is an optional step the owner sets up. It
 
 Deletions first, by area, one small change each, with its tests removed or kept as the area goes, checking after each that the build
 records, VS Code files and Makefile output of what remains do not change: the research modules, the Markdown and notes modules, CI
-generation, the handbook, then the upgrade machinery. The changes to the build core come last: the Make adoption layer, the locks, and
+generation, the handbook, then the upgrade machinery. The changes to the build core come last: the Make adoption layer and
 the per-document targets. The full version stays available as the first commit of this repository and as the frozen `latex-ai-test` repository.
 
 ## Progress
@@ -82,12 +80,14 @@ the per-document targets. The full version stays available as the first commit o
 - **4.4.0** removed the Make adoption layer: `init` creates files and never merges, and an existing project is migrated by a recipe ([verification](verification-4.4.0.md)).
 - **4.4.1** (step 3.1 of [the plan](plan-after-4.4.0.md)) refreshed the runtime apart from the project's generated files ([verification](verification-4.4.1.md)).
 - **4.4.2** (step 3.2) removed the module table's unused fields ([verification](verification-4.4.2.md)).
+- **Step 3.3** removed nothing: the owner decided to keep the locks and the `running` state, so there is no release (see [the plan](plan-after-4.4.0.md)).
 
-- **Still to do**, in this order ([the plan after 4.4.0](plan-after-4.4.0.md)): locks and interrupted-build recovery, the engine, backend and profile choices, per-document targets, snapshots, and the doctor's stamp report.
+- **Still to do**, in this order ([the plan after 4.4.0](plan-after-4.4.0.md)): the engine, backend and profile choices, per-document targets, snapshots, and the doctor's stamp report.
 
 ## Decided since
 
 - **The licence is MIT** (13 October 2026), with the repository owner's GitHub name as the copyright holder.
+- **The locks and the `running` state stay** (14 October 2026), reversing the scope's earlier decision to remove them: a second build the workbench starts is refused, status says "running" while a build runs, and a build whose owner was killed hard but whose compiler lives on still blocks the next one. Folding `running` into `failed` would have given up the last two.
 - **No biber** (14 October 2026): the engine is `pdflatex` and the bibliography backend is `none` or `bibtex`; a project that needs more declares a `build_command`.
 
 ## Not yet decided
