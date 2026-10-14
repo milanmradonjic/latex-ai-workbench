@@ -84,7 +84,7 @@ Each step is one release and one pull request.
 - **3.1 The runtime refresh apart from project files.** `do_runtime` renders the policy, Makefile and editor templates and keeps only the `.latex-ai/` files; `do_diff`
   renders twice, once directly and once through `runtime_differences`. Give the runtime files their own function and render once in `diff`. The two "Workbench 3"
   error strings in `schema.py` change in this release. **Done when** `diff` and `runtime` print the same on identical projects before and after, and the
-  overwrite safeguards are untouched.
+  overwrite safeguards are untouched. **Done — 14 October 2026**, [pull request #4](https://github.com/milanmradonjic/latex-ai-workbench/pull/4) (`975663c`), workbench 4.4.1.
 - **3.2 The dormant module machinery.** Both modules have empty `tools` and `requires`, and `module_names(group=...)` has no caller that passes a group. Remove them.
   **Done when** configuration, receipts and generated files compare identical.
 - **3.3 Locks and interrupted-build recovery.** The scope accepts the risk: two simultaneous builds can corrupt a record, and the remedy is to rebuild. Decide first

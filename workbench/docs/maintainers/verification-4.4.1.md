@@ -24,10 +24,15 @@ Tested on 2026-10-14 on Linux (x86_64, GNU Make 4.3, Python 3.13.16 and 3.12.13;
   had nothing to compare; and a first fixture for the new tests lacked its root file. Both were fixed before the numbers above.
 - **The header of `releases.md`** still called Workbench 3 the supported development line; it is corrected in this release.
 
+## Hosted verification
+
+All six required checks passed on the pull request ([`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38536879296) in 3m25s; the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38536879028), 1m13s to 1m35s each), and again on the
+merge commit `975663c` on `main` ([`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38537952987); the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38537953045)). The `validate` job runs the portability tests and the reference
+manuscript's check in a TeX container, which the local runs could not.
+
 ## Not verified
 
-- **Hosted runs.** The pull request's checks and the push to `main` follow in the next record.
-- **TeX.** The 16 tests that need it, and `make -C workbench portability`, were not run locally; the hosted `validate` job runs the portability tests in a TeX container.
+- **TeX.** The 16 tests that need it, and `make -C workbench portability`, were not run locally; the hosted `validate` job ran the portability tests in a TeX container and passed.
 - **Other platforms and versions locally.** macOS, Windows, and Python 3.10, 3.11 and 3.14 were not run locally; the hosted run covers all five Python versions on Linux.
 - **A project whose files cannot be rendered**, which `runtime` now survives, beyond the unit test that makes `desired_files` raise.
 
