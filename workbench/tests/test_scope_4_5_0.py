@@ -190,14 +190,15 @@ class WhatStays(ProjectCase):
         self.assertEqual((document["engine"], document["backend"]), ("pdflatex", "bibtex"))
         self.assertEqual(modules["bibliography"]["files"], ["refs.bib"])
 
-    def test_init_no_longer_guesses_another_engine_or_biber_from_the_source(self):
+    def test_init_no_longer_writes_another_engine_or_biber_from_the_source(self):
+        """A source that names them is stopped by 4.5.1's guard unless a build command is given; given one, the configuration still says pdflatex and no backend."""
         sources = ("% !TeX program = xelatex\n" + SOURCE,
                    SOURCE.replace("\\begin", "\\usepackage{fontspec}\\begin"),
                    SOURCE.replace("\\begin", "\\usepackage{luacode}\\begin"),
                    SOURCE.replace("\\begin", "\\usepackage[backend=biber]{biblatex}\\addbibresource{refs.bib}\\begin"))
         for number, source in enumerate(sources):
             with self.subTest(source=source.splitlines()[0][:40]):
-                modules = self.init_project(f"guess{number}", source, "--skip-editor")["modules"]
+                modules = self.init_project(f"guess{number}", source, "--skip-editor", "--build-command", '["make", "pdf"]')["modules"]
                 document = modules["latex"]["documents"]["manuscript"]
                 self.assertEqual((document["engine"], document["backend"]), ("pdflatex", "none"))
                 self.assertNotIn("bibliography", modules)
