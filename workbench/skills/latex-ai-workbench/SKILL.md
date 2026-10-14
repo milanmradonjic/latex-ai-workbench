@@ -100,7 +100,7 @@ than treating static discovery as a full TeX interpreter.
 When manual Zotero configuration is required, stop and name one exact action,
 application, value/path and result to report. First establish whether Better
 BibTeX is installed/enabled; then obtain the target collection before an export.
-Use Better BibTeX, keep the export updated,
+Use Better BibTeX (a biber paper lists its `.bib` under `bibliography.files` and has no `export`), keep the export updated,
 sort by citation key and avoid automatic Git push. Do not invent a collection
 or export another project's sources. The user controls GUI applications.
 

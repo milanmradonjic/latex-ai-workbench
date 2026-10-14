@@ -19,6 +19,7 @@ refused with a hint, and nothing is converted.
 
    It lists the runtime files that differ (`RUNTIME differs` or `missing`) and the other files (policy, Makefile, editor settings)
    that differ from what a new project would get. It writes nothing; it exits 1 when a runtime file differs.
+   If the release notes list a setting that the new release refuses, `diff` and `runtime` stop at it, because they read `.latex-ai.json`: make the edit of step 6 first.
 4. **Refresh the runtime.**
 
    ```sh

@@ -82,7 +82,8 @@ For another project's first export, inspect its real entries without inventing
 or repairing metadata. Set `export.required` true when the snapshot should be
 required by validation. Add it to `bibliography.files`, set the backend to `bibtex`,
 and use the existing document's citation style. A manuscript written for biblatex and Biber is outside
-what the workbench builds itself: it declares a `build_command` ([configuration](configuration.md)).
+what the workbench builds itself: it declares a `build_command` ([configuration](configuration.md)), lists its `.bib` file under `bibliography.files`, and leaves `export` null,
+since the only export format is Better BibTeX's.
 
 Existing source uses a bibliography style plus
 `\bibliography{bibliography/zotero}`. Add real citations only for claims supported by
