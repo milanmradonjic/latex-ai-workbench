@@ -3,6 +3,29 @@
 Workbench 4 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 4.6.0 — `make all`, and `make NAME` for each document
+
+Step 3.5 of [the plan after 4.4.0](plan-after-4.4.0.md): per-document targets, which change the generated Makefile on purpose.
+
+- **Added to the Makefile `init` writes:** for every project with LaTeX, `latex-ai-build-all` and its short name `all` (`@$(PYTHON) .latex-ai/workbench.py build --all`); and for a project with
+  two or more documents, a target named after each document (`@$(PYTHON) .latex-ai/workbench.py build --document NAME`). Five lines for `all` (two rules and their `.PHONY`
+  lines), three for each document. A single-document project gains `all` and nothing else. Bare `make` still builds the default document.
+- **Added to the runtime:** `build --all`, which builds every declared document one after another, prints which one it is on, and stops at the first failure (a document that
+  built earlier keeps its receipt). It is one action rather than Make prerequisites because the project's build lock refuses two builds at once, so `make -j all` would otherwise fail.
+  `--all` belongs to `build` alone and names no `--document`.
+- **Where a name is free:** a document's target is written unless its name is one the workbench uses (`check`, `status`, `all`, any `latex-ai-` name), or a goal that a document's
+  `build_command` names (`make notes` there is the project's own target). The same holds for `all`: a project whose build command is `make all` gets no workbench `all`, and `all`
+  is not refused as a recursive goal, being the conventional name of a project's own default rule (`latex-ai-build-all` is refused like every `latex-ai-` name).
+- **`make help` and `make guide`** name the targets (`make paper, make notes: each builds that document.`), and say `make build DOC=NAME` for a document whose target the Makefile lacks.
+- **`diff` shows an existing project exactly what differs:** the Makefile of a project from 4.5 and before differs by those lines and no others
+  (`+.PHONY: all`, `+all: latex-ai-build-all`, ...), and `runtime` does not touch it. The guard's stored Makefiles were regenerated on purpose, and the reference's Makefile
+  gained the lines by hand.
+- **Unchanged:** every other file `init` writes, every runtime action but `build` with its new flag, the receipts. 232 comparisons of 4.5.1 against this tree, on eight kinds of
+  project, found no difference beyond these additions ([the record](verification-4.6.0.md)).
+- **Size:** the package is 4,009 lines, from 3,963: this step adds what the scope asked for. Tests: 382 before, 398 now (16 new).
+
+See [the verification record](verification-4.6.0.md).
+
 ## 4.5.1 — `init` stops at a paper that needs another toolchain, and says what to declare
 
 At the owner's request after 4.5.0, which let `init` succeed as pdflatex on such a paper and left the first build to fail with the compiler's own message.

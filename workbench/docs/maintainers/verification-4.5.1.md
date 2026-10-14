@@ -24,7 +24,7 @@ LuaHBTeX 1.17.0 (`lualatex`), XeTeX 3.141592653-2.6-0.999995 (`xelatex`), Biber 
 
 ## Hosted verification
 
-The hosted results of this pull request follow in the next record.
+All six required checks passed on the pull request ([#9](https://github.com/milanmradonjic/latex-ai-workbench/pull/9): [`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38579127811) in 1m46s with TeX Live 2026; the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38579128064), 1m06s to 1m29s each), and again on the merge commit `ee069c2` on `main` ([`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38583858226); the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38583858166)).
 
 ## Not verified
 

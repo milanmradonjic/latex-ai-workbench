@@ -14,7 +14,7 @@ import tempfile
 import time
 import processes
 
-VERSION = "4.5.1"
+VERSION = "4.6.0"
 CONFIG = ".latex-ai.json"
 # Trees that are never project sources: version control, workbench state, environments, caches and installed packages. Every
 # walk and every check of a declared path agrees on them; the installer adds the folders it alone leaves out.
@@ -332,6 +332,13 @@ def operation_lock(project, operation, wait=False, busy=None):
             if os.name == "nt":
                 stream.seek(0)
                 msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+
+
+def make_goals(command):
+    """The goals a `make` build command names, beyond its flags and assignments; none for any other command."""
+    if not (isinstance(command, (list, tuple)) and command and isinstance(command[0], str) and Path(command[0]).name in {"make", "gmake"}):
+        return set()
+    return {argument for argument in command[1:] if isinstance(argument, str) and not argument.startswith("-") and "=" not in argument}
 
 
 def effective_config(config):

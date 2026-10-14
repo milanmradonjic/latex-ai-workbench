@@ -10,7 +10,7 @@ from typing import NamedTuple, Optional, Tuple
 
 # What a recipe takes from Make variables, by the ``selects`` of a target (DOC and the issue
 # variables reach recipes through the environment, never as Make text spliced into a shell line).
-RECIPE_ARGUMENTS = {"": "", "document": ' --document "$$DOC"',
+RECIPE_ARGUMENTS = {"": "", "document": ' --document "$$DOC"', "all": " --all",
                     "note": ' --note "$$ISSUE_NOTE" --command "$$ISSUE_COMMAND"'}
 
 
@@ -34,6 +34,7 @@ class Action(NamedTuple):
     module: Optional[str] = None               # the module that must be enabled, or the action refuses
     needs: Optional[Tuple[str, ...]] = None    # modules whose presence makes its Make names available; default: (module,)
     document: bool = False                     # accepts --document (DOC)
+    batch: bool = False                        # accepts --all: the action for every document in turn
     view: bool = False                         # works on one document's view of the configuration (the default document when none is named)
     native_json: bool = False                  # --json prints its own JSON rather than the generic envelope
     standalone: bool = False                   # runs without reading .latex-ai.json
@@ -70,8 +71,9 @@ ACTIONS = (
         Target("help", "latex-ai-help", "Everyday", "This list"),)),
     Action("guide", standalone=True, targets=(
         Target("guide", "latex-ai-guide", "Everyday", "A short manual for this project"),)),
-    Action("build", module="latex", document=True, view=True, targets=(
-        Target("build", "latex-ai-build", "Manuscript", "Build the PDF and record its input/output validity", selects="document", usage="DOC=NAME"),)),
+    Action("build", module="latex", document=True, view=True, batch=True, targets=(
+        Target("build", "latex-ai-build", "Manuscript", "Build the PDF and record its input/output validity", selects="document", usage="DOC=NAME"),
+        Target("all", "latex-ai-build-all", "Documents", "Build every document, one after another", selects="all"))),
     Action("lint", module="latex", document=True, view=True, targets=(
         Target("lint", None, "Manuscript", "Run the configured static checks (ChkTeX)"),
         Target("document-lint", "latex-ai-lint", "Documents", "Run the selected document's static checks (ChkTeX)", selects="document", usage="DOC=NAME"))),
@@ -99,8 +101,9 @@ BY_NAME = {action.name: action for action in ACTIONS}
 
 # The Make goals that run the project's own build command again: the build, check, validate and document-check actions under every name.
 # A build command that reaches one of them would call itself.
+# `all` is left out: it is the conventional name for a project's own default rule, so a build command may name it (the installer then does not generate it).
 RECURSIVE_GOALS = frozenset(
-    [target.short for name in ("build", "check", "validate", "document-check") for target in BY_NAME[name].targets]
+    [target.short for name in ("build", "check", "validate", "document-check") for target in BY_NAME[name].targets if target.short != "all"]
     + [target.reserved for name in ("check", "validate", "document-check", "build") for target in BY_NAME[name].targets if target.reserved])
 
 # Internal hooks of an earlier release's build adapter (4.3 and before). A Makefile of that kind still calls them, so the

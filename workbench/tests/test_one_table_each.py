@@ -23,7 +23,7 @@ import schema
 from test_support import ProjectCase
 
 OLD_RECURSIVE_GOALS = {"latex-ai-build", "latex-ai-document-check", "latex-ai-validate", "check", "document-check", "validate"}
-RECURSIVE_GOALS = OLD_RECURSIVE_GOALS | {"build"}  # since 4.4 the short `build` is always the workbench's own alias
+RECURSIVE_GOALS = OLD_RECURSIVE_GOALS | {"build", "latex-ai-build-all"}  # since 4.4 the short `build` is always the workbench's own alias; since 4.6 so is the whole package
 # How 3.6.0 routed each file name, recorded from its code before this change: M manuscript input or potential figure,
 # O ordinary documentation/data/code, U unclassified (conservative manuscript validation).
 ROUTING = dict(

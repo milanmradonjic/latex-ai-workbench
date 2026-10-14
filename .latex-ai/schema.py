@@ -11,8 +11,8 @@ from pathlib import Path, PurePosixPath
 import re
 
 from commands import RECURSIVE_GOALS, RESERVED_PREFIX
-from core import (BACKENDS, CONFIG, ENGINES, EXPORT_FORMATS, MODULES, REMOVED_MODULES, WorkbenchError, document_paths, has_module, integrations, local_path, module_config,
-                  path_identity, path_name, read_json)
+from core import (BACKENDS, CONFIG, ENGINES, EXPORT_FORMATS, MODULES, REMOVED_MODULES, WorkbenchError, document_paths, has_module, integrations, local_path, make_goals,
+                  module_config, path_identity, path_name, read_json)
 
 DEFAULTS = {"engine": "pdflatex", "backend": "none", "lint": {"enabled": True, "args": []},
             "output_dir": None, "build_command": None, "inputs": [], "bibliography_files": []}
@@ -353,10 +353,8 @@ def validate_latex(project, values, config, planned_sources=None):
             raise WorkbenchError(f"Document {name} needs a root TeX file", hint=f'for example "{name}": {{"root": "main.tex"}}')
         for where, lint in (("defaults.lint", defaults.get("lint", {})), (f"documents.{name}.lint", fields.get("lint", {}))):
             check_lint(project, lint, where)
-        command = fields.get("build_command")
-        if isinstance(command, list) and command and isinstance(command[0], str) and Path(command[0]).name in {"make", "gmake"}:
-            if any(isinstance(argument, str) and (argument in RECURSIVE_GOALS or argument.startswith(RESERVED_PREFIX)) for argument in command[1:]):
-                raise WorkbenchError(f"Recursive build_command for document {name}; use the project's raw build target")
+        if any(goal in RECURSIVE_GOALS or goal.startswith(RESERVED_PREFIX) for goal in make_goals(fields.get("build_command"))):
+            raise WorkbenchError(f"Recursive build_command for document {name}; use the project's raw build target")
         check_validation(project, {"manuscript_inputs": fields.get("inputs", [])})
         if not isinstance(fields.get("bibliography_files", []), list):
             raise WorkbenchError(f"bibliography_files must be a list: {name}")

@@ -42,6 +42,11 @@ guide: latex-ai-guide
 .PHONY: latex-ai-build
 latex-ai-build:
 	@$(PYTHON) .latex-ai/workbench.py build --document "$$DOC"
+.PHONY: latex-ai-build-all
+latex-ai-build-all:
+	@$(PYTHON) .latex-ai/workbench.py build --all
+.PHONY: all
+all: latex-ai-build-all
 .PHONY: latex-ai-lint
 latex-ai-lint:
 	@$(PYTHON) .latex-ai/workbench.py lint --document "$$DOC"
@@ -87,3 +92,12 @@ latex-ai-issue:
 	@$(PYTHON) .latex-ai/workbench.py issue --note "$$ISSUE_NOTE" --command "$$ISSUE_COMMAND"
 .PHONY: issue
 issue: latex-ai-issue
+.PHONY: paper
+paper:
+	@$(PYTHON) .latex-ai/workbench.py build --document paper
+.PHONY: derivation
+derivation:
+	@$(PYTHON) .latex-ai/workbench.py build --document derivation
+.PHONY: notebook
+notebook:
+	@$(PYTHON) .latex-ai/workbench.py build --document notebook

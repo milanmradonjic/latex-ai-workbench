@@ -22,7 +22,8 @@ The recipe was tried on a real paper with two coupled documents, its own build s
    block out and keep the project's own rules above it.
 5. **Find the conflicts.** `latex-ai-init init PROJECT --dry-run` lists every file that exists and differs. Move each aside, outside the project.
 6. **Run `init`** (`--root` or `--build-command` where step 3 needs them; a `.latex-ai.json` the project already has is used as it is).
-7. **Carry the project's content back, after what `init` wrote.** Its own Make targets after the Makefile (a figure or data step is a plain
+7. **Carry the project's content back, after what `init` wrote.** A project with its own `all` (or a target named like one of its documents) that names it in a document's
+   `build_command` gets no workbench target of that name; otherwise delete the generated lines for the name it keeps. Its own Make targets after the Makefile (a figure or data step is a plain
    target; `make figures` runs it); its own `AGENTS.md` sections after the policy; its `.gitignore` lines; its editor preferences into
    `.vscode/settings.json`. For `.claude/` and `.codex/` keep the stricter rule where two differ, and never weaken a Git guardrail.
 8. **Replace a workflow an older release wrote.** It calls actions that no longer exist (`plan --github-output`). Write the project's own, or remove

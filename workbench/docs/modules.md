@@ -50,7 +50,7 @@ An absent module is disabled. A present object enables it and supplies settings;
 Core commands are `check`, `doctor`, `validation-plan`, `validate`, `help`, `status`, `modules` and `issue` (a local report about a suspected workbench defect; see [agents](agents.md#suspected-workbench-defects)).
 The LaTeX module uses named `documents`, optional `defaults`, and a `default_document`. [TeX notes](tex-notes.md) describes setup,
 configuration and document commands. `make check` checks
-every declared document; `make latex-ai-build DOC=NAME` selects one.
+every declared document; `make latex-ai-build DOC=NAME` selects one to build, and `make all` builds them all in turn.
 `check` checks enabled modules and runs full manuscript validation when LaTeX is
 enabled. `make modules` prints effective settings. Every command except the shared `check` and `lint`
 also has a reserved `latex-ai-*` name that reaches the workbench even when a project gives the short one a recipe of its own.
