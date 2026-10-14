@@ -29,6 +29,7 @@ removed from one record). The first version's pull requests and runs went with i
 - [Plan after 3.0.2](plan-after-3.0.2.md) (closed): the audit's follow-up in phases; Phase 4 retired, Phases 5 to 7 met, moot or moved.
 - [Version 3.5.0 verification](verification-3.5.0.md): the pinned workflow actions, and what an upgrade does to a project's workflow.
 - [Version 3.6.0 verification](verification-3.6.0.md): `validation.ignore`, and what it never ignores.
+- [Version 4.7.0 verification](verification-4.7.0.md): `make snapshot` and `make snapshots`, the deleting code held to its refusals, and a snapshot and a restore shown with and without the project's own Git.
 - [Version 4.6.0 verification](verification-4.6.0.md): `make all` and a target per document, the Makefile's new lines shown by `diff`, and 232 old-against-new comparisons.
 - [Version 4.5.1 verification](verification-4.5.1.md): `init` stops at a paper that needs lualatex, xelatex or biber and prints the `--build-command`, tested with the real tools.
 - [Version 4.5.0 verification](verification-4.5.0.md): one engine and one bibliography program, no installer profiles, and 232 old-against-new comparisons.
