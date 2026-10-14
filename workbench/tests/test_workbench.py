@@ -234,12 +234,10 @@ class WorkbenchTests(unittest.TestCase):
         config["modules"]["latex"]["documents"]["manuscript"]["backend"] = "bibtex"
         with self.assertRaisesRegex(rt.WorkbenchError, r"Duplicate bibliography key 'smith2020' \(same key as 'Smith2020'; BibTeX ignores case\)"):
             rt.bibliography_check(self.project, schema.document_settings(config))
-        for backend in ("biber", "none"):  # Biber and unprocessed exports keep case-variant keys distinct
-            config["modules"]["latex"]["documents"]["manuscript"]["backend"] = backend
-            with self.subTest(backend=backend):
-                self.assertEqual(len(rt.bibliography_check(self.project, schema.document_settings(config))), 2)
+        config["modules"]["latex"]["documents"]["manuscript"]["backend"] = "none"  # unprocessed exports keep case-variant keys distinct
+        self.assertEqual(len(rt.bibliography_check(self.project, schema.document_settings(config))), 2)
         (self.project / "two.bib").write_text('@book{Smith2020, title={U}}')  # exact duplicates stay errors everywhere
-        for backend in ("bibtex", "biber", "none"):
+        for backend in ("bibtex", "none"):
             config["modules"]["latex"]["documents"]["manuscript"]["backend"] = backend
             with self.subTest(backend=backend, exact=True), self.assertRaisesRegex(rt.WorkbenchError, "Duplicate bibliography key 'Smith2020': "):
                 rt.bibliography_check(self.project, schema.document_settings(config))
@@ -262,7 +260,7 @@ class WorkbenchTests(unittest.TestCase):
         config["modules"]["latex"]["documents"]["manuscript"]["output_dir"] = "."
         (self.project / "paper.pdf").write_bytes(b"%PDF-1.5\n")
         for warning in ["LaTeX Warning: There were undefined references.", "LaTeX Warning: There were undefined citations.",
-                        "LaTeX Warning: Label `same' multiply defined.", "Package biblatex Warning: Please (re)run Biber on the file."]:
+                        "LaTeX Warning: Label `same' multiply defined.", "LaTeX Warning: Please (re)run BibTeX on the file(s)."]:
             (self.project / "paper.log").write_text(warning)
             with self.subTest(warning=warning), self.assertRaises(rt.WorkbenchError):
                 rt.verify(self.project, schema.document_settings(config), check_receipt=False)
@@ -276,7 +274,7 @@ class WorkbenchTests(unittest.TestCase):
         config["modules"]["latex"]["documents"]["manuscript"]["output_dir"] = "."
         (self.project / "paper.pdf").write_bytes(b"%PDF-1.5\n")
         (self.project / "paper.log").write_text("Output written on paper.pdf.\n")
-        (self.project / "paper.blg").write_text("ERROR - obsolete bibliography failure\n")
+        (self.project / "paper.blg").write_text("I couldn't open database file obsolete.bib\n")
         with contextlib.redirect_stdout(io.StringIO()):
             rt.verify(self.project, schema.document_settings(config), check_receipt=False)
         config["modules"]["latex"]["documents"]["manuscript"]["backend"] = "bibtex"

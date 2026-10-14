@@ -26,9 +26,8 @@ REMOVED_WORDS = re.compile(r"make (?:latex-ai-)?(?:run|figure|freshness|history|
 
 
 class Scope(unittest.TestCase):
-    def test_two_modules_and_two_profiles_remain(self):
+    def test_two_modules_remain(self):
         self.assertEqual(set(core.MODULES), {"latex", "bibliography"})
-        self.assertEqual(set(core.PROFILES), {"core", "writing"})
 
     def test_a_configuration_naming_a_removed_module_is_refused_by_name(self):
         for name in REMOVED_MODULES:

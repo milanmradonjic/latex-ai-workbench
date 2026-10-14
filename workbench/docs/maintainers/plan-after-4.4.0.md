@@ -12,7 +12,7 @@ the verification record of the last release, then start the next step that is no
 - **Hosted checks.** At `ac4f0b6` the [five supported Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38477410380) and
   [`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38477410344) passed.
 - **Decided.** The licence is MIT (13 October). No biber (14 October): the engine is `pdflatex`, and the bibliography backend is `none` or `bibtex`.
-  The locks and the `running` build state stay (14 October): see step 3.3.
+  The locks and the `running` build state stay (14 October): see step 3.3. The `biblatex` export format goes with biber (14 October): see step 3.4.
 - **Not yet decided.** The three gates below.
 
 ## Rules every step follows
@@ -88,7 +88,7 @@ Each step is one release and one pull request.
   overwrite safeguards are untouched. **Done — 14 October 2026**, [pull request #4](https://github.com/milanmradonjic/latex-ai-workbench/pull/4) (`975663c`), workbench 4.4.1.
 - **3.2 The dormant module machinery.** Both modules have empty `tools` and `requires`, and `module_names(group=...)` has no caller that passes a group. Remove them.
   **Done when** configuration, receipts and generated files compare identical. **Done — 14 October 2026**, [pull request #5](https://github.com/milanmradonjic/latex-ai-workbench/pull/5) (`75f4d4f`), workbench 4.4.2.
-- **3.3 Locks and interrupted-build recovery.** **Decided 14 October 2026: keep.** The scope listed the locks among what goes and accepted the risk that two
+- **3.3 Locks and interrupted-build recovery.** **Decided 14 October 2026: keep. Done — 14 October 2026**, [pull request #7](https://github.com/milanmradonjic/latex-ai-workbench/pull/7) (`3a3b8a9`), no release. The scope listed the locks among what goes and accepted the risk that two
   simultaneous builds corrupt a record. The owner chose to keep the `running` state and the locks instead, so the workbench still refuses a second build and still
   tells the truth from another terminal while one runs, and a build killed hard whose compiler lives on still blocks the next one until that compiler ends. Nothing is
   removed: `operation_lock` (about 40 lines in `core.py`), `output_transaction.py` (99) and `processes.py` (150, which also starts and stops the compiler) stay, with their
@@ -100,8 +100,8 @@ Each step is one release and one pull request.
 - **3.4 Engine, backend and profile choices.** Decided: `engine` is `pdflatex`, `backend` is `none` or `bibtex`, there is no biber and there are no installer profiles.
   Remove `--engine`, `--backend`, `--profile` and `core.PROFILES`; the `lualatex`, `xelatex` and `biber` paths in `latex.py`, `schema.py` and `diagnostics.py`; their
   portability scenarios; and the engine and backend inference in `detect_config`. Keep `build_command` for anything unusual. A configuration that says
-  `engine: pdflatex` or `backend: none` or `bibtex` keeps working; anything else is refused by name with a hint that points at `build_command`. Decide in this step
-  whether the `biblatex` export format, which exists to feed biber, also goes. **Done when** projects that use only what stays compare byte-identical (generated
+  `engine: pdflatex` or `backend: none` or `bibtex` keeps working; anything else is refused by name with a hint that points at `build_command`. **Decided 14 October 2026:** the
+  `biblatex` export format, which existed to feed biber, goes too, so the export `format` is `bibtex`. **Done when** projects that use only what stays compare byte-identical (generated
   files and receipts), and the tests that mention profiles are rewritten, not deleted blindly.
 - **3.5 Per-document targets.** `make main` and `make notes`, generated only where the name is free; bare `make` builds the default document and `make all` the whole
   package. **Done when** the generated-files guard is updated on purpose, the release notes name the changed lines of the Makefile block, `make guide` names the

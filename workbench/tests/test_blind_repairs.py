@@ -179,7 +179,7 @@ class BlindRepairTests(unittest.TestCase):
     def test_foreign_installed_runtime_reports_project_context_not_internal_fault(self):
         notebook = self.project / "notebook"
         notebook.mkdir()
-        self.install("init", str(notebook), "--profile", "core")
+        self.install("init", str(notebook), "--modules", "")
         self.fixture()
         script = notebook / ".latex-ai/workbench.py"
         result = self.command(sys.executable, str(script), "status", "--json", expected=1)

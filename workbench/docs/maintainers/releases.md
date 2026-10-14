@@ -3,6 +3,31 @@
 Workbench 4 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 4.5.0 — one engine, one bibliography program, no installer profiles
+
+Step 3.4 of [the plan after 4.4.0](plan-after-4.4.0.md), with the owner's decisions of 14 October 2026: no biber, and the `biblatex` export format goes too.
+
+- **Removed from `init`:** `--engine`, `--backend` and `--profile` (`core.PROFILES` with it). `--modules` chooses what a profile chose: `--modules ''` was `--profile core`,
+  `--modules latex` was `--profile writing`. The installer no longer reads the source for an engine (a `% !TeX program` comment, `luacode`, `xeCJK`, `fontspec`) or for biber
+  (`biblatex`, `\addbibresource`); it still finds a BibTeX bibliography by `\bibliography{...}`.
+- **Refused by name, with a hint that points at `build_command`:** an `engine` other than `pdflatex`, a `backend` other than `none` or `bibtex`, and an export `format` other than
+  `bibtex`, in a document, in `latex.defaults` or in `bibliography.export`. A configuration that says `pdflatex`, `none`, `bibtex` keeps working unchanged.
+- **Removed from the runtime:** the `-lualatex` and `-xelatex` flags of the default build; Biber's `ERROR -`, `FATAL -` and `WARN -` log patterns, and `Biber` in the rerun
+  pattern; `lualatex`, `xelatex` and `biber` from `doctor`'s tool list and from the diagnostic report. A project that builds with biber declares a `build_command`; the workbench
+  reads the compiler's `.log` for LaTeX's own errors and does not read Biber's `.blg`.
+- **Changed output:** `status`, `help` and `guide` print the hint of a refused configuration ("edit .latex-ai.json: remove the engine setting ...") in place of the advice to restore a last good copy,
+  which after an upgrade is the same configuration. A problem with no hint of its own keeps the old advice.
+- **A loss:** a paper that uses biblatex, even with `backend=bibtex` (BibTeX does the processing), is no longer recognised by `init`: it gets `backend: none` and no bibliography module.
+  List its files in `bibliography.files` and set `backend` to `bibtex` by hand.
+- **Changed text:** the sentence of the policy template (`AGENTS.md`) that named "BibTeX/Biber" now says BibTeX. A project that `diff` compares with this release sees `AGENTS.md`
+  differ, as it does for any file it may have added to.
+- **Unchanged:** every project that uses only what stays. 232 comparisons of 4.4.2 against this tree, on eight kinds of project (four with a real `latexmk`, `chktex` and `bibtex`),
+  found no difference: the generated files, the output of every installer preview and runtime action, the build receipts, and the arguments `latexmk` was called with
+  ([the record](verification-4.5.0.md)). The generated Makefile and editor files are byte-identical (the guard's fixtures, renamed from `profile-*`, hold the same text).
+- **Size:** the package is 3,936 lines, from 3,948: most of what went was a table entry or a branch, not a module, and the clearer refusals and the hint in `status` took some back. Tests: 361 before, 373 now (12 new).
+
+See [the verification record](verification-4.5.0.md).
+
 ## 4.4.2 — a module declares only what something reads
 
 Step 3.2 of [the plan after 4.4.0](plan-after-4.4.0.md): a removal of fields nothing used.

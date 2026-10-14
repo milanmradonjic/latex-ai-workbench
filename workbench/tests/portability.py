@@ -13,7 +13,7 @@ import shutil
 PACKAGE = Path(__file__).resolve().parents[1]
 CLI = PACKAGE / "latex-ai-init"
 PARENT = Path(os.environ.get("LATEX_AI_PORTABILITY_PARENT", tempfile.gettempdir()))
-TOOLS = ("python3", "make", "latexmk", "pdflatex", "lualatex", "xelatex", "chktex", "bibtex", "biber")
+TOOLS = ("python3", "make", "latexmk", "pdflatex", "chktex", "bibtex")
 
 BIB = """% Synthetic validation fixture, not a literature reference.
 @misc{fixture,
@@ -114,25 +114,25 @@ def main():
     (pdf / "paper.tex").write_text(clean)
     (pdf / ".latex-ai/lint-baselines/manuscript.json").unlink()
 
-    lua = create("lua-biber-multifile", {
-        "paper.tex": "% !TeX program = lualatex\n\\documentclass{article}\n\\usepackage[backend=biber]{biblatex}\n\\addbibresource{bib/references.bib}\n\\begin{document}\n\\input{chapters/result}\n\\printbibliography{}\n\\end{document}\n",
-        "chapters/result.tex": "\\section{Result}\\label{sec:result}\nSee Section~\\ref{sec:result} and fixture~\\autocite{fixture}.\n",
+    multi = create("multifile-bibtex", {
+        "paper.tex": "\\documentclass{article}\n\\begin{document}\n\\input{chapters/result}\n\\bibliographystyle{plain}\n\\bibliography{bib/references}\n\\end{document}\n",
+        "chapters/result.tex": "\\section{Result}\\label{sec:result}\nSee Section~\\ref{sec:result} and fixture~\\cite{fixture}.\n",
         "bib/references.bib": BIB,
     })
-    init("lua", lua)
-    config(lua, lambda c: c["modules"]["bibliography"].update(export={"path": "bib/references.bib", "required": True, "format": "biblatex"}))
-    run("lua-biber-check", lua, ["make", "check"])
+    init("multifile", multi)
+    config(multi, lambda c: c["modules"]["bibliography"].update(export={"path": "bib/references.bib", "required": True, "format": "bibtex"}))
+    run("multifile-check", multi, ["make", "check"])
 
-    nested = create("xelatex-nested", {"source/thesis.v1.tex": PLAIN})
-    init("xelatex", nested, "--engine", "xelatex")
+    nested = create("nested-root", {"source/thesis.v1.tex": PLAIN})
+    init("nested", nested)
     config(nested, lambda c: c["modules"]["latex"]["documents"]["manuscript"].update(output_dir="build"))
-    run("xelatex-check", nested, ["make", "check"])
-    run("xelatex-runtime", nested, [sys.executable, str(CLI), "runtime", str(nested)])
-    run("xelatex-artifact", nested, ["make", "pdf-artifact"])
+    run("nested-check", nested, ["make", "check"])
+    run("nested-runtime", nested, [sys.executable, str(CLI), "runtime", str(nested)])
+    run("nested-artifact", nested, ["make", "pdf-artifact"])
 
     # A project with a build of its own: init writes beside the workflow it has, the project's Make target goes in after it.
     custom = create("existing-build", {"paper.tex": PLAIN, ".github/workflows/custom.yml": "name: Existing workflow\non: workflow_dispatch\n"})
-    init("existing", custom, "--engine", "pdflatex", "--build-command", '["make", "pdf"]')
+    init("existing", custom, "--build-command", '["make", "pdf"]')
     with (custom / "Makefile").open("a") as stream:
         stream.write("\npdf:\n\tlatexmk -pdf -interaction=nonstopmode -halt-on-error paper.tex\n")
     if sorted(p.name for p in (custom / ".github/workflows").iterdir()) != ["custom.yml"]:
@@ -143,7 +143,7 @@ def main():
 
     # A file the project has is never merged into: init refuses it, and writes nothing.
     gnu = create("existing-gnumakefile", {"paper.tex": PLAIN, "GNUmakefile": "build:\n\tlatexmk -pdf -interaction=nonstopmode -halt-on-error paper.tex\n"})
-    run("gnumakefile-refused", gnu, [sys.executable, str(CLI), "init", str(gnu), "--engine", "pdflatex"], expected=2, diagnostic="docs/migrating.md")
+    run("gnumakefile-refused", gnu, [sys.executable, str(CLI), "init", str(gnu)], expected=2, diagnostic="docs/migrating.md")
     if {p.name for p in gnu.iterdir()} != {"paper.tex", "GNUmakefile"}:
         raise RuntimeError("A refused init wrote files")
 
@@ -168,7 +168,7 @@ def main():
     run("negative-recovered", bad, ["make", "check"])
 
     notebook = create("notes-only", {"notes/session.md": "A question.\n"})
-    init("notes-only", notebook, "--profile", "core")
+    init("notes-only", notebook, "--modules", "")
     run("notes-only-doctor", notebook, ["make", "doctor"])
     run("notes-only-check", notebook, ["make", "check"])
     run("notes-only-diff", notebook, [sys.executable, str(CLI), "diff", str(notebook)])
@@ -179,31 +179,30 @@ def main():
     run("mixed-check", bad, ["make", "check"])
     run("mixed-diff", bad, [sys.executable, str(CLI), "diff", str(bad)])
 
-    # Named documents cover independent engines, receipts and exports with the
+    # Named documents cover independent receipts and exports with the
     # real lint policy. No format conversion is involved.
     notebook_source = "\\documentclass{article}\n\\begin{document}\n\\section*{Notebook}\n\\input{session-state.tex}\n\\end{document}\n"
-    for engine in ("pdflatex", "lualatex", "xelatex"):
-        name = "named-documents-" + engine
-        project = create(name, {"main.tex": PLAIN, "notes/derivation.tex": PLAIN, "notes/notebook.tex": notebook_source,
-                                "notes/session-state.tex": "\\section*{Current question}\n"})
-        init(name, project, "--profile", "writing", "--root", "main.tex", "--engine", engine)
-        for document, root in (("notebook", "notes/notebook.tex"), ("derivation", "notes/derivation.tex")):
-            config(project, lambda c, document=document, root=root: c["modules"]["latex"]["documents"].update({document: {"root": root, "engine": engine}}))
-        run(name + "-check", project, ["make", "-j4", "check"])
-        for target in ("notebook", "derivation"):
-            run(name + "-export-" + target, project, ["make", "latex-ai-pdf-artifact", "DOC=" + target])
-            if not (project / f".latex-ai/artifacts/documents/{target}/document.pdf").is_file():
-                raise RuntimeError("Missing named PDF: " + target)
-        receipts = project / ".latex-ai/artifacts/documents"
-        derivation_receipt = (receipts / "derivation/build-receipt.json").read_bytes()
-        state = project / "notes/session-state.tex"
-        state.write_text(state.read_text() + "\nSynthetic edited fragment.\n")
-        run(name + "-fragment-validation", project, [sys.executable, ".latex-ai/workbench.py", "validate",
-                                                   "--files", "notes/session-state.tex"])
-        if (receipts / "derivation/build-receipt.json").read_bytes() != derivation_receipt:
-            raise RuntimeError("Fragment validation rebuilt an unrelated document")
-        run(name + "-incremental-check", project, ["make", "-j4", "check"])
-        run(name + "-diff", project, [sys.executable, str(CLI), "diff", str(project)])
+    name = "named-documents"
+    project = create(name, {"main.tex": PLAIN, "notes/derivation.tex": PLAIN, "notes/notebook.tex": notebook_source,
+                            "notes/session-state.tex": "\\section*{Current question}\n"})
+    init(name, project, "--modules", "latex", "--root", "main.tex")
+    for document, root in (("notebook", "notes/notebook.tex"), ("derivation", "notes/derivation.tex")):
+        config(project, lambda c, document=document, root=root: c["modules"]["latex"]["documents"].update({document: {"root": root}}))
+    run(name + "-check", project, ["make", "-j4", "check"])
+    for target in ("notebook", "derivation"):
+        run(name + "-export-" + target, project, ["make", "latex-ai-pdf-artifact", "DOC=" + target])
+        if not (project / f".latex-ai/artifacts/documents/{target}/document.pdf").is_file():
+            raise RuntimeError("Missing named PDF: " + target)
+    receipts = project / ".latex-ai/artifacts/documents"
+    derivation_receipt = (receipts / "derivation/build-receipt.json").read_bytes()
+    state = project / "notes/session-state.tex"
+    state.write_text(state.read_text() + "\nSynthetic edited fragment.\n")
+    run(name + "-fragment-validation", project, [sys.executable, ".latex-ai/workbench.py", "validate",
+                                               "--files", "notes/session-state.tex"])
+    if (receipts / "derivation/build-receipt.json").read_bytes() != derivation_receipt:
+        raise RuntimeError("Fragment validation rebuilt an unrelated document")
+    run(name + "-incremental-check", project, ["make", "-j4", "check"])
+    run(name + "-diff", project, [sys.executable, str(CLI), "diff", str(project)])
 
     mixed_notes = create("mixed-tex-notes", {})
     shutil.copytree(PACKAGE / "examples/tex-notes", mixed_notes, dirs_exist_ok=True)

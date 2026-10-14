@@ -14,7 +14,7 @@ import tempfile
 import time
 import processes
 
-VERSION = "4.4.2"
+VERSION = "4.5.0"
 CONFIG = ".latex-ai.json"
 # Trees that are never project sources: version control, workbench state, environments, caches and installed packages. Every
 # walk and every check of a declared path agrees on them; the installer adds the folders it alone leaves out.
@@ -214,13 +214,16 @@ MAKEFILES = ("GNUmakefile", "makefile", "Makefile")  # the order in which GNU Ma
 
 
 # A module names the runtime file that serves it and declares its configuration defaults. Paths belong to the
-# project; profiles resolve these defaults once, never during an upgrade.
+# project; the installer resolves these defaults once, never during an upgrade.
 MODULES = {
     "latex": {"runtime": "latex.py", "defaults": {"default_document": "manuscript", "documents": {"manuscript": {"root": "main.tex"}}}},
     "bibliography": {"runtime": "latex.py", "defaults": {"files": [], "export": None}},
 }
-PROFILES = {"core": [], "writing": ["latex"]}
 # Modules of workbench 3 that workbench 4 no longer has. A configuration naming one is refused with a hint, not as an unknown name.
+# What a document is built with by default: one engine, and BibTeX or no bibliography program. A document that needs more declares a build_command.
+ENGINES = ("pdflatex",)
+BACKENDS = ("none", "bibtex")
+EXPORT_FORMATS = ("bibtex",)
 REMOVED_MODULES = ("notes", "markdown", "numerics", "figures", "provenance", "freshness", "claims")
 
 

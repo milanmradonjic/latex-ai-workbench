@@ -21,7 +21,7 @@ import sys
 sys.dont_write_bytecode = True
 import guide
 from commands import RECIPE_ARGUMENTS
-from core import (CONFIG, GENERATED_TREES, MAKEFILES, MODULES, PROFILES, VERSION, WorkbenchError, atomic_write, effective_config, git_output,
+from core import (CONFIG, GENERATED_TREES, MAKEFILES, MODULES, VERSION, WorkbenchError, atomic_write, effective_config, git_output,
                   has_module, integrations, line_buffered, local_path, module_config, read_tex, runtime_sources)
 from diagnostics import recorded_digests, sha256_text
 from guide import make_targets
@@ -122,8 +122,8 @@ def build_command_argument(text):
 
 
 def detect_config(project, inventory, args):
-    """The configuration a new project starts from: its own `.latex-ai.json` if it has one, else a profile or module
-    list, else what the project's files say."""
+    """The configuration a new project starts from: its own `.latex-ai.json` if it has one, else a module list, else what
+    the project's files say."""
     if read(project, STATE) is not None:
         raise WorkbenchError("This project already has the workbench installed",
                              hint="`init` creates projects. To refresh its runtime files run `latex-ai-init runtime .`; "
@@ -131,29 +131,28 @@ def detect_config(project, inventory, args):
                                   "(and docs/migrating.md for a project that an older release adapted, or one to start over)")
     if read(project, CONFIG) is not None:
         config = load_config(project)
-        if args.profile is not None or args.modules is not None or args.editor:
-            raise WorkbenchError("The project has its own configuration; --profile, --modules and --editor only choose the starting set of a new project",
+        if args.modules is not None or args.editor:
+            raise WorkbenchError("The project has its own configuration; --modules and --editor only choose the starting set of a new project",
                                  hint=f"run init again without them (a project that an interrupted init began is finished that way); to change what it chose, edit {CONFIG}")
         tex = document_settings(config)
-        selections = [(args.root, tex.get("root")), (args.engine, tex.get("engine")),
-                      (args.backend, tex.get("bibliography", {}).get("backend", "none")),
+        selections = [(args.root, tex.get("root")),
                       (build_command_argument(args.build_command) if args.build_command else None, tex.get("build_command"))]
         if any(chosen is not None and chosen != current for chosen, current in selections) or (
                 args.no_lint and tex.get("lint", {}).get("enabled", True)):
             raise WorkbenchError(f"Project choices differ; edit {CONFIG} explicitly instead of overriding it with options")
         return config
-    if args.profile is not None or args.modules is not None:
-        names = PROFILES[args.profile] if args.profile is not None else [n.strip() for n in args.modules.split(",") if n.strip()]
+    if args.modules is not None:
+        names = [n.strip() for n in args.modules.split(",") if n.strip()]
         if set(names) - MODULES.keys():
             raise WorkbenchError("Unknown module(s): " + ", ".join(sorted(set(names) - MODULES.keys())))
         config = {"schema_version": 3, "modules": {n: copy.deepcopy(MODULES[n]["defaults"]) for n in names},
                   "integrations": {"editor": args.editor and not args.skip_editor}}
         if "latex" not in names:
-            if args.root or args.engine or args.backend or args.build_command or args.no_lint:
+            if args.root or args.build_command or args.no_lint:
                 raise WorkbenchError("TeX options require the latex module")
             return validate_config(project, config)
         detected_args = copy.copy(args)
-        detected_args.profile = detected_args.modules = None
+        detected_args.modules = None
         detected = detect_config(project, inventory, detected_args)
         config["modules"]["latex"] = module_config(detected, "latex")
         if has_module(detected, "bibliography"):
@@ -166,29 +165,15 @@ def detect_config(project, inventory, args):
         raise WorkbenchError("Root is ambiguous or absent; select --root PATH. Candidates: " + (", ".join(roots) or "none found"),
                              hint=f"name the manuscript's main file, for example --root {roots[0]}" if roots else
                              "a manuscript needs its main .tex file (with \\documentclass) to exist: create it, or name it with --root. "
-                             "A project without a manuscript takes a profile without LaTeX: --profile core")
+                             "A project without a manuscript takes no LaTeX module: --modules ''")
     root = local_path(project, selected)
     if not root.is_file():
         raise WorkbenchError(f"Root not found: {selected}")
     sources = source_tree(project, root)
     text = "\n".join(s for _, s in sources)
-    raw = read_tex(root)
-    magic = re.search(r"^\s*%\s*!TeX\s+(?:program|TS-program)\s*=\s*(\w+)", raw, re.M | re.I)
-    engine = args.engine or (magic[1].lower() if magic else None)
-    if not engine and re.search(r"\\(?:directlua|usepackage(?:\[[^\]]*\])?\{luacode\})", text):
-        engine = "lualatex"
-    if not engine and re.search(r"\\(?:XeTeX|setCJKmainfont)|\{xeCJK\}", text):
-        engine = "xelatex"
-    if not engine and "fontspec" in text:
-        raise WorkbenchError("The engine needs confirmation: the source loads fontspec",
-                             hint="the engine is not guessed for this project: add --engine pdflatex, --engine lualatex or --engine xelatex")
-    engine = engine or "pdflatex"
-    biblatex = re.search(r"\\usepackage(?:\[([^\]]*)\])?\{biblatex\}", text)
-    backend = args.backend or ("bibtex" if biblatex and re.search(r"backend\s*=\s*bibtex", biblatex[1] or "")
-                               else "biber" if biblatex or "\\addbibresource" in text
-                               else "bibtex" if "\\bibliography{" in text else "none")
+    backend = "bibtex" if "\\bibliography{" in text else "none"
     files = []
-    for match in re.finditer(r"\\(?:bibliography|addbibresource)(?:\[[^\]]*\])?\s*\{([^{}\\]+)\}", text):
+    for match in re.finditer(r"\\bibliography\s*\{([^{}\\]+)\}", text):
         for value in match[1].split(","):
             value = value.strip()
             if not value.endswith(".bib"):
@@ -197,7 +182,7 @@ def detect_config(project, inventory, args):
             files.append(path.relative_to(project).as_posix())
     command = build_command_argument(args.build_command) if args.build_command else None
     modules = {"latex": {"default_document": "manuscript", "documents": {"manuscript": {
-        "root": selected, "engine": engine, "backend": backend,
+        "root": selected, "engine": "pdflatex", "backend": backend,
         "lint": {"enabled": not args.no_lint, "args": []}, "build_command": command,
         "output_dir": root.parent.relative_to(project).as_posix() if command else None}}}}
     if files or backend != "none":
@@ -450,7 +435,7 @@ def do_runtime(project, args):
 
 def init_only_flags(args):
     """The options only `init` reads that were given, so that `diff` and `runtime` refuse them rather than ignore them."""
-    return ["--" + name.replace("_", "-") for name in ("profile", "modules", "editor", "root", "engine", "backend", "build_command", "no_lint", "skip_editor", "json")
+    return ["--" + name.replace("_", "-") for name in ("modules", "editor", "root", "build_command", "no_lint", "skip_editor", "json")
             if getattr(args, name) not in (None, False)]
 
 
@@ -458,13 +443,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="LaTeX AI Workbench: create a project, preserve local files, never mutate Git")
     parser.add_argument("mode", choices=["init", "diff", "runtime"], help="init: create a project; diff: how a project differs from this release; runtime: refresh its runtime files")
     parser.add_argument("project", nargs="?", type=Path, default=Path.cwd())
-    selection = parser.add_mutually_exclusive_group()
-    selection.add_argument("--profile", choices=sorted(PROFILES))
-    selection.add_argument("--modules", help="Exact comma-separated initial module selection; empty selects core only")
+    parser.add_argument("--modules", help="Exact comma-separated initial module selection; empty selects core only")
     parser.add_argument("--editor", action="store_true", help="Opt into project-local editor adapter for a new modular project")
     parser.add_argument("--root")
-    parser.add_argument("--engine", choices=["pdflatex", "lualatex", "xelatex"])
-    parser.add_argument("--backend", choices=["none", "bibtex", "biber"])
     parser.add_argument("--build-command", help="JSON argv for an existing build, e.g. '[\"make\",\"pdf\"]'")
     parser.add_argument("--no-lint", action="store_true", help="Disable lint for the document")
     parser.add_argument("--skip-editor", action="store_true")
@@ -489,7 +470,7 @@ def main(argv=None):
         git = git_snapshot(project)
         config = detect_config(project, inventory, args)
         updates, conflicts, notes = plan(project, config, args)
-        if args.profile is None and args.modules is None:
+        if args.modules is None:
             # The default for a paper is the fullest: say what comes with it besides the checks, and how to decline.
             created = [update["path"] for update in updates if update["before"] is None]
             if any(path.startswith(".vscode/") for path in created):

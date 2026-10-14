@@ -20,7 +20,7 @@ from core import VERSION, git_output, local_path
 
 REPORTS = ".latex-ai/artifacts/issues"
 KEEP = 20
-TOOLS = ("make", "git", "latexmk", "pdflatex", "lualatex", "xelatex", "chktex", "bibtex", "biber")
+TOOLS = ("make", "git", "latexmk", "pdflatex", "chktex", "bibtex")
 
 
 def stamp():

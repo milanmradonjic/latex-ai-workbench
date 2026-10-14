@@ -37,14 +37,14 @@ class NoHandbook(ProjectCase):
 
     def test_the_manual_stays_short_whatever_the_project(self):
         (self.project / "main.tex").write_text("\\documentclass{article}\\begin{document}x\\end{document}\n")
-        self.install("init", "--engine", "pdflatex", "--no-lint")
+        self.install("init", "--no-lint")
         text = self.command("guide").stdout
         self.assertLessEqual(len(text.splitlines()), MANUAL_LINES, text)
         self.assertTrue(all(len(line) <= 140 for line in text.splitlines()))
 
     def test_no_installed_makefile_exports_a_topic(self):
         (self.project / "main.tex").write_text("\\documentclass{article}\\begin{document}x\\end{document}\n")
-        self.install("init", "--engine", "pdflatex", "--no-lint")
+        self.install("init", "--no-lint")
         self.assertIsNone(re.search(r"TOPIC", (self.project / "Makefile").read_text(encoding="utf-8")))
         self.assertFalse((self.project / ".latex-ai/handbook.py").exists())
 

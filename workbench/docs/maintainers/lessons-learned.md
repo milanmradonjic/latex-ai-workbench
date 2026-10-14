@@ -117,6 +117,14 @@ that says "never" needs a place where it is written down and a habit of checking
 outside the scratch directory, and a stale system tool (GNU Make 3.81) failed a suite that was fine under 4.4. Pin the environment in
 the verification record.
 
+**Put the real tools where the work is done.** For two releases the 16 tests that need TeX, and the portability script, were left to the hosted job because the agent's machine had no TeX Live, so
+every record said "not verified locally". Installing it takes one command (see [the maintainers' README](README.md#running-the-packages-own-checks)); with it, 4.5.0 ran the whole suite,
+the 51 real-compiler scenarios, and an old-against-new comparison that built papers with `latexmk` and `bibtex`. A verification gap that a package install closes is not a limit of the environment.
+
+**A check that another check also makes can hide that it is untested.** Removing biber, the mutation run found that accepting it in the shared defaults went unnoticed, because the
+per-document check catches the same value once the defaults are resolved. Both checks are useful (one refuses a default no document uses); only a case that reaches one and not the other
+tests it.
+
 **Plan before spawning helpers.** A 44-agent trial was costly; designing the question first would have cost less. Use sub-agents for
 independent reading and review, not as a substitute for deciding what to ask.
 

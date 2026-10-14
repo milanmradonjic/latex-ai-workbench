@@ -59,7 +59,7 @@ The LaTeX module declares a `default_document`, optional `defaults`, and a
 `documents` object keyed by stable IDs. IDs start with a letter and contain
 letters, digits, underscores or hyphens (maximum 64 characters).
 
-Each document needs a `root`. It may override `engine`, `backend`, `lint`,
+Each document needs a `root`. It may override `backend`, `lint`,
 `output_dir`, `build_command`, `inputs` and `bibliography_files`.
 `make latex-ai-bib-check` checks the shared bibliography and every document's own
 `bibliography_files`; `DOC=name` checks one document's. Lint defaults

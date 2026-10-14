@@ -67,7 +67,7 @@ A document's configured lint baseline lists the style warnings the owner accepte
 the check fails only on new ones, and a line you edit counts as new. Creating or
 refreshing that baseline (`make latex-ai-lint-baseline`) is the owner's decision,
 like changing the lint settings: ask first, and never do it to get a passing check.
-The compiler and BibTeX/Biber are authoritative for TeX expansion and
+The compiler and BibTeX are authoritative for TeX expansion and
 bibliography semantics. Static inspection is not a replacement for them.
 
 Clean build files (`make latex-ai-clean`, where the workbench provides it) only when

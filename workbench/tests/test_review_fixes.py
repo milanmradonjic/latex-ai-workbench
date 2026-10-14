@@ -39,7 +39,7 @@ class ReviewFixes(unittest.TestCase):
             (tools / name).symlink_to(shutil.which(name))
         # Hermetic: CI exports LATEX_AI_BASE, all zeros on a new branch, which would replace the Git diagnosis.
         env = {**{k: v for k, v in os.environ.items() if k != "LATEX_AI_BASE"}, "PATH": str(tools)}
-        result = self.install("--profile", "core", env=env)
+        result = self.install("--modules", "", env=env)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         result = subprocess.run([sys.executable, str(bootstrap.PACKAGE / "latex-ai-init"), "diff", str(self.project)],
                                 env=env, capture_output=True, text=True)
@@ -51,7 +51,7 @@ class ReviewFixes(unittest.TestCase):
 
     def test_json_results_wrap_the_output_and_preserve_exit_status(self):
         p = self.project
-        self.assertEqual(self.install("--profile", "core").returncode, 0)
+        self.assertEqual(self.install("--modules", "").returncode, 0)
         for action in ("status", "check"):
             result = subprocess.run([sys.executable, str(p / ".latex-ai/workbench.py"), action, "--project", str(p), "--json"],
                                     capture_output=True, text=True)
@@ -104,7 +104,7 @@ class ReviewFixes(unittest.TestCase):
     def test_existing_make_target_and_custom_build_work_together(self):
         p = self.project
         (p / "main.tex").write_text("\\documentclass{article}\n\\begin{document}Fixture\\end{document}\n")
-        result = self.install("--engine", "pdflatex", "--build-command", '["make","pdf"]', "--no-lint", "--skip-editor")
+        result = self.install("--build-command", '["make","pdf"]', "--no-lint", "--skip-editor")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         with (p / "Makefile").open("a") as stream:  # the project's own rule goes after what init wrote
             stream.write("\npdf:\n\t@echo compiler >> calls\n\tlatexmk -pdf -recorder -interaction=nonstopmode -halt-on-error main.tex\n")
