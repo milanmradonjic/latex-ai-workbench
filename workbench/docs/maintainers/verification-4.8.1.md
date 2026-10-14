@@ -64,8 +64,17 @@ and preserve the exact source bytes.
 
 ## Hosted verification
 
-Pending the pull request's five Python jobs (3.10 through 3.14) and `validate`.
-Their exact runs and conclusions will be recorded before review handoff.
+All six required jobs passed on [pull request #13](https://github.com/milanmradonjic/latex-ai-workbench/pull/13)
+at implementation commit `a9985e0` on 14 October 2026:
+
+| Run | Result |
+|---|---|
+| [Python compatibility](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38646023811) | `test (3.10)`, `test (3.11)`, `test (3.12)`, `test (3.13)` and `test (3.14)` all succeed. The 3.12 log reports 506 tests, OK, with 22 explicit tool-dependent skips; all three locally failing process tests pass unchanged. These runners have no TeX installation, so compiler coverage comes from the local tests and the separate validation job. |
+| [Validation](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38646023816) | File/policy checks, all 51 portability scenarios and the reference manuscript's full check succeed with TeX Live 2026. |
+
+The follow-up commit adds only this hosted record; the implementation remains
+the exact file tree exercised by these runs. The latest required check statuses
+remain visible on the pull request.
 
 ## Limits and open items
 
@@ -74,7 +83,8 @@ Their exact runs and conclusions will be recorded before review handoff.
   on unchanged 4.8.0 too: `test_a10_zombie_owner_is_not_running`,
   `test_killed_build_owner_keeps_ownership_while_its_compiler_runs`, and
   `test_process_identity_without_proc_still_detects_a_reused_pid`.
-  They remain enabled. Hosted CI is the verification of these cases.
+  They remain enabled and pass in hosted CI; the local full-suite command is
+  still recorded as failed, not counted as passing.
 - A biber-dependent test skips because biber is absent; the unreadable-folder
   test skips as root, and real GNU Make 3.81 is unavailable. These are recorded
   skips, not passing platform claims.
