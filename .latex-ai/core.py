@@ -14,7 +14,7 @@ import tempfile
 import time
 import processes
 
-VERSION = "4.6.0"
+VERSION = "4.7.0"
 CONFIG = ".latex-ai.json"
 # Trees that are never project sources: version control, workbench state, environments, caches and installed packages. Every
 # walk and every check of a declared path agrees on them; the installer adds the folders it alone leaves out.
@@ -103,6 +103,11 @@ def document_paths(project, root_name, output_dir=None):
     for suffix in OUTPUT_SUFFIXES:
         local_path(project, name + suffix)  # the child itself may be an escaping symlink
     return root, out, stem
+
+
+def environment_root(path):
+    """A Python virtual or conda environment, whatever it is named."""
+    return (path / "pyvenv.cfg").is_file() or (path / "conda-meta").is_dir()
 
 
 def git_read_env():
@@ -356,13 +361,13 @@ def module_names(config):
 # Every file of the distribution whose change affects installed projects: the planner treats a change to
 # one as a build/configuration change. runtime_sources (below) is the subset a given project receives.
 RUNTIME_FILES = ("runtime.py", "commands.py", "schema.py", "core.py", "latex.py", "documents.py", "diagnostics.py",
-                 "guide.py", "processes.py", "output_transaction.py",
+                 "guide.py", "processes.py", "output_transaction.py", "snapshot.py",
                  "bootstrap.py", "latex-ai-init")
 
 
 def runtime_sources(config):
     return {"runtime.py": "workbench.py", "commands.py": "commands.py", "schema.py": "schema.py", "core.py": "core.py", "diagnostics.py": "diagnostics.py", "guide.py": "guide.py",
-            "processes.py": "processes.py",
+            "processes.py": "processes.py", "snapshot.py": "snapshot.py",
             **{MODULES[name]["runtime"]: MODULES[name]["runtime"] for name in module_names(config)},
             **({"documents.py": "documents.py"} if has_module(config, "latex") else {}),
             **({"output_transaction.py": "output_transaction.py"} if has_module(config, "latex") else {})}

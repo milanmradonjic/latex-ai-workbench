@@ -232,8 +232,8 @@ def module_make_targets(config, existing=frozenset()):
     own = set().union(*(make_goals(document.view.get("build_command")) for document in documents))  # `make all` there is the project's own target
     # DOC reaches recipes through the environment ("$$DOC"), never as Make text
     # spliced into a shell line, so its value cannot be interpreted as shell syntax.
-    result = ["export ISSUE_NOTE ISSUE_COMMAND",  # the same rule for the issue report's free text
-              "export DOC"]  # the document selector
+    # the free text of the issue report and of a snapshot's label, and the document selector, all reach recipes the same way
+    result = ["export ISSUE_NOTE ISSUE_COMMAND", "export SNAPSHOT_NOTE", "export DOC"]
     for command in commands:
         result.extend([f".PHONY: {command.reserved}", f"{command.reserved}:"])
         result.append(f"\t@$(PYTHON) .latex-ai/workbench.py {command.action}{RECIPE_ARGUMENTS[command.selects]}")

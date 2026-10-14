@@ -191,6 +191,10 @@ def manual_text(project, config, problem, documents=None):
               *line("validation-plan", "which checks your change needs (nothing runs)"),
               *line("validate", "run only those checks"),
               *line("check", "the full check, before you share the work")]
+    if names.get("snapshot") or names.get("snapshots"):
+        lines += ["", "Before a risky change (an upgrade, a large edit, an agent let loose on the files)",
+                  *line("snapshot", "keep a copy of every file outside the project, to restore from", 'SNAPSHOT_NOTE="why"'),
+                  *line("snapshots", "list the copies, and the Git command that restores from one")]
     if config is not None and has_module(config, "latex"):
         lines += ["", "One document (DOC=NAME; without it, the default document)",
                   *line("build", "build the PDF and record that it matches its sources", "DOC=NAME"),

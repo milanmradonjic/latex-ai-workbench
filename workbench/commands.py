@@ -11,7 +11,7 @@ from typing import NamedTuple, Optional, Tuple
 # What a recipe takes from Make variables, by the ``selects`` of a target (DOC and the issue
 # variables reach recipes through the environment, never as Make text spliced into a shell line).
 RECIPE_ARGUMENTS = {"": "", "document": ' --document "$$DOC"', "all": " --all",
-                    "note": ' --note "$$ISSUE_NOTE" --command "$$ISSUE_COMMAND"'}
+                    "note": ' --note "$$ISSUE_NOTE" --command "$$ISSUE_COMMAND"', "label": ' --note "$$SNAPSHOT_NOTE"'}
 
 
 RESERVED_PREFIX = "latex-ai-"  # every Make name the installer reserves starts with it
@@ -24,7 +24,7 @@ class Target(NamedTuple):
     reserved: Optional[str]
     group: str
     description: str
-    selects: str = ""     # what the recipe takes from Make variables: "document" or "note"
+    selects: str = ""     # what the recipe takes from Make variables: "document", "all", "note" or "label"
     usage: str = ""       # the assignment `make help` shows after the name: DOC=NAME
 
 
@@ -94,6 +94,10 @@ ACTIONS = (
         Target("modules", "latex-ai-modules", "Inspect and report", "Show which modules are enabled (JSON)"),)),
     Action("issue", standalone=True, targets=(
         Target("issue", "latex-ai-issue", "Inspect and report", 'Write a local report on a suspected workbench defect: ISSUE_NOTE="observed ... expected ..."', selects="note"),)),
+    Action("snapshot", standalone=True, targets=(
+        Target("snapshot", "latex-ai-snapshot", "Snapshots", 'Keep a copy of every file outside the project, to restore from: SNAPSHOT_NOTE="why" labels it', selects="label"),)),
+    Action("snapshots", standalone=True, targets=(
+        Target("snapshots", "latex-ai-snapshots", "Snapshots", "List the snapshots and the Git command that restores from one"),)),
 )
 
 NAMES = tuple(action.name for action in ACTIONS)
