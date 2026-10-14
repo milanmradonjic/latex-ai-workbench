@@ -180,7 +180,8 @@ manuscript session every Git mutation needs approval, as "Git safety" says.
 branch with finished work, without asking first, and report its link, what the checks showed and what could not be verified. This
 holds in both kinds of session: it follows a push that was already approved (in a manuscript session, the push still needs approval
 each time). If a pull request for the branch exists, push to it; never open a second one for the same change. Merging stays the
-owner's, as above.
+owner's, as above: give the owner the command, `gh pr merge NUMBER --auto --merge --delete-branch` while the required checks are still running (it
+merges once they pass, and a red one holds it), or the same without `--auto` once they have passed.
 
 **The one merge delegated to an agent.** A *record pull request* is one whose every changed file is
 `workbench/docs/maintainers/plan-after-3.0.2.md` or a `verification*.md` in that folder: records of what
