@@ -24,11 +24,11 @@ EVERY_KEY = {
     "schema_version": 3,
     "modules": {
         "latex": {"default_document": "paper",
-                  "defaults": {"engine": "lualatex", "backend": "biber", "lint": {"enabled": True, "args": ["-n8"]}, "output_dir": "out"},
+                  "defaults": {"engine": "pdflatex", "backend": "bibtex", "lint": {"enabled": True, "args": ["-n8"]}, "output_dir": "out"},
                   "documents": {"paper": {"root": "main.tex", "inputs": ["data/*.csv"], "bibliography_files": ["extra.bib"]},
-                                "note": {"root": "notes/note.tex", "engine": "xelatex", "backend": "bibtex", "build_command": ["make", "note"],
+                                "note": {"root": "notes/note.tex", "engine": "pdflatex", "backend": "none", "build_command": ["make", "note"],
                                          "output_dir": "note-out", "lint": {"enabled": False, "baseline": "note.baseline.json"}}}},
-        "bibliography": {"files": ["refs.bib"], "export": {"path": "refs.bib", "required": True, "format": "biblatex"}},
+        "bibliography": {"files": ["refs.bib"], "export": {"path": "refs.bib", "required": True, "format": "bibtex"}},
     },
     "integrations": {"editor": False},
     "validation": {"manuscript_inputs": ["figures/*.pdf"], "package": None},
@@ -86,10 +86,10 @@ class ViewTypes(unittest.TestCase):
 
     def test_typed_properties_read_the_keys_the_backends_use(self):
         view = self.view("note")
-        self.assertEqual((view.name, view.root, view.engine, view.output_dir), ("note", "notes/note.tex", "xelatex", "note-out"))
+        self.assertEqual((view.name, view.root, view.engine, view.output_dir), ("note", "notes/note.tex", "pdflatex", "note-out"))
         self.assertEqual(list(view.build_command), ["make", "note"])
         self.assertEqual(view.lint["enabled"], False)
-        self.assertEqual(view.bibliography["backend"], "bibtex")
+        self.assertEqual(view.bibliography["backend"], "none")
         self.assertEqual(list(self.view("paper").inputs), ["data/*.csv"])
         self.assertEqual(view.validation["manuscript_inputs"], ["figures/*.pdf"])
 

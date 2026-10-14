@@ -165,7 +165,7 @@ class Audit3Repairs(unittest.TestCase):
             "import subprocess,sys\n"
             "if sys.stdin.readline().strip()!='approve': raise SystemExit(3)\n"
             "subprocess.run(['pdflatex','-interaction=nonstopmode','-halt-on-error','main.tex'],check=True)\n")
-        self.install('init','--no-lint','--skip-editor','--engine','pdflatex',
+        self.install('init','--no-lint','--skip-editor',
                      '--build-command',json.dumps([sys.executable,'compile.py']))
         self.command('build', input='approve\n')
         self.command('verify')
@@ -208,7 +208,7 @@ class Audit3Repairs(unittest.TestCase):
     @unittest.skipUnless(TEX, 'real latexmk/pdflatex required')
     def test_a8_current_startup_failure_never_uses_prior_tex_log(self):
         (self.project / 'main.tex').write_text(SOURCE.replace('Audit fixture.','\\OLDMACRO'))
-        self.install('init','--no-lint','--skip-editor','--engine','pdflatex')
+        self.install('init','--no-lint','--skip-editor')
         first = self.command('build',expected=1)
         self.assertIn('Undefined control sequence',first.stderr)
         (self.project / 'main.tex').write_text(SOURCE)
@@ -260,7 +260,7 @@ class Audit3Repairs(unittest.TestCase):
         makefile='check:: local-test\nlocal-test:\n\ttouch project-check-ran\n'
         (self.project/'Makefile').write_text(makefile)
         (self.project/'main.tex').write_text(SOURCE)
-        result=self.install('init','--no-lint','--skip-editor','--engine','pdflatex',
+        result=self.install('init','--no-lint','--skip-editor',
                             '--build-command',json.dumps([sys.executable,'-c','pass']),expected=None)
         if result.returncode==0:
             parsed=self.run_command('make','-n','check')

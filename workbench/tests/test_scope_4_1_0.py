@@ -50,7 +50,7 @@ class NoGeneratedCI(ProjectCase):
         workflow = self.project / ".github/workflows/mine.yml"
         workflow.parent.mkdir(parents=True)
         workflow.write_text("name: mine\non: workflow_dispatch\n")
-        self.install("init", "--engine", "pdflatex", "--no-lint")
+        self.install("init", "--no-lint")
         self.assertEqual(sorted(p.name for p in workflow.parent.iterdir()), ["mine.yml"])
         self.assertEqual(workflow.read_text(), "name: mine\non: workflow_dispatch\n")
         self.install("runtime")

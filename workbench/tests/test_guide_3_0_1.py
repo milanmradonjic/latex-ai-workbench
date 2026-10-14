@@ -76,7 +76,7 @@ class Orientation(ProjectCase):
                 self.assertIn(name, names, name)
 
     def test_a_project_without_latex_gets_a_manual_without_documents(self):
-        self.install("init", "--profile", "core")
+        self.install("init", "--modules", "")
         text = self.command("guide").stdout
         self.assertIn("Modules: none (core only)", text)
         self.assertNotIn("make build", text)
@@ -129,9 +129,9 @@ class Orientation(ProjectCase):
     def test_status_names_the_settings_that_changed(self):
         self.built()
         config = json.loads((self.project / core.CONFIG).read_text())
-        config["modules"]["latex"]["documents"]["paper"]["engine"] = "lualatex"
+        config["modules"]["latex"]["documents"]["paper"]["backend"] = "bibtex"
         (self.project / core.CONFIG).write_text(json.dumps(config))
-        self.assertEqual(self.reasons(), ["build settings changed: engine"])
+        self.assertEqual(self.reasons(), ["build settings changed: bibliography"])
 
     def test_status_says_when_the_outputs_no_longer_match(self):
         self.built()

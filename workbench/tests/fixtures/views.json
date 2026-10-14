@@ -1,13 +1,14 @@
 {
+  "core-only": [],
   "every-key": [
     {
       "default": true,
       "name": "paper",
       "view": {
         "bibliography": {
-          "backend": "biber",
+          "backend": "bibtex",
           "export": {
-            "format": "biblatex",
+            "format": "bibtex",
             "path": "refs.bib",
             "required": true
           },
@@ -17,7 +18,7 @@
           ]
         },
         "build_command": null,
-        "engine": "lualatex",
+        "engine": "pdflatex",
         "inputs": [
           "data/*.csv"
         ],
@@ -45,9 +46,9 @@
       "name": "note",
       "view": {
         "bibliography": {
-          "backend": "bibtex",
+          "backend": "none",
           "export": {
-            "format": "biblatex",
+            "format": "bibtex",
             "path": "refs.bib",
             "required": true
           },
@@ -59,7 +60,7 @@
           "make",
           "note"
         ],
-        "engine": "xelatex",
+        "engine": "pdflatex",
         "inputs": [],
         "lint": {
           "args": [
@@ -76,6 +77,60 @@
             "figures/*.pdf"
           ],
           "package": null
+        }
+      }
+    }
+  ],
+  "latex": [
+    {
+      "default": true,
+      "name": "manuscript",
+      "view": {
+        "bibliography": {
+          "backend": "none",
+          "export": null,
+          "files": []
+        },
+        "build_command": null,
+        "engine": "pdflatex",
+        "inputs": [],
+        "lint": {
+          "args": [],
+          "baseline": ".latex-ai/lint-baselines/manuscript.json",
+          "enabled": true
+        },
+        "name": "manuscript",
+        "output_dir": ".latex-ai/artifacts/documents/manuscript/build",
+        "root": "main.tex",
+        "validation": {
+          "manuscript_inputs": []
+        }
+      }
+    }
+  ],
+  "latex-no-editor": [
+    {
+      "default": true,
+      "name": "manuscript",
+      "view": {
+        "bibliography": {
+          "backend": "none",
+          "export": null,
+          "files": []
+        },
+        "build_command": null,
+        "engine": "pdflatex",
+        "inputs": [],
+        "lint": {
+          "args": [],
+          "baseline": ".latex-ai/lint-baselines/manuscript.json",
+          "enabled": true
+        },
+        "name": "manuscript",
+        "output_dir": ".latex-ai/artifacts/documents/manuscript/build",
+        "root": "main.tex",
+        "validation": {
+          "manuscript_inputs": []
         }
       }
     }
@@ -151,61 +206,6 @@
         "name": "notebook",
         "output_dir": ".latex-ai/artifacts/documents/notebook/build",
         "root": "notes/notebook.tex",
-        "validation": {
-          "manuscript_inputs": []
-        }
-      }
-    }
-  ],
-  "profile-core": [],
-  "profile-writing": [
-    {
-      "default": true,
-      "name": "manuscript",
-      "view": {
-        "bibliography": {
-          "backend": "none",
-          "export": null,
-          "files": []
-        },
-        "build_command": null,
-        "engine": "pdflatex",
-        "inputs": [],
-        "lint": {
-          "args": [],
-          "baseline": ".latex-ai/lint-baselines/manuscript.json",
-          "enabled": true
-        },
-        "name": "manuscript",
-        "output_dir": ".latex-ai/artifacts/documents/manuscript/build",
-        "root": "main.tex",
-        "validation": {
-          "manuscript_inputs": []
-        }
-      }
-    }
-  ],
-  "profile-writing-no-editor": [
-    {
-      "default": true,
-      "name": "manuscript",
-      "view": {
-        "bibliography": {
-          "backend": "none",
-          "export": null,
-          "files": []
-        },
-        "build_command": null,
-        "engine": "pdflatex",
-        "inputs": [],
-        "lint": {
-          "args": [],
-          "baseline": ".latex-ai/lint-baselines/manuscript.json",
-          "enabled": true
-        },
-        "name": "manuscript",
-        "output_dir": ".latex-ai/artifacts/documents/manuscript/build",
-        "root": "main.tex",
         "validation": {
           "manuscript_inputs": []
         }

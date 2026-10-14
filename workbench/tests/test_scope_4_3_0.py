@@ -45,7 +45,7 @@ class NoUpgradeMachinery(ProjectCase):
             self.assertFalse(hasattr(bootstrap, name), name)
         self.assertFalse(hasattr(diagnostics, "manifest"))
         (self.project / "main.tex").write_text(SOURCE)
-        self.install("init", "--engine", "pdflatex", "--no-lint", "--skip-editor")
+        self.install("init", "--no-lint", "--skip-editor")
         self.assertFalse((self.project / ".latex-ai/installation.py").exists())
 
     def test_the_installer_stays_small(self):
@@ -60,7 +60,7 @@ class NoUpgradeMachinery(ProjectCase):
         self.assertIn("modules", raised.exception.hint)
 
     def test_a_disabled_module_is_one_that_is_absent_and_the_commands_say_how_to_turn_it_on(self):
-        self.install("init", "--profile", "core")
+        self.install("init", "--modules", "")
         done = self.command("bib-check", expected=None)
         self.assertNotEqual(done.returncode, 0)
         self.assertIn('"modules"', done.stderr)
@@ -70,7 +70,7 @@ class NoUpgradeMachinery(ProjectCase):
 class Init(ProjectCase):
     def test_init_creates_a_project_and_records_a_digest_of_each_runtime_file_and_nothing_else(self):
         (self.project / "main.tex").write_text(SOURCE)
-        self.install("init", "--engine", "pdflatex", "--no-lint", "--skip-editor")
+        self.install("init", "--no-lint", "--skip-editor")
         record = json.loads((self.project / ".latex-ai/installation.json").read_text(encoding="utf-8"))
         self.assertEqual(set(record), {"schema_version", "version", "files"})
         self.assertEqual(record["version"], core.VERSION)
@@ -80,7 +80,7 @@ class Init(ProjectCase):
 
     def test_init_refuses_a_project_that_is_installed_and_writes_nothing(self):
         (self.project / "main.tex").write_text(SOURCE)
-        self.install("init", "--engine", "pdflatex", "--no-lint", "--skip-editor")
+        self.install("init", "--no-lint", "--skip-editor")
         before = {path: path.read_bytes() for path in self.project.rglob("*") if path.is_file()}
         done = self.install("init", expected=2)
         self.assertIn("already has the workbench installed", done.stdout + done.stderr)
@@ -108,18 +108,18 @@ class Init(ProjectCase):
             return real(project, name, text)
 
         with patch.object(bootstrap, "publish", dies_on_the_sixth_file), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            self.assertEqual(bootstrap.main(["init", "--profile", "writing", "--engine", "pdflatex", str(self.project)]), 2)
+            self.assertEqual(bootstrap.main(["init", "--modules", "latex", str(self.project)]), 2)
         self.assertTrue((self.project / core.CONFIG).is_file())
         self.assertFalse((self.project / ".latex-ai/installation.json").exists(), "the record is written last")
-        done = self.install("init", "--profile", "writing", expected=2)
+        done = self.install("init", "--modules", "latex", expected=2)
         self.assertIn("run init again without them", done.stdout + done.stderr)
-        self.install("init", "--engine", "pdflatex")
+        self.install("init")
         self.assertEqual(self.install("diff").returncode, 0)
 
     def test_init_does_not_let_an_option_override_the_configuration_it_found(self):
         (self.project / "main.tex").write_text(SOURCE)
         self.configure()
-        for option in (("--profile", "core"), ("--modules", "latex"), ("--editor",), ("--engine", "xelatex")):
+        for option in (("--modules", ""), ("--modules", "latex"), ("--editor",), ("--root", "other.tex")):
             with self.subTest(option=option):
                 self.install("init", *option, expected=2)
 
@@ -128,7 +128,7 @@ class Diff(ProjectCase):
     def setUp(self):
         super().setUp()
         (self.project / "main.tex").write_text(SOURCE)
-        self.install("init", "--engine", "pdflatex", "--no-lint", "--skip-editor")
+        self.install("init", "--no-lint", "--skip-editor")
 
     def snapshot(self):
         return {path: path.read_bytes() for path in self.project.rglob("*") if path.is_file()}
@@ -156,7 +156,7 @@ class Diff(ProjectCase):
         self.assertIn("DIFFERS (a file you may have added to; read, do not overwrite): AGENTS.md", done.stdout)
 
     def test_the_options_only_init_reads_are_refused_not_ignored(self):
-        for option in ("--profile=core", "--engine=xelatex", "--json", "--no-lint", "--force"):
+        for option in ("--modules=latex", "--root=main.tex", "--json", "--no-lint", "--force"):
             with self.subTest(option=option):
                 done = self.install("diff", option, expected=2)
                 self.assertIn("does not take", done.stdout + done.stderr)
@@ -166,7 +166,7 @@ class Runtime(ProjectCase):
     def setUp(self):
         super().setUp()
         (self.project / "main.tex").write_text(SOURCE)
-        self.install("init", "--engine", "pdflatex", "--no-lint", "--skip-editor")
+        self.install("init", "--no-lint", "--skip-editor")
         self.core = self.project / ".latex-ai/core.py"
         self.original = self.core.read_text(encoding="utf-8")
 

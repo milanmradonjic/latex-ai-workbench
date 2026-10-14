@@ -50,12 +50,12 @@ class ModuleTests(unittest.TestCase):
     def example(self):
         """A small LaTeX project with the workbench installed."""
         (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nExample.\n\\end{document}\n")
-        self.assertEqual(self.cli("init", "--engine", "pdflatex", "--no-lint", "--skip-editor"), 0)
+        self.assertEqual(self.cli("init", "--no-lint", "--skip-editor"), 0)
         return schema.load_config(self.project)
 
 
     def test_core_install_without_tex_or_editor(self):
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         self.assertFalse((self.project / ".latex-ai/latex.py").exists())
         self.assertFalse((self.project / ".vscode").exists())
         self.assertFalse((self.project / ".github").exists())
@@ -70,8 +70,8 @@ class ModuleTests(unittest.TestCase):
     def test_cli_options_before_and_after_project_are_equivalent(self):
         before = self.snapshot()
         reports = []
-        for argv in (["init", "--profile", "core", str(self.project), "--dry-run", "--json"],
-                     ["init", str(self.project), "--profile", "core", "--dry-run", "--json"]):
+        for argv in (["init", "--modules", "", str(self.project), "--dry-run", "--json"],
+                     ["init", str(self.project), "--modules", "", "--dry-run", "--json"]):
             output = io.StringIO()
             with contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(boot.main(argv), 0)
@@ -80,11 +80,11 @@ class ModuleTests(unittest.TestCase):
         self.assertEqual(before, self.snapshot())
 
     def test_disabled_latex_command_fails_before_tool_execution(self):
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         self.assertIn("Module is disabled: latex", self.command("build", expected=1).stderr)
 
     def test_saving_a_text_file_validates_without_a_compiler(self):
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         notes = self.project / "notes/session.md"
         notes.parent.mkdir()
         notes.write_text("A question about physics.\n")
@@ -94,17 +94,17 @@ class ModuleTests(unittest.TestCase):
         self.assertEqual(before, self.snapshot())
 
     def test_missing_history_never_introduces_disabled_modules(self):
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         plan = json.loads(self.command("plan", "--json").stdout)
         self.assertTrue(plan["fallback"])
         self.assertFalse(plan["manuscript"])
         self.assertFalse(plan["portability"])
         self.command("validate")
 
-    def test_profile_does_not_override_installed_choices(self):
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+    def test_modules_do_not_override_installed_choices(self):
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         before = self.snapshot()
-        self.assertEqual(self.cli("init", "--profile", "core"), 2)  # a project that has the workbench is not created again
+        self.assertEqual(self.cli("init", "--modules", ""), 2)  # a project that has the workbench is not created again
         self.assertEqual(before, self.snapshot())
 
     def test_unknown_modules_and_settings_are_rejected(self):
@@ -129,7 +129,7 @@ class ModuleTests(unittest.TestCase):
             return rt.main(), errors.getvalue()
 
     def test_internal_faults_are_labelled_apart_from_ordinary_errors_and_never_written_into_the_project(self):
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         self.addCleanup(shutil.rmtree, diagnostics.fault_dir(self.project), True)
         before = self.snapshot()
         with patch.object(rt, "full_check", side_effect=AttributeError("boom")):
@@ -219,7 +219,7 @@ class ModuleTests(unittest.TestCase):
         self.assertEqual(self.latest_report()["configuration_error"], "TypeError: odd")
 
     def test_issue_make_target_takes_free_text_through_the_environment(self):
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         hostile = 'observed "quoted"; touch INJECTED; echo "'
         done = subprocess.run(["make", "issue", f"ISSUE_NOTE={hostile}", "ISSUE_COMMAND=make check"], cwd=self.project, capture_output=True, text=True)
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
@@ -230,7 +230,7 @@ class ModuleTests(unittest.TestCase):
     def test_advertised_report_command_works_where_the_project_has_its_own_issue_target(self):
         # A project may take over the short `issue` and keep only `latex-ai-issue` for the workbench, so
         # whatever the guidance tells an agent to run must be the name that always reaches the report.
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         own_targets(self.project, "issue", recipe="@touch PROJECT_ISSUE_RAN")
         template = (boot.PACKAGE / "templates/AGENTS.md").read_text()
         advertised = re.search(r"`make ([\w-]+) ISSUE_NOTE=", template).group(1)
@@ -268,7 +268,7 @@ class ModuleTests(unittest.TestCase):
         return done.stdout
 
     def test_help_lists_what_this_project_has_and_only_that(self):
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         core_help = self.make_output("help")
         for line in ("make check", "make validate", "make status", "make doctor", "make help", "make issue"):
             self.assertIn(line, core_help)
@@ -284,7 +284,7 @@ class ModuleTests(unittest.TestCase):
             self.assertIn(line, help_text)
 
     def test_help_names_the_command_that_reaches_the_workbench_when_the_project_has_its_own(self):
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         own_targets(self.project, "help", recipe="@echo PROJECT_HELP")
         own_targets(self.project, "issue", recipe="@echo PROJECT_ISSUE")
         self.assertEqual(self.make_output("help").strip(), "PROJECT_HELP")  # the project's target is kept
@@ -295,19 +295,19 @@ class ModuleTests(unittest.TestCase):
         self.assertIn("make status", text)  # an alias nothing else uses stays short
 
     def test_help_survives_a_broken_configuration(self):
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         (self.project / core.CONFIG).write_text("{not json")
         text = self.make_output("help")
         self.assertIn("Configuration problem", text)
         self.assertIn("make check", text)
 
     def test_every_installed_make_target_is_described_by_help(self):
-        for profile in ("core", "writing"):
-            with self.subTest(profile=profile):
+        for modules in ("", "latex"):
+            with self.subTest(modules=modules):
                 shutil.rmtree(self.project)
                 self.project.mkdir()
                 (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n")
-                self.assertEqual(self.cli("init", "--profile", profile), 0)
+                self.assertEqual(self.cli("init", "--modules", modules), 0)
                 text = (self.project / "Makefile").read_text()
                 targets = set(re.findall(r"^([A-Za-z][\w-]*)\s*:(?!=)", text, re.M))
                 described = {name for command in guide.COMMANDS for name in (command.short, command.reserved) if name}
@@ -331,7 +331,7 @@ class ModuleTests(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("git"), "needs git")
     def test_status_says_what_git_and_the_installed_files_look_like(self):
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         text = self.make_output("status")
         self.assertIn("not a Git repository", text)
         self.commit_everything()
@@ -365,7 +365,7 @@ class ModuleTests(unittest.TestCase):
             self.assertEqual(rt.main(), 1)
         self.assertIn("no workbench installed", errors.getvalue())
         self.assertIn("latex-ai-init init .", errors.getvalue())
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         status, errors = run("build")
         self.assertEqual(status, 1)
         self.assertIn("Module is disabled: latex", errors)
@@ -377,15 +377,15 @@ class ModuleTests(unittest.TestCase):
 
     def test_installer_summarises_in_plain_words_and_says_what_comes_next(self):
         (self.project / "main.tex").write_text(self.PAPER)
-        status, text = self.cli_output("init", "--engine", "pdflatex", "--dry-run")
+        status, text = self.cli_output("init", "--dry-run")
         self.assertIn("Dry run: nothing was changed", text)
         self.assertFalse((self.project / ".latex-ai/workbench.py").exists())
-        status, text = self.cli_output("init", "--engine", "pdflatex")
+        status, text = self.cli_output("init")
         self.assertEqual(status, 0)
         self.assertRegex(text, r"Done: \d+ file\(s\) added")
         for command in ("make doctor", "make help", "make check"):
             self.assertIn(command, text)
-        status, _, errors = self.cli_result("init", "--engine", "pdflatex")
+        status, _, errors = self.cli_result("init")
         self.assertEqual(status, 2)
         self.assertIn("already has the workbench installed", errors)
         self.assertRegex(errors, r"Hint: .*runtime.*diff")
@@ -395,7 +395,7 @@ class ModuleTests(unittest.TestCase):
     def test_policy_names_orientation_commands_that_reach_the_workbench(self):
         # The rule that made the report command `latex-ai-issue`: a project's own target of the short name is
         # kept, so guidance an agent follows blindly must name the command that always reaches the workbench.
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         own_targets(self.project, "help", recipe="@touch PROJECT_HELP_RAN")
         own_targets(self.project, "status", recipe="@touch PROJECT_STATUS_RAN")
         policies = {"full policy": (boot.PACKAGE / "templates/AGENTS.md").read_text(), "installed policy": (self.project / "AGENTS.md").read_text()}
@@ -410,7 +410,7 @@ class ModuleTests(unittest.TestCase):
 
     def test_status_does_not_count_the_projects_own_files_as_changed_installation_files(self):
         # Editor settings are merged with the project's own: editing them is the intended use, not a change to the installation.
-        self.assertEqual(self.cli("init", "--profile", "core", "--editor"), 0)
+        self.assertEqual(self.cli("init", "--modules", "", "--editor"), 0)
         tasks = json.loads((self.project / ".vscode/tasks.json").read_text())
         tasks["tasks"].append({"label": "Mine", "type": "process", "command": "true"})
         (self.project / ".vscode/tasks.json").write_text(json.dumps(tasks))
@@ -426,7 +426,7 @@ class ModuleTests(unittest.TestCase):
         self.assertIn("files differing from the record: .latex-ai/core.py", self.command("issue").stdout)
 
     def test_a_projects_own_target_is_never_presented_as_the_workbench_command(self):
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         own_targets(self.project, "doctor", recipe="@touch PROJECT_DOCTOR_RAN")
         listed = self.make_output("help")
         self.assertIn("make latex-ai-doctor", listed)
@@ -442,7 +442,7 @@ class ModuleTests(unittest.TestCase):
         shared = {command.short for command in guide.COMMANDS if command.reserved is None}
         self.assertEqual(shared, {"check", "lint"})  # build has a receipt-producing reserved target
         (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n")
-        self.assertEqual(self.cli("init", "--modules", "latex", "--engine", "pdflatex"), 0)
+        self.assertEqual(self.cli("init", "--modules", "latex"), 0)
         own_targets(self.project, "doctor", "bib-check", "pdf-artifact", "clean", recipe="@echo MINE")
         targets = guide.make_targets((self.project / "Makefile").read_text())
         for name in ("doctor", "bib-check", "pdf-artifact"):
@@ -455,7 +455,7 @@ class ModuleTests(unittest.TestCase):
         status, _, errors = self.cli_result("init")  # the quickstart's first command, on an empty folder
         self.assertEqual(status, 2)
         self.assertIn("Hint:", errors)
-        self.assertIn("--profile", errors)
+        self.assertIn("--modules", errors)
         for name in ("paper.tex", "thesis.tex"):
             (self.project / name).write_text("\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n")
         status, _, errors = self.cli_result("init")
@@ -466,10 +466,10 @@ class ModuleTests(unittest.TestCase):
             self.assertEqual(boot.main(["init", str(self.project), "--json"]), 2)
         self.assertIn("--root", json.loads(out.getvalue())["hint"])
         quickstart = (boot.PACKAGE / "docs/quickstart.md").read_text()
-        self.assertRegex(quickstart, r"latex-ai-init init /path/to/project --profile \w+")  # a command for the empty folder
+        self.assertIn("latex-ai-init init /path/to/project --modules ''", quickstart)  # a command for the empty folder
 
     def test_a_damaged_installation_record_gets_a_diagnosis_not_the_defect_label(self):
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         self.addCleanup(shutil.rmtree, diagnostics.fault_dir(self.project), True)
         for damaged in ("[]", '{"schema_version": 1, "version": "2.0.0", "files": []}',
                         '{"schema_version": 1, "version": 2, "files": {}}', '{"schema_version": 1, "version": "2.0.0", "files": {"Makefile": 5}}'):
@@ -488,7 +488,7 @@ class ModuleTests(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("git"), "needs git")
     def test_status_only_says_nothing_is_pending_when_that_is_known(self):
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         text = self.make_output("status")  # no Git: what changed cannot be known
         self.assertNotIn("Nothing pending", text)
         self.assertIn("make check", text.split("Next:")[1])
@@ -503,7 +503,7 @@ class ModuleTests(unittest.TestCase):
         self.assertIn("latex-ai-init diff .", text.split("Next:")[1])
 
     def test_help_and_status_explain_a_missing_configuration_in_plain_words(self):
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         (self.project / core.CONFIG).unlink()
         for target in ("help", "status"):
             with self.subTest(target=target):
@@ -528,7 +528,7 @@ class ModuleTests(unittest.TestCase):
     def test_full_check_builds_before_linting_and_a_lint_failure_says_what_can_be_done(self):
         import latex
         (self.project / "main.tex").write_text(self.PAPER)
-        self.assertEqual(self.cli("init", "--profile", "writing"), 0)
+        self.assertEqual(self.cli("init", "--modules", "latex"), 0)
         config = schema.load_config(self.project)
         order = []
         with patch.object(rt, "build", side_effect=lambda *a: order.append("build")), patch.object(rt, "verify", side_effect=lambda *a: order.append("verify")), \
@@ -579,7 +579,7 @@ class ModuleTests(unittest.TestCase):
         self.assertIn("+.DEFAULT_GOAL := build", text)  # files the project will own or read are still shown in full
 
     def test_validation_without_git_history_says_so_in_plain_words(self):
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         text = self.make_output("validation-plan")
         self.assertIn("full validation selected", text)
         self.assertIn("not a Git repository", text)
@@ -624,22 +624,16 @@ class ModuleTests(unittest.TestCase):
         (self.project / "main.tex").write_text(self.PAPER)
         status, errors = attempt("init", str(self.project / "main.tex"))
         self.assertRegex(errors, r"Hint: .*folder")
-        (self.project / "main.tex").write_text(self.PAPER.replace("\\begin{document}", "\\usepackage{fontspec}\n\\begin{document}"))  # an engine the source does not name
-        status, errors = attempt("init", str(self.project))
-        self.assertEqual(status, 2)
-        hint = errors.split("Hint:")[1]
-        for phrase in ("pdflatex", "lualatex", "xelatex", "--engine"):
-            self.assertIn(phrase, hint)
         (self.project / "main.tex").write_text(self.PAPER)
         self.assertEqual(attempt("init", str(self.project))[0], 0)
-        status, errors = attempt("init", str(self.project), "--profile", "writing")
+        status, errors = attempt("init", str(self.project), "--modules", "latex")
         self.assertEqual(status, 2)
         hint = errors.split("Hint:")[1]
         self.assertIn("runtime", hint)
         self.assertIn("diff", hint)
 
     def test_small_print_of_everyday_commands(self):
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         env = {name: value for name, value in os.environ.items() if name not in {"MAKEFLAGS", "MFLAGS", "MAKELEVEL", "MAKEOVERRIDES", "TASK", "LATEX_AI_BASE"}}
         shown = subprocess.run(["make", "help"], cwd=self.project, capture_output=True, text=True, env=env)  # no -s: the recipe itself is quiet
         self.assertTrue(shown.stdout.startswith("LaTeX AI Workbench"), shown.stdout[:120])
@@ -648,7 +642,7 @@ class ModuleTests(unittest.TestCase):
         self.assertNotIn("TeX distribution", errors)  # a core project does not need one
         self.assertNotIn("citation keys", next(command.description for command in guide.COMMANDS if command.short == "bib-check"))
         self.fresh_project()
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         checked = subprocess.run(["make", "check"], cwd=self.project, capture_output=True, text=True, env=env)
         self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
         self.assertIn("passed", checked.stdout.rstrip().splitlines()[-1])
@@ -665,7 +659,7 @@ class ModuleTests(unittest.TestCase):
 
     # --- Release 2.4.0: simplifications, and the findings of the blind trial of 2.3.3 ---
 
-    def test_a_plain_install_writes_the_same_configuration_format_as_a_profile(self):
+    def test_a_plain_install_writes_the_same_configuration_format_as_a_chosen_set_of_modules(self):
         (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nSee~\\cite{k}.\n\\bibliographystyle{plain}\n\\bibliography{refs}\n\\end{document}\n")
         (self.project / "refs.bib").write_text("@misc{k, title = {Synthetic fixture}, year = {2000}}\n")
         self.assertEqual(self.cli("init"), 0)
@@ -693,12 +687,12 @@ class ModuleTests(unittest.TestCase):
         for name, text in texts.items():
             with self.subTest(text=name):
                 self.assertEqual(set(re.findall(r"\bmake (latex-ai-[a-z-]+)", text)) - reserved - internal, set())
-        # The Makefile of every profile holds exactly the reserved targets its modules enable.
-        for profile in ("core", "writing"):
-            with self.subTest(profile=profile):
+        # The Makefile of every starting set of modules holds exactly the reserved targets they enable.
+        for modules in ("", "latex"):
+            with self.subTest(modules=modules):
                 self.fresh_project()
                 (self.project / "main.tex").write_text(self.PAPER)
-                self.assertEqual(self.cli("init", "--profile", profile), 0)
+                self.assertEqual(self.cli("init", "--modules", modules), 0)
                 config = schema.load_config(self.project)
                 targets = guide.make_targets((self.project / "Makefile").read_text())
                 expected = {command.reserved for command in guide.COMMANDS if command.reserved and guide.enabled(command, config)}
@@ -712,7 +706,7 @@ class ModuleTests(unittest.TestCase):
     def test_lint_baseline_accepts_recorded_warnings_and_fails_only_on_new_ones(self):
         import latex
         (self.project / "main.tex").write_text(self.PAPER)
-        self.assertEqual(self.cli("init", "--profile", "writing"), 0)
+        self.assertEqual(self.cli("init", "--modules", "latex"), 0)
         config = schema.load_config(self.project)
         baseline = self.project / latex.baseline_path(schema.document_settings(config))
 
@@ -758,7 +752,7 @@ class ModuleTests(unittest.TestCase):
     def test_lint_output_that_cannot_be_read_fails_instead_of_passing(self):
         import latex
         (self.project / "main.tex").write_text(self.PAPER)
-        self.assertEqual(self.cli("init", "--profile", "writing"), 0)
+        self.assertEqual(self.cli("init", "--modules", "latex"), 0)
         config = schema.load_config(self.project)
         for returncode, stdout in ((2, "something this version prints differently\n"), (1, "")):
             done = argparse.Namespace(returncode=returncode, stdout=stdout, stderr="chktex: complaint\n")
@@ -773,7 +767,7 @@ class ModuleTests(unittest.TestCase):
         self.assertEqual(rows, [{"file": "main.tex", "line": 3, "warning": 2, "message": "Non-breaking space", "text": "See Fig. \\ref{f}."}])
 
     def test_small_print_from_the_blind_trial(self):
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         self.assertIn("All required tools found", self.command("doctor").stdout)
         quickstart = (boot.PACKAGE / "docs/quickstart.md").read_text()
         self.assertNotIn("fullest", quickstart)
@@ -781,16 +775,16 @@ class ModuleTests(unittest.TestCase):
         self.assertNotIn("`workbench/skills/latex-ai-workbench/`", (boot.PACKAGE / "templates/AGENTS.md").read_text())  # no path that an adopted project lacks
 
     def test_doctor_reports_the_interpreter_that_runs_it(self):
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         report = self.command("doctor").stdout
         self.assertIn(f"python: {sys.executable}", report)
         self.assertNotIn("python3:", report)  # the PATH lookup could name a different interpreter
 
     def test_dry_runs_and_diff_never_write(self):
         before = self.snapshot()
-        self.assertEqual(self.cli("init", "--profile", "core", "--dry-run"), 0)
+        self.assertEqual(self.cli("init", "--modules", "", "--dry-run"), 0)
         self.assertEqual(before, self.snapshot())
-        self.assertEqual(self.cli("init", "--profile", "core"), 0)
+        self.assertEqual(self.cli("init", "--modules", ""), 0)
         before = self.snapshot()
         self.assertEqual(self.cli("diff"), 0)
         self.assertEqual(self.cli("runtime", "--dry-run"), 0)

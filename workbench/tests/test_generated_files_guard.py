@@ -25,12 +25,10 @@ GUARDED = {"Makefile": "Makefile", ".vscode/settings.json": "vscode-settings.jso
            ".vscode/tasks.json": "vscode-tasks.json"}  # generated path -> stored name
 
 
-def profile(name, editor=True):
-    """The configuration `init --profile NAME` starts from (bootstrap.detect_config)."""
-    modules = core.PROFILES[name]
-    config = {"schema_version": 3, "modules": {n: copy.deepcopy(core.MODULES[n]["defaults"]) for n in modules},
-              "integrations": {"editor": editor}}
-    return config
+def starting(modules, editor=True):
+    """The configuration `init --modules ...` starts from (bootstrap.detect_config)."""
+    return {"schema_version": 3, "modules": {n: copy.deepcopy(core.MODULES[n]["defaults"]) for n in modules},
+            "integrations": {"editor": editor}}
 
 
 # The multi-document example (examples/tex-notes), with the editor files switched on.
@@ -44,8 +42,9 @@ MULTI_DOCUMENT = {
 
 # name -> configuration
 FIXTURES = {
-    **{f"profile-{name}": profile(name) for name in core.PROFILES},
-    "profile-writing-no-editor": profile("writing", editor=False),
+    "core-only": starting([]),
+    "latex": starting(["latex"]),
+    "latex-no-editor": starting(["latex"], editor=False),
     "multi-document": MULTI_DOCUMENT,
 }
 

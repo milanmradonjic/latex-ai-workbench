@@ -31,7 +31,14 @@ def unknown_keys(values, allowed, where, noun="field"):
                              hint=f"supported: {', '.join(sorted(map(str, allowed)))}")
 
 
-def check_export(project, export, backend=None):
+def check_choice(value, allowed, what):
+    """Refuse a setting the workbench does not offer, by name: a document that needs something else declares its own build."""
+    if value not in allowed:
+        raise WorkbenchError(f"{what} {value!r} is not supported; choose {' or '.join(allowed)}",
+                             hint="for anything else, declare a build_command for the document (docs/configuration.md)")
+
+
+def check_export(project, export):
     if export is None:
         return
     if not isinstance(export, dict):
@@ -40,23 +47,19 @@ def check_export(project, export, backend=None):
     local_path(project, export.get("path"))
     if not isinstance(export.get("required", True), bool):
         raise WorkbenchError("bibliography.export.required must be boolean")
-    if export.get("format") not in ("bibtex", "biblatex"):
-        raise WorkbenchError("bibliography.export.format must be bibtex or biblatex")
-    if backend == "biber" and export["format"] != "biblatex":
-        raise WorkbenchError("Biber export should use Better BibLaTeX")
+    check_choice(export.get("format"), ("bibtex",), "bibliography.export.format")
 
 
 def check_bibliography(project, bib):
     if not isinstance(bib, dict):
         raise WorkbenchError("bibliography must be an object")
     unknown_keys(bib, {"backend", "files", "export"}, "bibliography configuration")
-    if bib.get("backend", "none") not in ("none", "bibtex", "biber"):
-        raise WorkbenchError("bibliography.backend must be none, bibtex, or biber")
+    check_choice(bib.get("backend", "none"), ("none", "bibtex"), "bibliography.backend")
     if not isinstance(bib.get("files", []), list):
         raise WorkbenchError("bibliography.files must be a list")
     for name in bib.get("files", []):
         local_path(project, name)
-    check_export(project, bib.get("export"), bib.get("backend"))
+    check_export(project, bib.get("export"))
 
 
 def check_lint(project, lint, where="lint"):
@@ -113,8 +116,7 @@ def validate_document_settings(project, config, planned_sources=None):
     if root.suffix != ".tex" or not (root.is_file() or path_name(project, config["root"]) in (planned_sources or {})):
         raise WorkbenchError(f"Root TeX document does not exist: {root}",
                              hint="create the .tex source first, or select an existing project-relative root with --root")
-    if config.get("engine") not in ("pdflatex", "lualatex", "xelatex"):
-        raise WorkbenchError("engine must be pdflatex, lualatex, or xelatex")
+    check_choice(config.get("engine"), ("pdflatex",), "engine")
     # Whitespace is safe in subprocess argv, but latexmk/TeX cannot reliably
     # handle every special filename. Refuse rather than silently misbuild.
     if re.search(r"[\s%#{}\\]", config["root"]):
@@ -310,7 +312,7 @@ def required_tools(config):
     if has_module(config, "latex"):
         for target in specifications(config):
             tex = target.view
-            tools.extend(["latexmk", tex["engine"]])
+            tools.extend(["latexmk", "pdflatex"])
             if tex.get("lint", {}).get("enabled", True):
                 tools.append("chktex")
             backend = tex.get("bibliography", {}).get("backend", "none")
@@ -328,10 +330,8 @@ def validate_latex(project, values, config, planned_sources=None):
     if not isinstance(defaults, dict):
         raise WorkbenchError("latex.defaults must be an object")
     unknown_keys(defaults, set(DEFAULTS) - {"build_command", "inputs", "bibliography_files"}, "document defaults")  # roots, commands and inputs belong to documents
-    if defaults.get("engine", "pdflatex") not in ("pdflatex", "lualatex", "xelatex"):
-        raise WorkbenchError("Invalid default document engine")
-    if defaults.get("backend", "none") not in ("none", "bibtex", "biber"):
-        raise WorkbenchError("Invalid default bibliography backend")
+    check_choice(defaults.get("engine", "pdflatex"), ("pdflatex",), "default document engine")
+    check_choice(defaults.get("backend", "none"), ("none", "bibtex"), "default bibliography backend")
     if defaults.get("output_dir") is not None:
         local_path(project, defaults["output_dir"])
     if not isinstance(targets, dict) or not targets:

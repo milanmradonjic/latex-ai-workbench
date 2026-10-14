@@ -76,7 +76,7 @@ class DocumentTests(unittest.TestCase):
         config = self.configuration()
         config["modules"]["latex"]["defaults"]["lint"]["args"] = ["-n8"]
         config["modules"]["latex"]["documents"]["note"]["lint"] = {"enabled": True}
-        config["modules"]["latex"]["documents"]["note"]["engine"] = "lualatex"
+        config["modules"]["latex"]["documents"]["note"]["backend"] = "bibtex"
         schema.validate_config(self.project, config)
         note = schema.resolve(config, "note").view
         self.assertEqual(note["lint"], {"enabled": True, "args": ["-n8"], "baseline": ".latex-ai/lint-baselines/note.json"})
@@ -84,7 +84,7 @@ class DocumentTests(unittest.TestCase):
         changed["lint"]["args"].append("-n9")
         self.assertEqual(note["lint"]["args"], ["-n8"])
         self.assertEqual(schema.resolve(config, "paper").view["lint"]["args"], ["-n8"])
-        self.assertIn("lualatex", schema.required_tools(config))
+        self.assertIn("bibtex", schema.required_tools(config))
 
     def test_rejects_duplicate_roots_and_output_stems(self):
         config = self.configuration()
@@ -162,7 +162,7 @@ class DocumentTests(unittest.TestCase):
         config = self.configuration()
         self.install("init")
         self.command("check")
-        config["modules"]["latex"]["documents"]["note"]["engine"] = "xelatex"
+        config["modules"]["latex"]["documents"]["note"]["backend"] = "bibtex"
         (self.project / core.CONFIG).write_text(json.dumps(config))
         states = {row["id"]: row["state"] for row in json.loads(self.command("documents").stdout)}
         self.assertEqual(states, {"paper": "current", "note": "stale"})

@@ -735,7 +735,7 @@ def do_doctor(project, config, persisted, args):
     if not missing:
         print("All required tools found")
     if missing:
-        tex = [name for name in missing if name in {"latexmk", "pdflatex", "lualatex", "xelatex", "chktex", "bibtex", "biber"}]
+        tex = [name for name in missing if name in {"latexmk", "pdflatex", "chktex", "bibtex"}]
         others = [name for name in missing if name not in tex]
         advice = ([f"a TeX distribution (TeX Live, MacTeX, MiKTeX) provides {', '.join(tex)}"] if tex else []) + (
             [f"{', '.join(others)}: needed by this project's commands"] if others else [])

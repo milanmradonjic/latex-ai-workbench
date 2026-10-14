@@ -78,7 +78,7 @@ class Init(ProjectCase):
         (self.project / "main.tex").write_text(SOURCE)
 
     def init(self, *extra, expected=0):
-        return self.install("init", "--engine", "pdflatex", "--no-lint", *extra, expected=expected)
+        return self.install("init", "--no-lint", *extra, expected=expected)
 
     def put(self, files):
         for name, text in files.items():
@@ -182,7 +182,7 @@ class AnOlderAdapter(ProjectCase):
     def setUp(self):
         super().setUp()
         (self.project / "main.tex").write_text(SOURCE)
-        self.install("init", "--engine", "pdflatex", "--no-lint", "--skip-editor")
+        self.install("init", "--no-lint", "--skip-editor")
         makefile = self.project / "Makefile"
         makefile.write_text(makefile.read_text() + "\n.PHONY: latex-ai-build-prepare\nlatex-ai-build-prepare:\n\t+@$(PYTHON) .latex-ai/workbench.py build-prepare --build-owner \"$$PPID\"\n")
 

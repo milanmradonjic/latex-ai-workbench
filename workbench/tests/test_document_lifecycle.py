@@ -270,14 +270,14 @@ class DocumentLifecycleTests(unittest.TestCase):
         config["modules"]["latex"]["documents"]["paper"]["lint"] = {"args": ["-n8"]}
         self.write_config(config)
         self.assertEqual(self.states(), {"paper": "current", "note": "current"})
-        config["modules"]["latex"]["documents"]["paper"]["engine"] = "xelatex"
+        config["modules"]["latex"]["documents"]["paper"]["backend"] = "bibtex"
         self.write_config(config)
         self.assertEqual(self.states(), {"paper": "stale", "note": "current"})
 
     @unittest.skipUnless(shutil.which("latexmk") and shutil.which("pdflatex"), "real TeX tools required")
     def test_compiler_failure_names_the_tex_error(self):
         (self.project / "main.tex").write_text(SOURCE)
-        self.install("init", "--engine", "pdflatex", "--no-lint", "--skip-editor")
+        self.install("init", "--no-lint", "--skip-editor")
         (self.project / "notes").mkdir()
         (self.project / "notes/derivation.tex").write_text("\\documentclass{article}\n\\begin{document}\n\\undefinedfixturemacro\n\\end{document}\n")
         config = json.loads((self.project / core.CONFIG).read_text())

@@ -69,7 +69,7 @@ def declared_bibs(project, config):
 def bib_keys(text, name):
     """Check entry boundaries/keys without pretending to validate field semantics.
 
-    BibTeX/Biber validate actual expressions and required fields. Brace-delimited
+    BibTeX validates actual expressions and required fields. Brace-delimited
     values may contain literal quotes, parentheses and percent characters.
     """
     if damaged_text(text):
@@ -124,8 +124,8 @@ def bib_keys(text, name):
 def bibliography_check(project, config):
     seen, digests = {}, {}
     export = config.bibliography.get("export")
-    # BibTeX compares keys case-insensitively ("Repeated entry"); Biber keeps
-    # them distinct and only warns, so folding for it would reject valid projects.
+    # BibTeX compares keys case-insensitively ("Repeated entry"); where it does not
+    # process the file, folding would reject valid projects.
     fold = config.bibliography.get("backend", "none") == "bibtex"
     for path in declared_bibs(project, config):
         if not path.is_file():
@@ -404,12 +404,12 @@ def build_identity(project, config):
             return None
         if not all(isinstance(name, str) for name in bib.get("files", [])):
             return None
-        if bib.get("backend", "none") not in {"none", "bibtex", "biber"}:
+        if bib.get("backend", "none") not in {"none", "bibtex"}:
             return None
         export = bib.get("export")
         if export is not None:
             if (not isinstance(export, dict) or not isinstance(export.get("path"), str)
-                    or export.get("format") not in {"bibtex", "biblatex"}
+                    or export.get("format") != "bibtex"
                     or not isinstance(export.get("required", True), bool)):
                 return None
             local_path(project, export["path"])
@@ -711,8 +711,7 @@ def compile_document(project, config, force=False):
     if config.get("build_command"):
         run_compiler(project, config, config["build_command"], env=env)
     else:
-        engine = {"pdflatex": "-pdf", "lualatex": "-lualatex", "xelatex": "-xelatex"}[config["engine"]]
-        args = ["latexmk", engine, "-synctex=1", "-interaction=nonstopmode", "-halt-on-error", "-file-line-error", "-recorder", "-cd"]
+        args = ["latexmk", "-pdf", "-synctex=1", "-interaction=nonstopmode", "-halt-on-error", "-file-line-error", "-recorder", "-cd"]
         # A first/invalidated receipt requires actual regeneration, even when
         # latexmk's timestamp database believes existing artifacts are current.
         if force:
@@ -757,15 +756,13 @@ FATAL_LOG = (
     r"There were undefined (?:citations|references)",
     r"Label\s+.+?multiply defined",
     r"There were multiply-defined labels",
-    r"Please \(re\)run (?:Biber|BibTeX)",
+    r"Please \(re\)run BibTeX",
     r"Rerun to get (?:cross-references|citations|outlines) right",
     r"Label\(s\) may have changed",
     r"No file .+?\.bbl",
     r"(?:^|\n)!\s",
-    r"^.*(?:ERROR -|FATAL -).*$",
     r"Warning--(?:I didn't find a database entry|Repeated entry|empty .+? in)",
     r"Warning--.*(?:not found|doesn't exist)",
-    r"WARN - .*(?:Duplicate entry key|not found|does not contain|not in data source|invalid|malformed)",
     r"I couldn't open database file",
     r"I was expecting a [`'](?:,|=|\})",
 )
@@ -790,7 +787,7 @@ def verify(project, config, check_receipt=True, report=True):
         text = path.read_text(encoding="utf-8", errors="replace")
         fatal.extend(f"{path.name}: {m[0].strip()}" for pattern in FATAL_LOG for m in re.finditer(pattern, text, re.I | re.M))
         warnings.extend(f"{path.name}: {line.strip()}" for line in text.splitlines()
-                        if re.search(r"Warning|Overfull|Underfull|WARN -", line))
+                        if re.search(r"Warning|Overfull|Underfull", line))
     if report:
         for warning in dict.fromkeys(warnings):
             print("WARNING: " + warning)
