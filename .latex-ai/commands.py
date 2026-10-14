@@ -95,7 +95,7 @@ ACTIONS = (
     Action("issue", standalone=True, targets=(
         Target("issue", "latex-ai-issue", "Inspect and report", 'Write a local report on a suspected workbench defect: ISSUE_NOTE="observed ... expected ..."', selects="note"),)),
     Action("snapshot", standalone=True, targets=(
-        Target("snapshot", "latex-ai-snapshot", "Snapshots", 'Keep a copy of every file outside the project, to restore from: SNAPSHOT_NOTE="why" labels it', selects="label"),)),
+        Target("snapshot", "latex-ai-snapshot", "Snapshots", 'Keep a copy of every file outside the project, to restore from (yours: never deleted): SNAPSHOT_NOTE="why" labels it', selects="label"),)),
     Action("snapshots", standalone=True, targets=(
         Target("snapshots", "latex-ai-snapshots", "Snapshots", "List the snapshots and the Git command that restores from one"),)),
 )

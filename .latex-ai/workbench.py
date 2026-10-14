@@ -556,6 +556,7 @@ def main():
     parser.add_argument("--document", help="Named LaTeX document; omitted uses the default for document operations")
     parser.add_argument("--all", action="store_true", help="build: every declared document, one after another")
     parser.add_argument("--note", default="", help="issue: what you observed and what you expected; snapshot: its label")
+    parser.add_argument("--tier", choices=snapshot.TIERS, help="snapshot: which store it goes to (default manual; a timer uses frequent or weekly)")
     parser.add_argument("--command", dest="failed_command", default="", help="issue: the command that misbehaved")
     parser.add_argument("--project", type=Path, default=Path.cwd(), help="Project root (default: current directory); an installed runtime belongs to its own project")
     parser.add_argument("--base", default=os.environ.get("LATEX_AI_BASE"), help="Git revision to compare; default HEAD plus local/untracked changes")
@@ -611,7 +612,7 @@ def do_issue(project, config, persisted, args):
 
 
 def do_snapshot(project, config, persisted, args):
-    args.result = snapshot.take(project, note=args.note)
+    args.result = snapshot.take(project, tier=args.tier or "manual", note=args.note)
 
 
 def do_snapshots(project, config, persisted, args):
