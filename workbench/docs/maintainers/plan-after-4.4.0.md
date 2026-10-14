@@ -105,7 +105,9 @@ Each step is one release and one pull request.
   files and receipts), and the tests that mention profiles are rewritten, not deleted blindly. **Done — 14 October 2026**,
   [pull request #8](https://github.com/milanmradonjic/latex-ai-workbench/pull/8) (`4243706`), workbench 4.5.0; at the owner's request 4.5.1 then added a guard to `init` for a paper that needs another toolchain.
 - **3.5 Per-document targets.** `make main` and `make notes`, generated only where the name is free; bare `make` builds the default document and `make all` the whole
-  package. **Done when** the generated-files guard is updated on purpose, the release notes name the changed lines of the Makefile block, `make guide` names the
+  package. **Decided 14 October 2026** (by the plan, since no design question arose): `make all` builds every document one after another through one action, `build --all`, since the
+  build lock refuses two builds at once; `make NAME` builds that document; a project with one document gets `all` and no `NAME`; a name is free unless the workbench uses it or a
+  document's `build_command` names it as a goal (then `all` is not refused as recursive either, being the conventional name of a project's own rule). **Done when** the generated-files guard is updated on purpose, the release notes name the changed lines of the Makefile block, `make guide` names the
   targets, and `diff` shows an existing project exactly what differs.
 - **3.6 Snapshots.** `make snapshot` and `make snapshots`: a shadow Git repository under `~/.snapshots/<project>/` in two rotating tiers, as the scope describes. The
   script removes only folders under that path. Its tests run with a temporary `HOME`. **Done when** a snapshot and a restore are shown on a project with and without

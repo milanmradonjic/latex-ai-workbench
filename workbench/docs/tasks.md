@@ -15,6 +15,7 @@ names apply. `latex-ai-init` below is a file in the workbench package, run as
 | Check everything before sharing | `make check` | [daily use](daily-use.md) |
 | Check only what I changed | `make validate` (preview: `make validation-plan`) | [validation](validation.md) |
 | Build the PDF | `make build` (`make lint`, `make bib-check`, `make pdf-artifact`) | [daily use](daily-use.md) |
+| Build one named document, or every document | `make notes` (the document's name), `make build DOC=NAME`, `make all` | [TeX notes](tex-notes.md) |
 | Add another LaTeX document (notes, a supplement) | add it under `modules.latex.documents` in `.latex-ai.json` | [TeX notes](tex-notes.md) |
 | Check one named TeX document | `make latex-ai-document-check DOC=NAME` | [TeX notes](tex-notes.md) |
 | Adopt the style check on a paper that already has warnings | `make lint-baseline` (accepts today's warnings; new ones still fail) | [configuration](configuration.md#accepting-existing-style-warnings) |

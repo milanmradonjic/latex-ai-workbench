@@ -13,7 +13,8 @@ git diff
 git status --short --branch
 ```
 
-Use `make build DOC=name` to compile a document explicitly and `make check` for
+Bare `make` builds the default document, `make all` builds every document one after another, and in a project with several documents `make notes` (the document's name)
+builds that one; `make build DOC=name` does the same for any document. `make check` checks
 all declared documents and enabled module checks. Projects without TeX omit the
 build step. If an existing project owns a short target name, `make latex-ai-help`
 shows the corresponding reserved command.

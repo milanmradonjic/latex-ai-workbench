@@ -23,7 +23,14 @@ Register it by adding it under `modules.latex.documents` in `.latex-ai.json`:
 "derivation": {"root": "notes/derivation.tex"}
 ```
 
-Then build and export it explicitly:
+Then build, check and export it explicitly. `init` wrote a target named after each document when the project had several, so `make derivation` builds it (and `make all`
+builds every document, one after another); a document added later gets one by adding these lines to the Makefile, or is built with `make build DOC=derivation`:
+
+```make
+.PHONY: derivation
+derivation:
+	@$(PYTHON) .latex-ai/workbench.py build --document derivation
+```
 
 ```sh
 make latex-ai-document-check DOC=derivation
