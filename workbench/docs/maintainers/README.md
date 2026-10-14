@@ -4,7 +4,7 @@ For people who change or release the workbench itself; users do not need any of 
 
 The records cite local evidence folders (trial transcripts, an adjudication report, smoke projects). On 13 October 2026 they were packed, unchanged, into one archive kept outside the repository, `latex-ai-evidence-3.7.0.tar.gz` (11 MB); the folder names in the records are the top-level folders of that archive. The other scratch folders of the portability and audit runs were deleted.
 
-Workbench 3 is the supported development line. Earlier releases and their
+Workbench 4 is the supported development line. Earlier releases and their
 verification records below are historical, retired from support; they are not
 compatibility targets. Keep that evidence without maintaining old runtime paths.
 
@@ -16,12 +16,17 @@ are plain text here. The tree is that of the branch head the 3.7.0 record names 
 earlier repository, local folder paths and the name of a private test project were removed from the records; and
 `.github/workflows/workbench-python.yml` runs fewer jobs (see [the cost of the hosted checks](#the-cost-of-the-hosted-checks)).
 
+The repository was recreated on 13 October 2026 from the same tree, with its history rewritten (author metadata in no-reply form, and a private project name
+removed from one record). The first version's pull requests and runs went with it, so pull request numbers here start again at 1; the hosted results of
+4.0.0 to 4.4.0 that ran there are given in the records as plain text.
+
+- [Plan after 4.4.0](plan-after-4.4.0.md): the remaining reductions in steps, with the owner's gates.
 - [Lessons learned](lessons-learned.md): what building this tool taught, for this project and for others like it.
 - [The minimal scope](minimal-scope.md): what the tool is for, what stays and what goes, decided question by question.
 - [Release notes and release procedure](releases.md): what each release changed, and how a release is cut.
 - [Version 3.0 verification](verification-3.0.md): simplification, retained safety, and remaining environment checks.
 - [Architecture audit of 3.0.1](architecture-audit-3.0.1.md): assessment, findings and proposals.
-- [Plan after 3.0.2](plan-after-3.0.2.md): the remaining audit work in phases, starting with macOS verification.
+- [Plan after 3.0.2](plan-after-3.0.2.md) (closed): the audit's follow-up in phases; Phase 4 retired, Phases 5 to 7 met, moot or moved.
 - [Version 3.5.0 verification](verification-3.5.0.md): the pinned workflow actions, and what an upgrade does to a project's workflow.
 - [Version 3.6.0 verification](verification-3.6.0.md): `validation.ignore`, and what it never ignores.
 - [Version 4.4.0 verification](verification-4.4.0.md): the Make adoption layer removed, `init` create-only, and a real paper migrated by the recipe.
@@ -47,7 +52,7 @@ earlier repository, local folder paths and the name of a private test project we
 
 ## Working on the workbench itself
 
-Changing this package (a phase of [the plan](plan-after-3.0.2.md), a release, a repair) is a different kind of
+Changing this package (a step of [the plan](plan-after-4.4.0.md), a release, a repair) is a different kind of
 work from working on a manuscript with it. Only the owner starts a *workbench session*, by saying so in the task,
 and the project's `AGENTS.md` ("Two kinds of session") keeps the two apart. In a manuscript session an agent reports
 a suspected workbench defect and carries on; the rules below apply only in a workbench session.
