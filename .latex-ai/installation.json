@@ -3,7 +3,7 @@
   "version": "4.8.1",
   "files": {
     ".latex-ai/commands.py": "9e828d3e9716f958ff6b710ba8cb954c4fa7eae2b003528c1ed8afc184eecc91",
-    ".latex-ai/core.py": "bb9cd16621012a4468ad13776c9b2326b0501b795e2dac5824d65b742e91d3d4",
+    ".latex-ai/core.py": "6ffe1f4a512f8c8ce25ab1268f1ba319055c6acb30d23f5f596631343ac70f54",
     ".latex-ai/diagnostics.py": "6c9da86249153916e55a5a3b737d28037c71dce3e6ab39c61b44dfe25b820158",
     ".latex-ai/documents.py": "e80bc1199c6abbdde06d9ee4aeb74fd5e7cbd763266d6ac359c8703fbacdd10e",
     ".latex-ai/guide.py": "3c4b5ec7950d9457fea437bc393f7c8164e8719d597e99904f850bd30b82428b",

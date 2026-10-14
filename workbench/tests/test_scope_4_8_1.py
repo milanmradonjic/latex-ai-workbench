@@ -48,7 +48,7 @@ class AuditRepairs(ProjectCase):
     def test_f1_standard_auxiliary_output_links_cannot_escape(self):
         outside = self.root / 'outside.txt'
         outside.write_text('keep')
-        for suffix in ('.lof', '.lot', '.loe', '.idx', '.ind', '.ilg', '.glo', '.gls', '.glg', '.acn', '.acr', '.alg', '.nav', '.snm', '.vrb'):
+        for suffix in ('.lof', '.lot', '.lol', '.loe', '.idx', '.ind', '.ilg', '.glo', '.gls', '.glg', '.acn', '.acr', '.alg', '.nav', '.snm', '.vrb'):
             with self.subTest(suffix=suffix):
                 child = self.project / ('main' + suffix)
                 child.symlink_to(outside)
@@ -206,6 +206,19 @@ class AuditRepairs(ProjectCase):
             result = snapshot.take(self.project, base=self.root / 'snapshots')
         repository = Path(result['store']) / 'manual'
         self.assertIn('new.txt', snapshot.git(repository, None, 'ls-tree', '-r', '--name-only', result['commit']).splitlines())
+
+    @unittest.skipUnless(TEX, 'real latexmk and pdflatex required')
+    def test_f1_listings_auxiliary_cannot_overwrite_an_external_file(self):
+        view = self.native('\\documentclass{article}\n\\usepackage{listings}\n\\begin{document}\n\\lstlistoflistings\n'
+                           '\\begin{lstlisting}[caption=Demo]\nexample\n\\end{lstlisting}\n\\end{document}\n')
+        stem = latex.output_paths(self.project, view)[2]
+        stem.parent.mkdir(parents=True, exist_ok=True)
+        outside = self.root / 'outside.txt'
+        outside.write_text('keep')
+        Path(str(stem) + '.lol').symlink_to(outside)
+        self.command('build', expected=1)
+        self.assertEqual(outside.read_text(), 'keep')
+
 
 
 if __name__ == '__main__':

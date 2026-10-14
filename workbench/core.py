@@ -92,7 +92,7 @@ def input_identity(project, value):
 
 OUTPUT_SUFFIXES = (".pdf", ".log", ".aux", ".fls", ".fdb_latexmk", ".bbl", ".blg",
                    ".bcf", ".toc", ".out", ".run.xml", ".synctex", ".synctex.gz",
-                   ".lof", ".lot", ".loa", ".loe", ".thm", ".idx", ".ind", ".ilg", ".glo", ".gls", ".glg",
+                   ".lof", ".lot", ".loa", ".lol", ".loe", ".thm", ".idx", ".ind", ".ilg", ".glo", ".gls", ".glg",
                    ".acn", ".acr", ".alg", ".glsdefs", ".ist", ".nlo", ".nls", ".nlg", ".nav", ".snm", ".vrb", ".dvi", ".xdv")
 
 
