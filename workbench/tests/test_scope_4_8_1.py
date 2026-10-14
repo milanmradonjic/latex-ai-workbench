@@ -94,6 +94,114 @@ class AuditRepairs(ProjectCase):
         self.assertRegex(result.stderr, 'aliases|overlap|collision')
         self.assertEqual((self.project / 'fragment.tex').read_text(), 'Valuable fragment.\n')
 
+    def test_f2_generated_suffix_does_not_hide_an_authored_listing(self):
+        (self.project / 'example.idx').write_text('Keep the authored listing.\n')
+        (self.project / 'main.tex').write_text(SOURCE.replace('Fixture.', '\\lstinputlisting{example.idx}'))
+        self.builder(inputs=('main.tex', 'example.idx'))
+        with (self.project / 'builder.py').open('a') as stream:
+            stream.write("(out / 'main.idx').write_text('would overwrite the source')\n")
+        self.configure()
+        (self.project / 'outputs').mkdir()
+        (self.project / 'outputs/main.idx').hardlink_to(self.project / 'example.idx')
+        self.install('init', '--skip-editor')
+        result = self.command('build', expected=1)
+        self.assertIn('aliases a source input', result.stderr)
+        self.assertEqual((self.project / 'example.idx').read_text(), 'Keep the authored listing.\n')
+
+    def test_f2_recorder_only_same_suffix_data_still_invalidates_receipts(self):
+        (self.project / 'train.log').write_text('first')
+        self.builder(inputs=('main.tex', 'train.log'))
+        self.configure()
+        self.install('init', '--skip-editor')
+        self.command('build')
+        self.assertIn('train.log', self.receipt()['inputs'])
+        (self.project / 'train.log').write_text('changed')
+        self.assertEqual(self.state(), 'stale')
+
+    def test_f2_explicit_listing_at_an_output_path_is_protected(self):
+        (self.project / 'main.tex').write_text(SOURCE.replace('Fixture.', '\\lstinputlisting{outputs/main.idx}'))
+        self.builder(inputs=('main.tex', 'outputs/main.idx'))
+        with (self.project / 'builder.py').open('a') as stream:
+            stream.write("(out / 'main.idx').write_text('would overwrite the source')\n")
+        self.configure()
+        (self.project / 'outputs').mkdir()
+        (self.project / 'outputs/main.idx').write_text('Keep the authored listing.\n')
+        self.install('init', '--skip-editor')
+        result = self.command('build', expected=1)
+        self.assertIn('aliases a source input', result.stderr)
+        self.assertEqual((self.project / 'outputs/main.idx').read_text(), 'Keep the authored listing.\n')
+
+    def test_f2_a_build_script_at_an_output_path_is_protected(self):
+        self.builder()
+        self.configure()
+        (self.project / 'outputs').mkdir()
+        script = self.project / 'outputs/main.log'
+        original = (self.project / 'builder.py').read_text()
+        script.write_text(original)
+        self.edit_config(lambda data: data['modules']['latex']['documents']['paper'].update(
+            build_command=[sys.executable, 'outputs/main.log']))
+        self.install('init', '--skip-editor')
+        self.assertIn('aliases a source input', self.command('build', expected=1).stderr)
+        self.assertEqual(script.read_text(), original)
+
+    def test_f2_mentioning_an_output_filename_is_not_reading_it(self):
+        (self.project / 'main.tex').write_text(SOURCE.replace('Fixture.', '\\texttt{outputs/main.log}'))
+        self.builder()
+        self.configure()
+        self.install('init', '--skip-editor')
+        self.command('build')
+        self.command('build')
+        self.assertEqual(self.state(), 'current')
+
+    def test_f2_output_command_arguments_are_not_treated_as_source_scripts(self):
+        self.builder()
+        config = self.configure()
+        config['modules']['latex']['documents']['paper']['build_command'] += ['--output', 'outputs/main.pdf']
+        (self.project / core.CONFIG).write_text(json.dumps(config))
+        self.install('init', '--skip-editor')
+        self.command('build')
+        self.command('build')
+        self.assertNotIn('outputs/main.pdf', self.receipt()['inputs'])
+        self.assertEqual(self.state(), 'current')
+
+    def test_f2_makefiles_at_an_output_path_are_protected(self):
+        self.builder()
+        self.configure()
+        self.install('init', '--skip-editor')
+        script = self.project / 'outputs/main.log'
+        script.parent.mkdir()
+        original = 'raw:\n\t' + sys.executable + ' builder.py\n'
+        for arguments in (['-f', 'outputs/main.log'], ['--file', 'outputs/main.log'],
+                          ['--makefile', 'outputs/main.log'], ['-foutputs/main.log'],
+                          ['--file=outputs/main.log'], ['--makefile=outputs/main.log']):
+            with self.subTest(arguments=arguments):
+                script.write_text(original)
+                (self.project / '.latex-ai/artifacts/documents/paper/build-receipt.json').unlink(missing_ok=True)
+                self.edit_config(lambda data: data['modules']['latex']['documents']['paper'].update(
+                    build_command=['make', *arguments, 'raw']))
+                self.assertIn('aliases a source input', self.command('build', expected=1).stderr)
+                self.assertEqual(script.read_text(), original)
+
+    def test_f2_actual_generated_auxiliary_is_not_treated_as_authored(self):
+        self.builder("Path('outputs').mkdir(exist_ok=True)\nPath('outputs/main.aux').write_text('generated')\n",
+                     inputs=('main.tex', 'outputs/main.aux'))
+        self.configure()
+        self.install('init', '--skip-editor')
+        self.command('build')
+        self.assertNotIn('outputs/main.aux', self.receipt()['inputs'])
+        self.assertEqual(self.state(), 'current')
+
+    @unittest.skipUnless(TEX, 'real latexmk and pdflatex required')
+    def test_f1_listings_auxiliary_cannot_overwrite_an_external_file(self):
+        view = self.native('\\documentclass{article}\n\\usepackage{listings}\n\\begin{document}\n\\lstlistoflistings\n'
+                           '\\begin{lstlisting}[caption=Demo]\nexample\n\\end{lstlisting}\n\\end{document}\n')
+        stem = latex.output_paths(self.project, view)[2]
+        stem.parent.mkdir(parents=True, exist_ok=True)
+        outside = self.root / 'outside.txt'
+        outside.write_text('keep')
+        Path(str(stem) + '.lol').symlink_to(outside)
+        self.command('build', expected=1)
+        self.assertEqual(outside.read_text(), 'keep')
 
     def test_f3_graphics_search_paths_in_fragments_add_all_candidates(self):
         (self.project / 'figures').mkdir()
@@ -206,19 +314,6 @@ class AuditRepairs(ProjectCase):
             result = snapshot.take(self.project, base=self.root / 'snapshots')
         repository = Path(result['store']) / 'manual'
         self.assertIn('new.txt', snapshot.git(repository, None, 'ls-tree', '-r', '--name-only', result['commit']).splitlines())
-
-    @unittest.skipUnless(TEX, 'real latexmk and pdflatex required')
-    def test_f1_listings_auxiliary_cannot_overwrite_an_external_file(self):
-        view = self.native('\\documentclass{article}\n\\usepackage{listings}\n\\begin{document}\n\\lstlistoflistings\n'
-                           '\\begin{lstlisting}[caption=Demo]\nexample\n\\end{lstlisting}\n\\end{document}\n')
-        stem = latex.output_paths(self.project, view)[2]
-        stem.parent.mkdir(parents=True, exist_ok=True)
-        outside = self.root / 'outside.txt'
-        outside.write_text('keep')
-        Path(str(stem) + '.lol').symlink_to(outside)
-        self.command('build', expected=1)
-        self.assertEqual(outside.read_text(), 'keep')
-
 
 
 if __name__ == '__main__':
