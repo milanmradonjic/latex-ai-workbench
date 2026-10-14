@@ -502,7 +502,9 @@ def orientation_config(project):
     try:
         return load_config(project), None
     except EXPECTED as error:
-        return None, (describe(error), f"fix {CONFIG} (version control has the last good copy), or get a diagnosis with: " + guide.installer("diff ."))
+        hint = getattr(error, "hint", None)
+        return None, (describe(error), f"edit {CONFIG}: {hint}" if hint else
+                      f"fix {CONFIG} (version control has the last good copy), or get a diagnosis with: " + guide.installer("diff ."))
 
 
 def explain(project, args):

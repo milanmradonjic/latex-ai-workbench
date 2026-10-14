@@ -234,10 +234,8 @@ class WorkbenchTests(unittest.TestCase):
         config["modules"]["latex"]["documents"]["manuscript"]["backend"] = "bibtex"
         with self.assertRaisesRegex(rt.WorkbenchError, r"Duplicate bibliography key 'smith2020' \(same key as 'Smith2020'; BibTeX ignores case\)"):
             rt.bibliography_check(self.project, schema.document_settings(config))
-        for backend in ("none",):  # unprocessed exports keep case-variant keys distinct
-            config["modules"]["latex"]["documents"]["manuscript"]["backend"] = backend
-            with self.subTest(backend=backend):
-                self.assertEqual(len(rt.bibliography_check(self.project, schema.document_settings(config))), 2)
+        config["modules"]["latex"]["documents"]["manuscript"]["backend"] = "none"  # unprocessed exports keep case-variant keys distinct
+        self.assertEqual(len(rt.bibliography_check(self.project, schema.document_settings(config))), 2)
         (self.project / "two.bib").write_text('@book{Smith2020, title={U}}')  # exact duplicates stay errors everywhere
         for backend in ("bibtex", "none"):
             config["modules"]["latex"]["documents"]["manuscript"]["backend"] = backend

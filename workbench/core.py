@@ -220,6 +220,10 @@ MODULES = {
     "bibliography": {"runtime": "latex.py", "defaults": {"files": [], "export": None}},
 }
 # Modules of workbench 3 that workbench 4 no longer has. A configuration naming one is refused with a hint, not as an unknown name.
+# What a document is built with by default: one engine, and BibTeX or no bibliography program. A document that needs more declares a build_command.
+ENGINES = ("pdflatex",)
+BACKENDS = ("none", "bibtex")
+EXPORT_FORMATS = ("bibtex",)
 REMOVED_MODULES = ("notes", "markdown", "numerics", "figures", "provenance", "freshness", "claims")
 
 

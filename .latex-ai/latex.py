@@ -11,7 +11,7 @@ import os
 import time
 import processes
 import guide
-from core import CONFIG, MAKEFILES, WorkbenchError, damaged_text, read_tex, local_path, read_json, run, has_module, atomic_write, path_name, operation_lock, document_paths, input_name, tracked_name
+from core import BACKENDS, CONFIG, EXPORT_FORMATS, MAKEFILES, WorkbenchError, damaged_text, read_tex, local_path, read_json, run, has_module, atomic_write, path_name, operation_lock, document_paths, input_name, tracked_name
 
 SEPARATOR = "\x1f"
 
@@ -404,12 +404,12 @@ def build_identity(project, config):
             return None
         if not all(isinstance(name, str) for name in bib.get("files", [])):
             return None
-        if bib.get("backend", "none") not in {"none", "bibtex"}:
+        if bib.get("backend", "none") not in BACKENDS:
             return None
         export = bib.get("export")
         if export is not None:
             if (not isinstance(export, dict) or not isinstance(export.get("path"), str)
-                    or export.get("format") != "bibtex"
+                    or export.get("format") not in EXPORT_FORMATS
                     or not isinstance(export.get("required", True), bool)):
                 return None
             local_path(project, export["path"])

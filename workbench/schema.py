@@ -11,7 +11,7 @@ from pathlib import Path, PurePosixPath
 import re
 
 from commands import RECURSIVE_GOALS, RESERVED_PREFIX
-from core import (CONFIG, MODULES, REMOVED_MODULES, WorkbenchError, document_paths, has_module, integrations, local_path, module_config,
+from core import (BACKENDS, CONFIG, ENGINES, EXPORT_FORMATS, MODULES, REMOVED_MODULES, WorkbenchError, document_paths, has_module, integrations, local_path, module_config,
                   path_identity, path_name, read_json)
 
 DEFAULTS = {"engine": "pdflatex", "backend": "none", "lint": {"enabled": True, "args": []},
@@ -31,11 +31,16 @@ def unknown_keys(values, allowed, where, noun="field"):
                              hint=f"supported: {', '.join(sorted(map(str, allowed)))}")
 
 
-def check_choice(value, allowed, what):
-    """Refuse a setting the workbench does not offer, by name: a document that needs something else declares its own build."""
+ENGINE_HINT = "remove the engine setting (pdflatex is the default); a document that needs another engine declares a build_command (docs/configuration.md)"
+BACKEND_HINT = "a document that needs biber declares a build_command (docs/configuration.md); otherwise use none or bibtex"
+FORMAT_HINT = "export with Zotero's Better BibTeX; a biber paper lists its .bib file under bibliography.files and leaves export null (docs/bibliography.md)"
+
+
+def check_choice(value, allowed, what, hint):
+    """Refuse a setting the workbench does not offer, by name, and say what to do instead."""
     if value not in allowed:
-        raise WorkbenchError(f"{what} {value!r} is not supported; choose {' or '.join(allowed)}",
-                             hint="for anything else, declare a build_command for the document (docs/configuration.md)")
+        shown = "is missing" if value is None else f"{value!r} is not supported"
+        raise WorkbenchError(f"{what} {shown}; choose {' or '.join(allowed)}", hint=hint)
 
 
 def check_export(project, export):
@@ -47,14 +52,14 @@ def check_export(project, export):
     local_path(project, export.get("path"))
     if not isinstance(export.get("required", True), bool):
         raise WorkbenchError("bibliography.export.required must be boolean")
-    check_choice(export.get("format"), ("bibtex",), "bibliography.export.format")
+    check_choice(export.get("format"), EXPORT_FORMATS, "bibliography.export.format", FORMAT_HINT)
 
 
 def check_bibliography(project, bib):
     if not isinstance(bib, dict):
         raise WorkbenchError("bibliography must be an object")
     unknown_keys(bib, {"backend", "files", "export"}, "bibliography configuration")
-    check_choice(bib.get("backend", "none"), ("none", "bibtex"), "bibliography.backend")
+    check_choice(bib.get("backend", "none"), BACKENDS, "bibliography backend", BACKEND_HINT)
     if not isinstance(bib.get("files", []), list):
         raise WorkbenchError("bibliography.files must be a list")
     for name in bib.get("files", []):
@@ -116,7 +121,7 @@ def validate_document_settings(project, config, planned_sources=None):
     if root.suffix != ".tex" or not (root.is_file() or path_name(project, config["root"]) in (planned_sources or {})):
         raise WorkbenchError(f"Root TeX document does not exist: {root}",
                              hint="create the .tex source first, or select an existing project-relative root with --root")
-    check_choice(config.get("engine"), ("pdflatex",), "engine")
+    check_choice(config.get("engine"), ENGINES, "engine", ENGINE_HINT)
     # Whitespace is safe in subprocess argv, but latexmk/TeX cannot reliably
     # handle every special filename. Refuse rather than silently misbuild.
     if re.search(r"[\s%#{}\\]", config["root"]):
@@ -330,8 +335,8 @@ def validate_latex(project, values, config, planned_sources=None):
     if not isinstance(defaults, dict):
         raise WorkbenchError("latex.defaults must be an object")
     unknown_keys(defaults, set(DEFAULTS) - {"build_command", "inputs", "bibliography_files"}, "document defaults")  # roots, commands and inputs belong to documents
-    check_choice(defaults.get("engine", "pdflatex"), ("pdflatex",), "default document engine")
-    check_choice(defaults.get("backend", "none"), ("none", "bibtex"), "default bibliography backend")
+    check_choice(defaults.get("engine", "pdflatex"), ENGINES, "default document engine", ENGINE_HINT)
+    check_choice(defaults.get("backend", "none"), BACKENDS, "default bibliography backend", BACKEND_HINT)
     if defaults.get("output_dir") is not None:
         local_path(project, defaults["output_dir"])
     if not isinstance(targets, dict) or not targets:
