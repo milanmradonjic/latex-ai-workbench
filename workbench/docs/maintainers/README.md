@@ -29,6 +29,7 @@ removed from one record). The first version's pull requests and runs went with i
 - [Plan after 3.0.2](plan-after-3.0.2.md) (closed): the audit's follow-up in phases; Phase 4 retired, Phases 5 to 7 met, moot or moved.
 - [Version 3.5.0 verification](verification-3.5.0.md): the pinned workflow actions, and what an upgrade does to a project's workflow.
 - [Version 3.6.0 verification](verification-3.6.0.md): `validation.ignore`, and what it never ignores.
+- [Version 4.5.0 verification](verification-4.5.0.md): one engine and one bibliography program, no installer profiles, and 232 old-against-new comparisons.
 - [Version 4.4.2 verification](verification-4.4.2.md): the module table's unused fields removed, and 104 runtime comparisons, old against new.
 - [Version 4.4.1 verification](verification-4.4.1.md): the runtime refreshed apart from the project's files, `diff` rendering once, and 210 installer runs compared old against new.
 - [Version 4.4.0 verification](verification-4.4.0.md): the Make adoption layer removed, `init` create-only, and a real paper migrated by the recipe.
@@ -104,11 +105,18 @@ make -C /path/to/workbench portability  # real TeX engine tests
 make -C /path/to/workbench check        # both
 ```
 
-The portability script creates fresh synthetic projects alongside the reference
-under `Projects/`, keeps logs and PDFs, and never initializes Git. It exercises
-pdfLaTeX/BibTeX, LuaLaTeX/Biber/multiple inputs, XeLaTeX/nested root/output,
+The tests that need TeX are skipped without it, and `portability` stops, naming what is missing. On a Debian or Ubuntu machine, including a cloud session, this is
+enough to run both (`apt-get update` first if the package index is empty):
+
+```sh
+apt-get install -y --no-install-recommends texlive-latex-base texlive-latex-recommended texlive-fonts-recommended texlive-binaries latexmk chktex
+```
+
+The portability script creates fresh synthetic projects under a temporary folder
+(`LATEX_AI_PORTABILITY_PARENT` names another), keeps logs and PDFs, and never initializes Git. It exercises
+pdfLaTeX/BibTeX, several input files with an export, a nested root and output folder,
 existing Make/editor/workflow configuration, idempotence, and expected failures.
-Named TeX notebooks cover all three engines, per-document exports and selective
+Named TeX notebooks cover per-document exports and selective
 fragment checks; the mixed Markdown/TeX example is compiled and exported too.
 It also builds an existing GNUmakefile project and checks the actual diagnostics
 for expected failures, plus documentation-only selection and a broken-link

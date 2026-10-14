@@ -81,13 +81,15 @@ the per-document targets. The full version stays available as the first commit o
 - **4.4.1** (step 3.1 of [the plan](plan-after-4.4.0.md)) refreshed the runtime apart from the project's generated files ([verification](verification-4.4.1.md)).
 - **4.4.2** (step 3.2) removed the module table's unused fields ([verification](verification-4.4.2.md)).
 - **Step 3.3** removed nothing: the owner decided to keep the locks and the `running` state, so there is no release (see [the plan](plan-after-4.4.0.md)).
+- **4.5.0** (step 3.4) left one engine (pdflatex), one bibliography program (BibTeX) and no installer profiles ([verification](verification-4.5.0.md)).
 
-- **Still to do**, in this order ([the plan after 4.4.0](plan-after-4.4.0.md)): the engine, backend and profile choices, per-document targets, snapshots, and the doctor's stamp report.
+- **Still to do**, in this order ([the plan after 4.4.0](plan-after-4.4.0.md)): per-document targets, snapshots, and the doctor's stamp report.
 
 ## Decided since
 
 - **The licence is MIT** (13 October 2026), with the repository owner's GitHub name as the copyright holder.
 - **The locks and the `running` state stay** (14 October 2026), reversing the scope's earlier decision to remove them: a second build the workbench starts is refused, status says "running" while a build runs, and a build whose owner was killed hard but whose compiler lives on still blocks the next one. Folding `running` into `failed` would have given up the last two.
+- **The `biblatex` export format goes too** (14 October 2026), with biber: the export format is `bibtex`, Zotero's Better BibTeX.
 - **No biber** (14 October 2026): the engine is `pdflatex` and the bibliography backend is `none` or `bibtex`; a project that needs more declares a `build_command`.
 
 ## Not yet decided
