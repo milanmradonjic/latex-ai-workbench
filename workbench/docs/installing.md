@@ -14,11 +14,11 @@ PDF export also requires that receipt; changing inputs or failing a build
 invalidates it. Default latexmk builds regenerate when a current receipt is
 absent, then may reuse unchanged verified outputs on subsequent checks.
 
-## Choosing a profile and modules
+## Choosing modules
 
-For new projects choose `--profile core` or `writing`, or an explicit `--modules` list.
+For a new project let `init` detect a paper, or choose an explicit `--modules` list (`--modules ''` for the file checks and agent rules only).
 The editor adapter is opt-in for modular projects. Read
-[module configuration and profiles](modules.md).
+[module configuration](modules.md).
 
 Every installation uses schema 3. Older project schemas are refused and never converted.
 The reference uses LaTeX and bibliography.
@@ -28,7 +28,7 @@ The reference uses LaTeX and bibliography.
 | Layer | Location | Responsibility |
 |---|---|---|
 | Reusable templates | `templates/` | Agent policy, Make, editor, permissions |
-| Create and refresh | `latex-ai-init`, `bootstrap.py` | `init` creates a project (detects the root, engine and bibliography; refuses to touch a file the project has); `diff` shows how a project differs from this release; `runtime` refreshes `.latex-ai/` |
+| Create and refresh | `latex-ai-init`, `bootstrap.py` | `init` creates a project (detects the root and bibliography; refuses to touch a file the project has); `diff` shows how a project differs from this release; `runtime` refreshes `.latex-ai/` |
 | Runtime/core | `runtime.py`, `core.py`, `guide.py`, `diagnostics.py` | Vendored to `.latex-ai/`; dispatcher, config and file checks, help/status/guide, local defect reports |
 | Optional backends | `latex.py`, `documents.py` | Installed when LaTeX or bibliography is enabled |
 | Configuration | Project `.latex-ai.json` | Enabled modules, paths, commands, optional adapters; schema 3 only |
@@ -54,11 +54,9 @@ make -C /path/to/project check
 ```
 
 A single plain root is detected. For multiple roots, select `--root thesis.tex`.
-Magic engine comments are recognized; explicit engine choices win. For
-fontspec or other conventions requiring judgment, provide
-`--engine lualatex`, `--engine xelatex`, or `--engine pdflatex` after inspecting
-the project. Bibliography detection follows literal inputs and recognizes
-BibTeX and biblatex/Biber. Explicit `--backend` handles custom macros.
+The workbench builds with pdflatex and BibTeX, and `init` does not read the source for another engine. A paper that needs lualatex,
+xelatex or biber declares a `build_command` (below). Bibliography detection follows literal `\bibliography{...}` inputs; paths
+assembled through macros go in `bibliography.files`.
 
 ## Existing projects
 
@@ -67,17 +65,14 @@ An existing project is therefore migrated, not adapted to: follow [migrating](mi
 snapshot to return to; setup never discards a dirty file.
 
 ```sh
-python3 /path/to/workbench/latex-ai-init init /path/to/project --engine lualatex --dry-run
+python3 /path/to/workbench/latex-ai-init init /path/to/project --dry-run
 ```
 
-The engine is read from a magic comment (`% !TeX program = lualatex`) or from the source (`directlua`, `xeCJK`) and otherwise
-defaults to pdfLaTeX, except that a source loading `fontspec` must be told: `--engine lualatex` or `--engine xelatex`.
-Bibliography detection follows literal inputs and recognizes BibTeX and biblatex/Biber; `--backend` handles custom macros. A build
-that is not latexmk is declared with its argv, for example:
+A build that is not `latexmk -pdf` (another engine, biber, a Make target) is declared with its argv, for example:
 
 ```sh
 python3 /path/to/workbench/latex-ai-init init /path/to/project \
-  --engine lualatex --build-command '["make", "pdf"]' --dry-run --diff
+  --build-command '["make", "pdf"]' --dry-run --diff
 ```
 
 Use the project's actual command, and set `output_dir` if its outputs are elsewhere. Never name `build`, `check` or another goal that

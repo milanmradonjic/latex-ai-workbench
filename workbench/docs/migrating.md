@@ -10,16 +10,18 @@ The recipe was tried on a real paper with two coupled documents, its own build s
 2. **Read what the project has.** The Makefile (which targets build the PDF, which make figures, which test), build scripts, `latexmkrc`,
    `AGENTS.md` (which sections are the project's own and which the workbench's older text), `.vscode/`, `.gitignore`, `.github/workflows/`, and
    `.latex-ai.json` if an older workbench wrote one.
-3. **Decide the build.** A paper that builds with `latexmk` needs no `build_command`. Otherwise set `build_command` (an argv list) to the project's
+3. **Decide the build.** A paper that builds with `latexmk -pdf` (pdflatex, with BibTeX if it has a bibliography) needs no `build_command`. One that needs lualatex,
+   xelatex or biber, or that builds some other way, sets `build_command` (an argv list) to the project's
    script or to `make TARGET` for a target of its own Makefile, with `output_dir` where the PDF and log appear and `inputs` for what the compiler
    cannot see. Never name `build`, `check`, `validate` or a `latex-ai-` goal: that would call itself.
 4. **Clear out an older workbench's generated files.** Remove `.latex-ai/` (keep `.latex-ai/lint-baselines/` if the owner accepted one), the Makefile when it holds
    only workbench targets, the generated entries of `.vscode/`, and the generated policy text of `AGENTS.md` (keep the project's own sections). In
-   `.latex-ai.json` delete `integrations.ci` and `disabled_modules`, which no longer exist. A Makefile that still has a block between
+   `.latex-ai.json` delete `integrations.ci` and `disabled_modules`, which no longer exist, and any `engine` other than `pdflatex`, `backend: biber` or export `format: biblatex`
+   (workbench 4.5 refuses them; step 3 says what to declare instead). A Makefile that still has a block between
    `# BEGIN LATEX AI WORKBENCH` and `# END LATEX AI WORKBENCH`, or the target `latex-ai-build-prepare`, belongs to the adapter of 4.3 and before: take the
    block out and keep the project's own rules above it.
 5. **Find the conflicts.** `latex-ai-init init PROJECT --dry-run` lists every file that exists and differs. Move each aside, outside the project.
-6. **Run `init`** (`--engine`, `--root` or `--build-command` where step 3 needs them; a `.latex-ai.json` the project already has is used as it is).
+6. **Run `init`** (`--root` or `--build-command` where step 3 needs them; a `.latex-ai.json` the project already has is used as it is).
 7. **Carry the project's content back, after what `init` wrote.** Its own Make targets after the Makefile (a figure or data step is a plain
    target; `make figures` runs it); its own `AGENTS.md` sections after the policy; its `.gitignore` lines; its editor preferences into
    `.vscode/settings.json`. For `.claude/` and `.codex/` keep the stricter rule where two differ, and never weaken a Git guardrail.

@@ -1,4 +1,4 @@
-# Core, modules and profiles
+# Core and modules
 
 The core needs Python 3.10+ and Make. It supplies configuration, installation,
 agent policies, file checks and command routing. TeX, Zotero, GUI
@@ -11,25 +11,18 @@ manuscript is optional.
 For a project that needs only the file checks and the agent rules:
 
 ```sh
-python3 /path/to/workbench/latex-ai-init init /path/to/project --profile core --dry-run --diff
-python3 /path/to/workbench/latex-ai-init init /path/to/project --profile core
+python3 /path/to/workbench/latex-ai-init init /path/to/project --modules '' --dry-run --diff
+python3 /path/to/workbench/latex-ai-init init /path/to/project --modules ''
 ```
 
-| Profile | Initial modules |
-|---|---|
-| `core` | None; shared infrastructure only |
-| `writing` | LaTeX; bibliography added if declared by the detected source |
-
-Use `--modules latex,bibliography` instead of a profile for an exact initial
-selection. When LaTeX source declares bibliography resources, detection adds
+`--modules` chooses the initial modules exactly: `''` selects none (shared infrastructure only), `latex` selects LaTeX, and
+`latex,bibliography` selects both. When LaTeX source declares bibliography resources, detection adds
 the bibliography capability and records those paths. TeX selection still needs
-a real root and any explicit engine choice required by existing build conventions.
-Without either option a paper gets `latex` (and `bibliography` when its source declares one), with the
-editor adapter on; every profile uses schema 3.
-Profiles are initialization presets, not persistent policies.
-The configuration stores the resolved module choices.
+a real root. Without `--modules` a paper gets `latex` (and `bibliography` when its source declares one), with the
+editor adapter on; every project uses schema 3.
+`--modules` only chooses the starting set; the configuration stores the resolved module choices.
 
-New projects chosen by profile or module list enable the editor adapter only with `--editor`. It installs
+New projects given `--modules` enable the editor adapter only with `--editor`. It installs
 project files without opening/configuring GUI applications.
 
 ## Configuration
@@ -79,7 +72,7 @@ wanted by hand ([updating](upgrading.md)).
 "modules": {"latex": {"default_document": "main", "documents": {"main": {"root": "main.tex"}}}, "bibliography": {"files": ["refs.bib"]}}
 ```
 
-Enabling LaTeX in a project without TeX needs an explicit root (and engine, if not pdfLaTeX); no source is generated or guessed.
+Enabling LaTeX in a project without TeX needs an explicit root; no source is generated or guessed.
 Removing a module keeps your source files and forgets its settings: copy them aside if you may want them back. Its commands stop
 being accepted; editor tasks that were generated for it stay in `.vscode/` until you remove them.
 

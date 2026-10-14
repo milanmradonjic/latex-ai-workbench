@@ -2,7 +2,7 @@
 
 The build chain is:
 
-    Zotero collection → Better BibTeX auto-export → project .bib → latexmk → BibTeX/Biber → PDF/log validation
+    Zotero collection → Better BibTeX auto-export → project .bib → latexmk → BibTeX → PDF/log validation
 
 Zotero supplies metadata; the project stores a deterministic text snapshot. CI
 and local builds use that snapshot, with no Zotero process, network endpoint,
@@ -43,8 +43,7 @@ is the reusable procedure; do not issue it as a batch of GUI requests.
    intended sources. Do not guess a research collection or export the entire
    personal library without the owner's choice.
 3. **Set up export.** In Zotero, right-click the chosen collection and select
-   **Export Collection…**. For traditional BibTeX use format **Better BibTeX**;
-   for biblatex/Biber use **Better BibLaTeX**. Enable **Keep updated**, leave
+   **Export Collection…**. Use format **Better BibTeX**. Enable **Keep updated**, leave
    notes/files exports off, and save to the exact project path, for this
    reference `bibliography/zotero.bib` in the repository root.
    [Better BibTeX documents this automatic export registration](https://retorque.re/zotero-better-bibtex/exporting/auto/).
@@ -81,28 +80,24 @@ bibliography metadata or manuscript citation was fabricated for integration.
 
 For another project's first export, inspect its real entries without inventing
 or repairing metadata. Set `export.required` true when the snapshot should be
-required by validation. Add it to `bibliography.files`, select the source's actual backend,
-and use the existing document's citation style. Never convert a manuscript to
-biblatex just because a template shows Biber.
+required by validation. Add it to `bibliography.files`, set the backend to `bibtex`,
+and use the existing document's citation style. A manuscript written for biblatex and Biber is outside
+what the workbench builds itself: it declares a `build_command` ([configuration](configuration.md)).
 
-For traditional BibTeX, existing source usually uses a bibliography style plus
-`\bibliography{bibliography/zotero}`. For biblatex/Biber, it usually declares
-`\usepackage[backend=biber]{biblatex}`, calls
-`\addbibresource{bibliography/zotero.bib}`, and prints the bibliography using
-the manuscript's convention. Add real citations only for claims supported by
-the source and requested by the manuscript task. Select format and backend
-together, then run `make check` and inspect the `.bib` diff.
+Existing source uses a bibliography style plus
+`\bibliography{bibliography/zotero}`. Add real citations only for claims supported by
+the source and requested by the manuscript task, then run `make check` and inspect the `.bib` diff.
 
 ## Deterministic validation and limits
 
 `make bib-check` checks known local bibliography files for UTF-8 decoding,
 NUL/merge-conflict markers, unterminated entries, invalid/duplicate keys (compared
-case-insensitively when the backend is BibTeX, as BibTeX does; Biber keeps
-case-variant keys distinct), and
+case-insensitively when the backend is BibTeX, as BibTeX does; case-variant keys
+stay distinct when it is `none`), and
 missing or empty required exports. Literal resources in the root/input files
 are included. Explicit config paths cover resources hidden by macros. These
 boundary checks do not fully parse BibTeX expressions or validate research
-metadata. BibTeX/Biber does the actual backend validation during compilation.
+metadata. BibTeX does the actual backend validation during compilation.
 
 `make check` builds, then rejects unresolved citations/references, duplicate
 labels, bibliography/backend failures and persistent rerun requests. It prints

@@ -42,7 +42,7 @@ document. Use `make latex-ai-document-check DOC=NAME` for one document and
 fragments are checked through their consuming document. Preserve handwritten
 sources; a project's own build steps are Make targets or scripts that `build_command` names.
 
-For profiles, module selection/disable, and adapter choices,
+For module selection/disable and adapter choices,
 read [modules](../../docs/modules.md). Use the project's declared paths and tool environment; LaTeX is optional.
 
 Preview change-aware checks. Notes-only changes do not need a manuscript build.
@@ -100,7 +100,7 @@ than treating static discovery as a full TeX interpreter.
 When manual Zotero configuration is required, stop and name one exact action,
 application, value/path and result to report. First establish whether Better
 BibTeX is installed/enabled; then obtain the target collection before an export.
-Use Better BibTeX for BibTeX or Better BibLaTeX for Biber, keep the export updated,
+Use Better BibTeX, keep the export updated,
 sort by citation key and avoid automatic Git push. Do not invent a collection
 or export another project's sources. The user controls GUI applications.
 

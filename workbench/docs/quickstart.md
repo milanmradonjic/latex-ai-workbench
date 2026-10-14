@@ -1,7 +1,7 @@
 # Quickstart
 
 From an existing paper or an empty folder to a first passing check. You need Python 3.10+ and
-`make`. TeX (`latexmk` and an engine) is only needed when the project builds a LaTeX manuscript;
+`make`. TeX (`latexmk`, `pdflatex` and, for a bibliography, `bibtex`) is only needed when the project builds a LaTeX manuscript;
 notes and numerical projects need nothing more.
 
 ## 1. Install the workbench in your project
@@ -16,15 +16,14 @@ python3 /path/to/workbench/latex-ai-init init /path/to/project --dry-run
 For a folder without a manuscript, that needs only the file checks and the agent rules:
 
 ```sh
-python3 /path/to/workbench/latex-ai-init init /path/to/project --profile core --dry-run
+python3 /path/to/workbench/latex-ai-init init /path/to/project --modules '' --dry-run
 ```
 
 Add `--diff` to read the content of the files your project will own; the summary comes last.
 Then apply it by running the same command without `--dry-run`.
 
-The profiles are `core` and `writing`; an explicit
-`--modules` list also works. A LaTeX project needs its main `.tex` file to exist already: a single
-one is detected, otherwise pass `--root`. Without a profile, a paper gets the manuscript checks
+`--modules` chooses the starting modules exactly: `--modules ''` for none, `--modules latex,bibliography` for a manuscript. A LaTeX project needs its main `.tex` file to exist already: a single
+one is detected, otherwise pass `--root`. Without `--modules`, a paper gets the manuscript checks
 (and bibliography checks when it has one), plus VS Code settings; `--skip-editor` leaves them out. A module is turned on later by adding it to `modules` in `.latex-ai.json` ([modules](modules.md)). A paper
 that is built by something other than latexmk is declared with `--build-command '["make", "pdf"]'` (a target you add to the
 Makefile after `init`). A project that already has a Makefile or policy files is migrated: see [migrating](migrating.md).

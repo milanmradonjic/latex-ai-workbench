@@ -29,21 +29,18 @@ a full check before sharing. No-TeX projects omit the build step.
 - [I want to…](docs/tasks.md): find the command for what you are trying to do.
 - In a project, `make guide` prints a short manual written with that project's own documents and command names.
 
-## Pick a profile
+## What a project gets
 
-| Profile | For | Modules |
-|---|---|---|
-| `core` | file and policy checks only | none |
-| `writing` | a LaTeX manuscript | latex |
-
-Or choose an explicit `--modules` list. An installed project is updated by an agent following [the recipe](docs/upgrading.md):
+`init` on a paper finds its main file and adds the manuscript checks, the bibliography checks when it declares a `.bib` file, and VS Code settings.
+The workbench builds with pdflatex and BibTeX; a document that needs anything else declares a `build_command`. For a folder without a manuscript,
+`--modules ''` adds only the file checks and the agent rules; `--modules latex,bibliography` chooses an exact set. An installed project is updated by an agent following [the recipe](docs/upgrading.md):
 `diff` shows what differs and `runtime` refreshes the runtime files, never overwriting an edited one unless forced.
 
 ## Guides
 
 | Getting started | Reference | Agents and updates |
 |---|---|---|
-| [Quickstart](docs/quickstart.md) | [Modules and profiles](docs/modules.md) | [Working with AI agents](docs/agents.md) |
+| [Quickstart](docs/quickstart.md) | [Modules](docs/modules.md) | [Working with AI agents](docs/agents.md) |
 | [I want to…](docs/tasks.md) | [Configuration](docs/configuration.md) | [Agent operating skill](skills/latex-ai-workbench/SKILL.md) |
 | [Installing](docs/installing.md) | [Validation routing](docs/validation.md) | [Updating](docs/upgrading.md) |
 | [Daily use](docs/daily-use.md) | [Bibliography](docs/bibliography.md) | [Maintainers' material](docs/maintainers/README.md) |

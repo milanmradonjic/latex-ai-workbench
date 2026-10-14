@@ -9,7 +9,7 @@ Python and Make provide the core. Optional modules require their own tools.
 1. **Authored work:** TeX, notes, bibliography exports and data belong to the
    project. The installer preserves them.
 2. **Configuration:** `.latex-ai.json` declares enabled modules and named
-   documents. Profiles choose initial settings; nothing applies them again.
+   documents. The installer chooses initial settings; nothing applies them again.
 3. **Execution:** Make is the canonical interface. Editor tasks and CI invoke
    those commands. Builds compile documents; planning never builds.
 4. **Evidence:** receipts describe what happened under declared

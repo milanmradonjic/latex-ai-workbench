@@ -36,11 +36,11 @@ Projects without TeX simply omit `modules.latex`; see [modules](modules.md).
 | Setting | Meaning |
 |---|---|
 | `latex.documents.<id>.root` | Project-relative `.tex` root; it must exist. |
-| `engine` | `pdflatex` (default), `lualatex`, or `xelatex`. |
-| `backend` | `none` (default), `bibtex`, or `biber`; source and configuration must agree. |
+| `engine` | `pdflatex`, the only engine. For another, declare a `build_command`. |
+| `backend` | `none` (default) or `bibtex`; source and configuration must agree. |
 | `lint` | `enabled: true`, `args: []`, optional project-relative `baseline`. |
 | `output_dir` | Defaults to `.latex-ai/artifacts/documents/<id>/build`; override for custom layouts. |
-| `build_command` | Optional nonempty argv list, run at the project root; no shell expansion. |
+| `build_command` | Optional nonempty argv list, run at the project root; no shell expansion. It is also how a document is built with another engine (lualatex, xelatex) or another bibliography program (biber): the workbench itself builds with pdflatex and BibTeX. |
 | `inputs` | Additional project-relative paths/globs; each must match a file when building. |
 | `bibliography_files` | Per-document `.bib` inputs, added to the shared bibliography. |
 | `latex.defaults` | Shared engine/backend/lint/output defaults. Roots, commands, and inputs belong to documents. |
@@ -51,8 +51,8 @@ Projects without TeX simply omit `modules.latex`; see [modules](modules.md).
 | `validation.ignore` | Project-relative globs, for example `docs/**`, for paths that are never routed to the manuscript build. See [validation](validation.md). |
 | `validation.package` | Distribution directory for its own tests; default `workbench`, `null` disables package routing. |
 
-`export.required: true` rejects missing or empty exports. Use format `bibtex` for
-Better BibTeX and `biblatex` for Better BibLaTeX/Biber. Builds use local files and
+`export.required: true` rejects missing or empty exports. The format is `bibtex`, for
+Zotero's Better BibTeX. Builds use local files and
 never contact Zotero. Backend settings do not rewrite TeX packages or citation styles.
 
 Paths must remain inside the project, including through symlinks. Root filenames

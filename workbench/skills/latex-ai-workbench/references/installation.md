@@ -15,15 +15,15 @@ python3 /path/to/workbench/latex-ai-init init /path/to/project --dry-run --diff
 ```
 
 `init` is for a project that has no `.latex-ai/installation.json`; it refuses one that has it
-(see Update below). Select a profile or modules and enable the editor adapter only
+(see Update below). Select modules and enable the editor adapter only
 when needed; read [module setup](../../../docs/modules.md). Projects without a manuscript
-do not need a TeX root. Profiles choose initial configuration only.
+do not need a TeX root (`--modules ''`). `--modules` chooses the initial configuration only.
 For handwritten TeX notes, add independent roots under `modules.latex.documents` in
 `.latex-ai.json` by hand. Read [TeX notes](../../../docs/tex-notes.md) for named output ownership,
 mixed formats and `build_command`. Only project configuration schema 3 is supported.
-Ambiguous root/engine detection returns 2 and requires explicit choices after
-inspection. Select `--root` for multiple manuscripts, `--engine` for fontspec
-or custom build files, and `--backend` for nonstandard bibliography declarations.
+Ambiguous root detection returns 2 and requires an explicit choice after
+inspection. Select `--root` for multiple manuscripts. The workbench builds with pdflatex and BibTeX; a manuscript that needs
+another engine or biber declares a `build_command`.
 Do not ask the owner to resolve ordinary choices evident from local files.
 
 For a build that is not latexmk, supply `--build-command` as a JSON
