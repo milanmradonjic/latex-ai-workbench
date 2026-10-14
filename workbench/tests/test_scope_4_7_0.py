@@ -32,7 +32,7 @@ from test_support import ProjectCase, fixture_env
 
 SOURCE = "\\documentclass{article}\\begin{document}x\\end{document}\n"
 IDENTITY = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.invalid", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.invalid"}
-FILES = {"main.tex": SOURCE, "refs.bib": "@misc{k}\n", "notes/todo.txt": "z", "figure.pdf": "%PDF-1.5", ".gitignore": "secret.txt\n", "secret.txt": "kept anyway",
+FILES = {"main.tex": SOURCE, "refs.bib": "@misc{k}\n", "notes/todo.txt": "z", "figure.pdf": "%PDF-1.5", "main.pdf": "%PDF-1.5 beside its source", ".gitignore": "secret.txt\n", "secret.txt": "kept anyway",
          "a b.tex": "", "é.tex": "", "[x]*.tex": "", "-n.tex": "", ".latex-ai/workbench.py": "# runtime", "crlf.txt": "a\r\nb\r\n", "vendor/lib/x.txt": "a nested repository's file",
          "scripts/train.log": "", "results/solver.out": "", "data/run.toc": "", "refs.bbl": "", "analysis/notes.aux": "",  # a compiler's suffixes, and no .tex of that name beside them
          **({} if os.name == "nt" else {"line\nbreak.tex": ""})}
