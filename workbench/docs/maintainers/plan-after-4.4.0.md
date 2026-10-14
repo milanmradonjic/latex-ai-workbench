@@ -102,7 +102,8 @@ Each step is one release and one pull request.
   portability scenarios; and the engine and backend inference in `detect_config`. Keep `build_command` for anything unusual. A configuration that says
   `engine: pdflatex` or `backend: none` or `bibtex` keeps working; anything else is refused by name with a hint that points at `build_command`. **Decided 14 October 2026:** the
   `biblatex` export format, which existed to feed biber, goes too, so the export `format` is `bibtex`. **Done when** projects that use only what stays compare byte-identical (generated
-  files and receipts), and the tests that mention profiles are rewritten, not deleted blindly.
+  files and receipts), and the tests that mention profiles are rewritten, not deleted blindly. **Done — 14 October 2026**,
+  [pull request #8](https://github.com/milanmradonjic/latex-ai-workbench/pull/8) (`4243706`), workbench 4.5.0; at the owner's request 4.5.1 then added a guard to `init` for a paper that needs another toolchain.
 - **3.5 Per-document targets.** `make main` and `make notes`, generated only where the name is free; bare `make` builds the default document and `make all` the whole
   package. **Done when** the generated-files guard is updated on purpose, the release notes name the changed lines of the Makefile block, `make guide` names the
   targets, and `diff` shows an existing project exactly what differs.

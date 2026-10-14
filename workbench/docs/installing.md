@@ -54,8 +54,9 @@ make -C /path/to/project check
 ```
 
 A single plain root is detected. For multiple roots, select `--root thesis.tex`.
-The workbench builds with pdflatex and BibTeX, and `init` does not read the source for another engine. A paper that needs lualatex,
-xelatex or biber declares a `build_command` (below). Bibliography detection follows literal `\bibliography{...}` inputs; paths
+The workbench builds with pdflatex and BibTeX. `init` reads the source for the signs that a paper needs lualatex, xelatex or biber (a `% !TeX program` comment,
+`\directlua`, `fontspec`, biblatex without `backend=bibtex`) and, finding one, stops before writing anything and prints the `--build-command` to run it again with
+(`latexmk` with the engine's flag). A `--build-command` of your own takes the guard away. Bibliography detection follows literal `\bibliography{...}` inputs; paths
 assembled through macros, and the `\addbibresource` of biblatex (even with `backend=bibtex`), go in `bibliography.files`, with `backend` set to `bibtex` if BibTeX processes them.
 
 ## Existing projects

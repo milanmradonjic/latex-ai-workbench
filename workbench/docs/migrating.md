@@ -11,7 +11,7 @@ The recipe was tried on a real paper with two coupled documents, its own build s
    `AGENTS.md` (which sections are the project's own and which the workbench's older text), `.vscode/`, `.gitignore`, `.github/workflows/`, and
    `.latex-ai.json` if an older workbench wrote one.
 3. **Decide the build.** A paper that builds with `latexmk -pdf` (pdflatex, with BibTeX if it has a bibliography) needs no `build_command`. One that needs lualatex,
-   xelatex or biber, or that builds some other way, sets `build_command` (an argv list) to the project's
+   xelatex or biber (`init` stops at the signs it knows and prints the command), or that builds some other way, sets `build_command` (an argv list) to the project's
    script or to `make TARGET` for a target of its own Makefile, with `output_dir` where the PDF and log appear and `inputs` for what the compiler
    cannot see. Never name `build`, `check`, `validate` or a `latex-ai-` goal: that would call itself.
 4. **Clear out an older workbench's generated files.** Remove `.latex-ai/` (keep `.latex-ai/lint-baselines/` if the owner accepted one), the Makefile when it holds

@@ -121,6 +121,27 @@ def build_command_argument(text):
     return value
 
 
+# What a source can show that it needs and the workbench does not build itself: a pattern in its text, what it needs, and latexmk's flag.
+OTHER_TOOLCHAINS = (
+    (r"\\directlua|\{luacode\}", "Lua (lualatex)", "-lualatex"),
+    (r"\\XeTeX|\{xeCJK\}|\\setCJKmainfont", "XeTeX (xelatex)", "-xelatex"),
+    (r"\{(?:fontspec|unicode-math)\}", "fontspec or unicode-math, which need lualatex or xelatex", "-lualatex"),
+)
+
+
+def other_toolchain(raw, text):
+    """(what the source needs, latexmk's flag for it) when it needs lualatex, xelatex or biber, else None. `raw` is the root as written, since a
+    `% !TeX program` comment is a comment; `text` is the sources without comments."""
+    magic = re.search(r"^\s*%\s*!TeX\s+(?:TS-)?program\s*=\s*(lualatex|xelatex)\b", raw, re.M | re.I)
+    if magic:
+        return f"{magic[1].lower()} (a `% !TeX program` comment names it)", "-" + magic[1].lower()
+    for pattern, what, flag in OTHER_TOOLCHAINS:
+        if re.search(pattern, text):
+            return what, flag
+    if re.search(r"\\usepackage(?:\[[^\]]*\])?\{biblatex\}|\\addbibresource", text) and not re.search(r"backend\s*=\s*bibtex", text):
+        return "biblatex, which runs biber", "-pdf"
+
+
 def detect_config(project, inventory, args):
     """The configuration a new project starts from: its own `.latex-ai.json` if it has one, else a module list, else what
     the project's files say."""
@@ -181,6 +202,12 @@ def detect_config(project, inventory, args):
             path = local_path(project, str((root.parent / value).relative_to(project)))
             files.append(path.relative_to(project).as_posix())
     command = build_command_argument(args.build_command) if args.build_command else None
+    needs = None if command else other_toolchain(read_tex(root), text)
+    if needs:
+        build = json.dumps(["latexmk", needs[1], "-interaction=nonstopmode", "-halt-on-error", "-file-line-error", "-cd", selected])
+        raise WorkbenchError(f"{selected} needs {needs[0]}, which the workbench does not build itself (it builds with pdflatex and BibTeX)",
+                             hint=f"declare the build: run init again with --build-command '{build}' (the PDF and log land beside the source; docs/installing.md). "
+                                  "If the paper does build with pdflatex, give the same command with -pdf")
     modules = {"latex": {"default_document": "manuscript", "documents": {"manuscript": {
         "root": selected, "engine": "pdflatex", "backend": backend,
         "lint": {"enabled": not args.no_lint, "args": []}, "build_command": command,
