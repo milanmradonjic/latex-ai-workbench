@@ -1,7 +1,23 @@
 # Maintaining a release, and what each release changed
 
-Workbench 3 is the supported development line. Entries for earlier releases are
+Workbench 4 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
+
+## 4.4.1 — refreshing the runtime no longer renders a project's files
+
+Step 3.1 of [the plan after 4.4.0](plan-after-4.4.0.md): a refactor that changes nothing `init`, `diff` or `runtime` print or write.
+
+- **Changed:** `bootstrap.runtime_files(config)` is the runtime half of `desired_files`, which now builds on it. `runtime` refreshes from it, so it no longer renders the
+  policy, Makefile and editor files only to discard them, and no longer depends on them being renderable for the project. `diff` renders once, where it rendered twice, and
+  reads each runtime file once, where it read a differing one twice.
+- **Fixed:** the two schema errors that said "Workbench 3 supports only project configuration schema 3" say Workbench 4, and the header of this file no longer calls
+  Workbench 3 the supported line.
+- **Unchanged:** what `init`, `diff` and `runtime` print and write, apart from the version and the two schema messages (which travel in the vendored `core.py` and
+  `schema.py`): 210 comparisons of 4.4.0 against this tree, on five kinds of project, found no difference ([the record](verification-4.4.1.md)). The generated Makefile,
+  editor files and build receipts are untouched.
+- **Size:** the package is 3,952 lines, from 3,948: this step removes duplicated work and a coupling, not lines. Tests: 351 before, 356 now (5 new).
+
+See [the verification record](verification-4.4.1.md).
 
 ## 4.4.0 — the workbench no longer adapts to a project's own Makefile; existing projects are migrated
 

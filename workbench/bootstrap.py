@@ -259,13 +259,17 @@ def viewer_out_dir(documents):
                   "root file. Give the documents the same output_dir, or the same folder name beside each root, to let it find their PDFs.")
 
 
+def runtime_files(config):
+    """The runtime files a project with this configuration vendors, as {".latex-ai/<name>": text}: the package's own code, copied unchanged."""
+    return {".latex-ai/" + target: (PACKAGE / source).read_text(encoding="utf-8") for source, target in runtime_sources(effective_config(config)).items()}
+
+
 def desired_files(config, project=None):
     config = effective_config(config)
     files = {}
     for name in ["AGENTS.md", "CLAUDE.md", "Makefile", ".gitignore", ".claude/settings.json", ".codex/rules/git-safety.rules"]:
         files[name] = (PACKAGE / "templates" / name).read_text(encoding="utf-8")
-    for source, target in runtime_sources(config).items():
-        files[".latex-ai/" + target] = (PACKAGE / source).read_text(encoding="utf-8")
+    files.update(runtime_files(config))
     files[".gitignore"] = ".DS_Store\n__pycache__/\n.latex-ai/backups/\n.latex-ai/artifacts/\n"
     adapter = integrations(config)
     if not has_module(config, "latex"):
@@ -372,17 +376,17 @@ def show(updates, local=()):
                                         fromfile=update["path"], tofile=update["path"])), end="")
 
 
-def runtime_differences(project, config):
-    """(name, wanted text, current text or None) for each runtime file the package would write that differs."""
-    return [(name, text, read(project, name)) for name, text in desired_files(config, project).items()
-            if name.startswith(".latex-ai/") and read(project, name) != text]
+def runtime_differences(project, runtime):
+    """(name, wanted text, current text or None) for each file of `runtime`, {name: text}, that the project does not hold as it is."""
+    current = {name: read(project, name) for name in runtime}
+    return [(name, text, current[name]) for name, text in runtime.items() if current[name] != text]
 
 
 def do_diff(project, args):
     """Read-only: how the project differs from what `init` would write now. Exit status 1 when a runtime file differs."""
     config = load_config(project)
     wanted = desired_files(config, project)
-    differing = runtime_differences(project, config)
+    differing = runtime_differences(project, {name: text for name, text in wanted.items() if name.startswith(".latex-ai/")})
     for name, text, current in differing:
         print(f"RUNTIME {'missing' if current is None else 'differs'}: {name}")
     others = [(name, text, read(project, name)) for name, text in wanted.items() if not name.startswith(".latex-ai/")]
@@ -416,7 +420,7 @@ def do_runtime(project, args):
     config = load_config(project)
     recorded = recorded_digests(project) or {}
     updates, conflicts = [], []
-    wanted = {name: text for name, text in desired_files(config, project).items() if name.startswith(".latex-ai/")}
+    wanted = runtime_files(config)
     for name, text in wanted.items():
         current = read(project, name)
         if current == text:

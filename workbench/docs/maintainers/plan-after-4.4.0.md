@@ -49,6 +49,8 @@ that still say "Workbench 3" are runtime files, so they change in step 3.1.
 
 ## Step 2: test every supported Python on pull requests, and require them
 
+**Done — 14 October 2026**, [pull request #3](https://github.com/milanmradonjic/latex-ai-workbench/pull/3) (`d1a0b45`). The ruleset on `main` requires `validate` and the five Python jobs.
+
 `workbench-python.yml` tested only 3.10 and 3.14 on a pull request, to save a private plan's Actions minutes. The repository is public, so the saving is gone, and it
 had a cost: the 3.12 job failed on the pushes to `main` for 4.3.0 and 4.4.0, a version their pull requests did not test.
 
