@@ -1,24 +1,40 @@
 # Snapshots
 
-`make snapshot` keeps a copy of every file of the project outside it, so that a bad edit, a bad update or an agent's mistake can be undone, whether or not the project is in Git.
-It is meant to be run before something risky: an update ([updating](upgrading.md)), a migration ([migrating](migrating.md)), a large edit, or an agent let loose on the files.
-`SNAPSHOT_NOTE="before the rewrite of section 3" make snapshot` gives the copy a label (put the assignment before `make`, as here, if the label has a `$` in it: after `make`, Make reads `$` itself). `make snapshots` lists the copies and prints the command that restores from one.
+A snapshot is a copy of every file of the project, kept outside it, so that a bad edit, a bad update or an agent's mistake can be undone, whether or not the project is in Git.
+`make snapshot` takes one by hand: before an update ([updating](upgrading.md)), a migration ([migrating](migrating.md)), a large edit, or an agent let loose on the files.
+`SNAPSHOT_NOTE="before the rewrite of section 3" make snapshot` gives it a label (put the assignment before `make`, as here, if the label has a `$` in it: after `make`, Make reads `$` itself).
+`make snapshots` lists the snapshots and prints the command that restores from one.
 
 A snapshot never changes the project: its own Git repository, if it has one, is not touched, and nothing is written into the project folder. Nothing is sent anywhere.
 
-## What is kept, and for how long
+## Three stores
 
-| Tier | A snapshot goes in | It is kept |
-|---|---|---|
-| fine | every `make snapshot` that finds a change | one to two weeks |
-| daily | the first snapshot of each day (a day is a UTC day) | one to two months |
+Each store is a Git repository of its own, so what goes into one can never push anything out of another.
 
-Each tier is two Git repositories used by turns, one for the current week or month and one for the one before. When a week or month is over, the repository of the period before it is deleted and used afresh.
-That is the only deleting the workbench does outside the project, and it deletes only a folder it made itself (one with its own marker file inside); a link, a folder without the marker, or
-a repository whose age it cannot read is refused with a message and left as it is. When it deletes one, the output says which, with the date of its newest snapshot. If the computer's clock jumps
-forward by more than two periods, the older repositories count as expired and go; a clock that jumps back loses nothing (a repository from the future is never deleted).
+| Store | Filled by | A snapshot is taken | Kept |
+|---|---|---|---|
+| `manual` | you, with `make snapshot` | when files differ from your last manual snapshot | all of them; the workbench never deletes one |
+| `weekly` | a timer that asks every day ([below](#timers-on-a-mac-launchd)) | the first time in a calendar week (Monday to Sunday) that files differ from the last weekly snapshot | the newest 6 |
+| `frequent` | a timer that asks every 30 minutes | whenever files differ from the last frequent snapshot | the newest 60 |
 
-A snapshot of files that have not changed since the last one is not made, and says so.
+The two timers run `python3 .latex-ai/workbench.py snapshot --tier frequent` and `--tier weekly`; `make snapshot` is the manual one (`--tier manual`, the default). A snapshot that would be identical to the
+newest of its store is not taken, and the run says so, so a timer that fires while you are away costs almost nothing and uses none of the 60.
+
+Every snapshot has a number, `#1`, `#2`, ... in its store, which only grows (it is not reused after a snapshot is dropped). The clock decides when a snapshot is taken (whether this week already has its weekly one) and never
+what is deleted: only the count does. A clock that jumps forward or back can cause one snapshot too many or too few, and deletes nothing else.
+
+## What the workbench deletes
+
+Only the oldest snapshots of the `weekly` and `frequent` stores, one at a time, when a new one makes the store hold more than it keeps: it deletes that snapshot's reference and the files only it held. It never deletes a folder,
+and it refuses, with a message and without touching anything, a repository that is a link, a folder without the marker file the workbench wrote in it, and a store that was not made for this project.
+The output says which snapshot it dropped. In `manual` it deletes nothing; to drop one yourself (the numbers are written with eight digits):
+
+```sh
+git --git-dir=$HOME/.snapshots/NAME-HASH/manual update-ref -d refs/snapshots/00000003
+git --git-dir=$HOME/.snapshots/NAME-HASH/manual prune --expire=now
+```
+
+A reference you add yourself (say `git update-ref refs/keep/before-rewrite <id>`) keeps its snapshot's files from being pruned, and a name under `refs/snapshots/` that is not a number is left alone.
 
 ## What is in a snapshot
 
@@ -39,24 +55,98 @@ temporary file) is not an error.
 
 ## Where
 
-In `~/.snapshots/NAME-HASH/`, where `NAME` is the project folder's name and `HASH` is eight letters of a hash of its full path (two projects with the same name do not share a folder).
+In `~/.snapshots/NAME-HASH/`, where `NAME` is the project folder's name and `HASH` is eight letters of a hash of its full path (two projects with the same name do not share a folder); inside it, a folder for each store.
 `LATEX_AI_SNAPSHOT_DIR` names another folder instead of `~/.snapshots`; it cannot be inside the project. To free the space of one project, delete its folder yourself.
 The folder also holds a `.latex-ai/` with a lock file: one snapshot is taken at a time (a second waits a few seconds for the first, and says so if it is still running).
 
 ## Restoring
 
-`make snapshots` ends with commands like these, written out for the newest snapshot (for an older one, use its id and its repository, the folder of that name in the store):
+`make snapshots` ends with commands like these, written out for the newest snapshot (for another, use its id and the repository of its store, the folder of that name in `NAME-HASH`):
 
 ```sh
-git --git-dir=$HOME/.snapshots/NAME-HASH/fine-1 --work-tree=/path/to/project diff ID --stat      # what changed since it
-git --git-dir=$HOME/.snapshots/NAME-HASH/fine-1 --work-tree=/path/to/project checkout ID -- FILE # one file back
-git --git-dir=$HOME/.snapshots/NAME-HASH/fine-1 --work-tree=/path/to/project checkout ID -- .    # every file it has
+git --git-dir=$HOME/.snapshots/NAME-HASH/frequent --work-tree=/path/to/project diff ID --stat      # what changed since it
+git --git-dir=$HOME/.snapshots/NAME-HASH/frequent --work-tree=/path/to/project checkout ID -- FILE # one file back
+git --git-dir=$HOME/.snapshots/NAME-HASH/frequent --work-tree=/path/to/project checkout ID -- .    # every file it has
 ```
 
-Restoring writes files into the project and nothing else. `checkout ID -- .` overwrites what you have edited since, so run `make snapshot` first if those edits matter. A file made after the snapshot stays where it is: delete it by hand if it is not wanted. A project with its own Git sees the restored
-files as ordinary changes. The snapshots are plain Git repositories, so `git --git-dir=... log`, `show` and `ls-tree` work on them as on any other.
+Restoring writes files into the project and nothing else. `checkout ID -- .` overwrites what you have edited since, so run `make snapshot` first if those edits matter. A file made after the snapshot stays where it is:
+delete it by hand if it is not wanted. A project with its own Git sees the restored files as ordinary changes. The snapshots are plain Git repositories, so `git --git-dir=... show`, `ls-tree` and `for-each-ref` work on them.
+
+## Timers on a Mac (launchd)
+
+**Untested.** This was written where launchd could not be run. The two files below are checked to be valid property lists, and the command each runs is checked to work and to fill the right store; how launchd
+treats them on your Mac is not. Run the command by hand first, then load the agents, then look at the log.
+
+The agents run only while you are using the Mac. If it sleeps through a start, launchd runs the job once when it wakes (several missed starts become one); if it was switched off, nothing runs until the next start, and
+`RunAtLoad` makes the job run when you log in, so the first run after switching on is not a day late. The weekly agent starts every day and the program decides whether the week already has its snapshot,
+so a week with no changes gives none and the first day of a week with changes gives one.
+
+1. **Find a Python 3.10 or newer** and its full path (`command -v python3` in the terminal where `make check` works). `/usr/bin/python3` is only right if it is new enough. Replace it in both files, and put the
+   folder of your `git` in `PATH` if it is not in the default one (launchd starts jobs with a short `PATH`).
+2. **Make the two files** in `~/Library/LaunchAgents/`, replacing `YOU`, `PATH/TO/PROJECT` and `PROJECT` (one pair for each project):
+
+`local.latex-ai.snapshot.frequent.PROJECT.plist`
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>local.latex-ai.snapshot.frequent.PROJECT</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>.latex-ai/workbench.py</string>
+    <string>snapshot</string>
+    <string>--tier</string>
+    <string>frequent</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/YOU/PATH/TO/PROJECT</string>
+  <key>EnvironmentVariables</key>
+  <dict><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>
+  <key>StartInterval</key><integer>1800</integer>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>/Users/YOU/Library/Logs/latex-ai-snapshot-PROJECT.log</string>
+  <key>StandardErrorPath</key><string>/Users/YOU/Library/Logs/latex-ai-snapshot-PROJECT.log</string>
+</dict>
+</plist>
+```
+
+`local.latex-ai.snapshot.weekly.PROJECT.plist`
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>local.latex-ai.snapshot.weekly.PROJECT</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>.latex-ai/workbench.py</string>
+    <string>snapshot</string>
+    <string>--tier</string>
+    <string>weekly</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/YOU/PATH/TO/PROJECT</string>
+  <key>EnvironmentVariables</key>
+  <dict><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>/Users/YOU/Library/Logs/latex-ai-snapshot-PROJECT.log</string>
+  <key>StandardErrorPath</key><string>/Users/YOU/Library/Logs/latex-ai-snapshot-PROJECT.log</string>
+</dict>
+</plist>
+```
+
+3. **Load them**, and look: `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.latex-ai.snapshot.frequent.PROJECT.plist` (and the weekly one), then `make snapshots` in the project, and the log. To stop one:
+   `launchctl bootout gui/$(id -u)/local.latex-ai.snapshot.frequent.PROJECT`.
+
+macOS protects some folders (`~/Documents`, `~/Desktop`, `~/Downloads`, iCloud Drive, external drives) from background jobs unless the program has been given access (System Settings, Privacy and Security,
+Full Disk Access, for the Python you named). A snapshot that cannot read a folder stops with an error naming it, in the log, and does not leave it out; keep the project elsewhere or grant the access.
 
 ## Needs
 
 Git on the `PATH` (the snapshots are Git repositories). The repositories use an identity of their own and none of your Git settings, hooks or templates.
-A project without the 4.7 Makefile targets can still be snapshotted by the new release before it is updated: `python3 /path/to/workbench/runtime.py snapshot --project /path/to/project`.
+A project without the Makefile targets (anything from before 4.7) can still be snapshotted by the new release before it is updated: `python3 /path/to/workbench/runtime.py snapshot --project /path/to/project`.
