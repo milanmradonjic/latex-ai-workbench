@@ -98,6 +98,21 @@ it failed before the fixture repair and passed afterward. Local evidence:
   found no weakening or actionable issue, and passed the new focused regression.
   Its command was `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s workbench/tests -p test_diagnostics.py -k metadata_diagnostics`.
 
+A subsequent hosted run reduced the failures to one interpreter-report assertion
+([job log](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38755788760/job/116493716268)).
+A Python executable ending in `/python3` is also the explicitly declared custom
+builder. Its valid absolute tool label contains `python3:`, which the old assertion
+incorrectly forbade anywhere in the report. The assertion now requires the actual
+interpreter header first and rejects only a bare `python3:` tool label.
+
+A temporary virtual environment with `bin/python3` reproduced the exact failure
+(`/private/tmp/workbench-python3-name-before.log`); all 27 diagnostics tests passed
+under that interpreter after the correction
+(`/private/tmp/workbench-python3-name-after.log`). This changes test assertions
+only; production code and required-tool detection remain unchanged. The same
+reviewer inspected these two assertions and found no actionable issue; that final
+inspection ran no additional tests.
+
 The final suite contains 504 tests. Hosted completion remains linked above, so
 recording this follow-up does not falsely claim a pass before the new head runs.
 

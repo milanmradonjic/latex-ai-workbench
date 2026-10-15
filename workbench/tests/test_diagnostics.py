@@ -282,8 +282,8 @@ class ModuleTests(unittest.TestCase):
     def test_doctor_reports_the_interpreter_that_runs_it(self):
         self.assertEqual(self.cli('init', lint=False, build_command=[sys.executable, '-c', 'pass']), 0)
         report = self.command("doctor").stdout
-        self.assertIn(f"python: {sys.executable}", report)
-        self.assertNotIn("python3:", report)  # the PATH lookup could name a different interpreter
+        self.assertTrue(report.startswith(f"python: {sys.executable} ("), report)
+        self.assertNotRegex(report, r"(?m)^python3:")  # forbid a bare PATH lookup, allow a declared absolute builder
 
 
 class Repairs(ProjectCase):
