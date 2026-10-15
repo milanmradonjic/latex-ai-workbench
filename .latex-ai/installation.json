@@ -1,9 +1,9 @@
 {
   "schema_version": 3,
-  "version": "4.9.1",
+  "version": "4.10.0",
   "files": {
     ".latex-ai/commands.py": "a3f3422544f73f5388a450ff43ad635acca455c6a08581fa5f203a9676370196",
-    ".latex-ai/core.py": "e9d63bb050d4c6018d559799862dc6a7f8c916bd9701d282a91a6e54a9b23873",
+    ".latex-ai/core.py": "cb03c1f84ba9e85f1b021980fc947cc1d3ec5586edc1fd641a3f1c19ce8fbd9b",
     ".latex-ai/diagnostics.py": "fbd0eb3497084107103a9bf20575e073fd2b55b6f97c67acad2a90e402610b85",
     ".latex-ai/documents.py": "e80bc1199c6abbdde06d9ee4aeb74fd5e7cbd763266d6ac359c8703fbacdd10e",
     ".latex-ai/guide.py": "9e1cd886f8996842440b356302f0f4ffe7bff99bc9672b837378428d855016b3",

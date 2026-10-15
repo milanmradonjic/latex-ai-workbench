@@ -3,6 +3,21 @@
 Workbench 4 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 4.10.0 — the Git guardrails of gate G1
+
+Gate G1 of [the plan after 4.4.0](plan-after-4.4.0.md), as the owner decided it on 15 October 2026. The [verification record](verification-4.10.0.md) has the checks. The runtime and the Makefile did not change; the agents' rule files and one sentence of the policy did.
+
+- **Prompts for what writes history, branches or the working tree.** `git add` and `git fetch` no longer prompt, in `.claude/settings.json` and in `.codex/rules/git-safety.rules`: they change no commit, no branch and no file of the working tree, and the commit or merge that
+  follows does prompt. Everything else that prompted still does: commit, push, pull, merge, rebase, reset, restore, clean, stash, checkout, switch, cherry-pick, revert, am, rm, mv, tag, update-ref, the destructive forms of `branch`, `worktree`, `remote`,
+  `reflog` and `submodule`, and `init` and `clone` (an earlier audit repair put those two there on purpose). Commit and push keep their prompts in every generated project.
+- **The deny set stays and is closed against other spellings.** Claude's file gains 24 wildcard denies (`git push * main`, `git push *:main`, `git push *:refs/heads/main`, with and without arguments after them, for `main` and `master` and the `+` forms), so that
+  `git push upstream feature:main`, `git push --no-verify origin HEAD:main` and the like are refused, not prompted: 1,200 of the 1,344 spellings tried were only prompted before. Codex matches whole words and has no wildcard, so there those still prompt, as every push does.
+  Pushes of a topic branch are not refused (`feature/main-fix`, `domain`, `maintenance` are tried). The merge denies are unchanged.
+- **The policy** (`AGENTS.md`, "Git safety") says that Git mutations that write history, branches or the working tree need approval, and that staging and fetch need none of their own.
+- **Not in the generated files:** the agent's own commits and pushes of a topic branch need no prompt of the owner's in a workbench session of this repository. That is a line of this repository's `AGENTS.md`, as before; the generated files keep their prompts.
+- **Taking it over.** `latex-ai-init diff` shows a project the three files. No command applies them: they are the owner's to read and edit, and the update recipe tells an agent to keep the stricter rule where two differ, so an agent updating a project will not
+  take over the relaxed prompts; the owner decides, and can take the added denies alone. Claude's wildcard denies need a Claude Code that reads `*` in the middle of a Bash rule (its documentation says it does); an older one would ignore them and keep the literal denies.
+
 ## 4.9.1 — the manual, after two readers used it
 
 Gate G3 of [the plan after 4.4.0](plan-after-4.4.0.md) asked for a reader other than the manual's author. Two agents each worked from `make guide` alone, one on a newcomer's project and one on an owner's; the

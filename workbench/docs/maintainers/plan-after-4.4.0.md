@@ -70,12 +70,13 @@ Each is settled before the step that depends on it.
   scope asked for less: ask before commit or push, no push to `main`, no merge. The owner chose the second option, with one addition about sessions:
   - **Kept:** the generated deny set (push to `main` or `master` in every spelling, merges).
   - **Shrunk:** the prompts, from every Git command that has an entry today to the commands that write history, branches or the working tree (commit, rebase, reset, cherry-pick, revert, branch, switch,
-    checkout, worktree, restore, clean, stash, apply, rm, mv, merge, update-ref and the like). The exact list is fixed in the step that changes the files. Commit and push keep their prompts in the
+    checkout, worktree, restore, clean, stash, apply, rm, mv, merge, update-ref and the like). As implemented in 4.10.0, only `git add` and `git fetch` stopped prompting (`init` and `clone` stay, which an earlier audit repair put there). Commit and push keep their prompts in the
     generated files, so a manuscript project's agent still asks.
   - **A workbench session** does not prompt for the agent's own commits and pushes to a topic branch once the work the task requires is done, which `AGENTS.md` already says ("Git in a workbench
     session"). That condition cannot be a permission rule, so it stays text there: the task done, its checks run, the diff read. Anything that rewrites or discards work (reset, clean, restore, stash,
     rebase, amending a pushed commit, force-push) stays the owner's every time, and the deny set stays the mechanical backstop. Changing the agents' permission rules needs the owner's approval each time.
-  - **To do, when the files are changed:** a test of equivalent command spellings in both agents' rules: `git push origin feature:main` only prompts today. Not yet scheduled as a step.
+  - **Done on 15 October 2026, workbench 4.10.0** ([verification](verification-4.10.0.md)): the rule files changed as above, and a test tries 1,344 spellings of a push to the default branch against both agents' rules. Claude's file gained 24 wildcard
+    denies, so `git push origin feature:main` and its like are refused; Codex, which has no wildcard, prompts for what it cannot match.
   - **The record-merge exception is removed** (decided 15 October 2026): its script, its test and its paragraph in `AGENTS.md`. No pull request in this repository was merged through it, and its pattern still named the closed plan
     of 3.0.2. An agent never merges; the owner merges every pull request, and an agent hands over the command.
 - **G2, changed-file routing, closed on 15 October 2026.** The planner routes lightweight checks, affected documents, bibliography, package tests and a conservative fallback. Its three open points
