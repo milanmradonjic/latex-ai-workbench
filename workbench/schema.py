@@ -431,8 +431,8 @@ def load_config(project):
 
 
 STATES = {
-    "current": "verified build matches its sources",
-    "stale": "sources or build settings changed since its verified build",
+    "current": "built from these exact files without a LaTeX error",
+    "stale": "files or build settings changed since it was built",
     "failed": "its last build failed or was interrupted",
     "running": "a build is in progress",
     "missing": "not built yet",

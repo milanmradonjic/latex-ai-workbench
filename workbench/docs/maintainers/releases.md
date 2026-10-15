@@ -3,6 +3,20 @@
 Workbench 4 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 4.9.1 — the manual, after two readers used it
+
+Gate G3 of [the plan after 4.4.0](plan-after-4.4.0.md) asked for a reader other than the manual's author. Two agents each worked from `make guide` alone, one on a newcomer's project and one on an owner's; the
+[verification record](verification-4.9.1.md) has what they found. Wording only: no command, option, file or receipt changed.
+
+- **Changed in `make guide`:** a document is named with its file and a never-built one is "not built yet" (`manuscript = main.tex (default): not built yet`, not "is missing"); `make build` says where the PDF goes, from the rule the
+  build uses; `make all` is said to stop at the first failure; an undefined reference or citation is named as an ERROR, and an error is no longer promised a Hint; the snapshot lines say that Git must be installed (the project need
+  not use it), that uncommitted files are kept, and that the printed restore command has a FILE to replace and overwrites it; `lint-baseline` is "your decision, never for an ERROR" and ChkTeX is named; `make check` lists what it does;
+  `validation-plan` says that without Git it selects everything; the agents line says what they ask about (committing, pushing, anything that rewrites or discards work) and names the default branch (main or master); the
+  closing line points at `docs/upgrading.md` in a newer workbench folder instead of the quickstart.
+- **Changed in `status` and the docs:** the states no longer say "verified": `current` is "built from these exact files without a LaTeX error" and `stale` "files or build settings changed since it was built", and the reason a
+  document is stale reads "changed since the build" (`docs/tex-notes.md` and `docs/daily-use.md` say the same). The state names and the JSON are unchanged.
+- **Unchanged:** every other action's output, the generated Makefile and editor files (the guard is unchanged), receipts and snapshots. No migration is needed; refresh the runtime as [upgrading](../upgrading.md) describes.
+
 ## 4.9.0 — the doctor reports the version stamp, and the update recipe is in the skill file
 
 Step 3.7 of [the plan after 4.4.0](plan-after-4.4.0.md).

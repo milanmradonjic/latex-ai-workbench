@@ -172,6 +172,20 @@ def help_text(project, config, problem):
     return "\n".join(lines)
 
 
+STATE_WORDS = {"missing": "not built yet"}  # in the Documents line only: "is missing" read as a missing file; the table below keeps the state's name
+
+
+def pdf_folders(config):
+    """Where the builds put their PDFs: the usual folder with NAME, the one folder a single document sets, or each document's own."""
+    targets = specifications(config)
+    usual = ".latex-ai/artifacts/documents/{}/build"
+    if all(target.view["output_dir"] == usual.format(target.name) for target in targets):
+        return usual.format("NAME") + "/"
+    if len(targets) == 1:
+        return targets[0].view["output_dir"] + "/"
+    return "; ".join(f"{target.name}: {target.view['output_dir']}/" for target in targets)
+
+
 def manual_text(project, config, problem, documents=None):
     """The short manual: how to work in this project, written with the command names that work in it."""
     names = available(project, config)
@@ -184,35 +198,38 @@ def manual_text(project, config, problem, documents=None):
     else:
         lines.append("Modules: " + (", ".join(enabled_modules(config)) or "none (core only)"))
     if documents:
-        lines.append("Documents: " + "; ".join(f"{d['id']}{' (default)' if d.get('default') else ''} is {d['state']}" for d in documents))
+        lines.append("Documents: " + "; ".join(f"{d['id']} = {d['root']}{' (default)' if d.get('default') else ''}: {STATE_WORDS.get(d['state'], d['state'])}" for d in documents))
     lines += ["", "The everyday loop",
               *line("status", "where things stand, and what to do next"),
               "  Edit your files.",
-              *line("validation-plan", "which checks your change needs (nothing runs)"),
+              *line("validation-plan", "which checks your change needs (nothing runs; without Git, all of them)"),
               *line("validate", "run only those checks"),
-              *line("check", "the full check, before you share the work")]
+              *line("check", "the full check, before you share the work (build, references, citations and, if on, lint)")]
     if names.get("snapshot") or names.get("snapshots"):
         lines += ["", "Before a risky change (an upgrade, a large edit, an agent let loose on the files)",
-                  *line("snapshot", "keep a copy of every file outside the project, to restore from", 'SNAPSHOT_NOTE="why"'),
-                  *line("snapshots", "list the copies, and the Git command that restores from one")]
+                  *line("snapshot", "keep a copy of every file, uncommitted ones too, outside the project (needs Git installed; the project need not use it)", 'SNAPSHOT_NOTE="why"'),
+                  *line("snapshots", "list the copies, with the commands that restore from one (write a file's path where it says FILE; that overwrites the file)")]
     if config is not None and has_module(config, "latex"):
         lines += ["", "One document (DOC=NAME; without it, the default document)",
-                  *line("build", "build the PDF and record that it matches its sources", "DOC=NAME"),
-                  *line("all", "build every document, one after another"),
+                  *line("build", f"build the PDF (into {pdf_folders(config)})", "DOC=NAME"),
+                  *line("all", "build every document, one after another; it stops at the first one that fails"),
                   *[f"  {sentence}" for sentence in document_targets(project, config)],
-                  *line("document-check", "build, verify and lint one document", "DOC=NAME"),
-                  *line("pdf-artifact", "copy the verified PDF to .latex-ai/artifacts/documents/NAME/document.pdf", "DOC=NAME"),
-                  *line("lint-baseline", "accept today's ChkTeX warnings; only new ones fail (the owner's decision)", "DOC=NAME"),
-                  "", "What a document's state means"] + [f"  {state:<8}{meaning}" for state, meaning in STATES.items()]
+                  *line("document-check", "build, check and lint one document", "DOC=NAME"),
+                  *line("pdf-artifact", "copy the current PDF to .latex-ai/artifacts/documents/NAME/document.pdf", "DOC=NAME"),
+                  *line("lint-baseline", "accept today's ChkTeX style warnings so that only new ones fail; your decision, never for an ERROR", "DOC=NAME"),
+                  "", "What a document's state means (not whether its checks passed)"] + [f"  {state:<8}{meaning}" for state, meaning in STATES.items()]
     lines += ["", "When something goes wrong",
-              "  A line starting ERROR: is an ordinary failure: read the file or tool it names, and its Hint.",
+              "  A line starting ERROR: is an ordinary failure (an undefined reference or citation is one):",
+              "  read the file or tool it names, and its Hint, if it has one.",
               "  INTERNAL ERROR means a defect in the workbench, not in your work:"]
     lines += [f"      make {names['issue']} ISSUE_NOTE=\"what you saw, what you expected\"" if names.get("issue") else "      write down what you saw and what you expected",
               "      writes a local report; nothing is sent anywhere."]
     lines += ["", "Working with AI agents",
-              "  They read AGENTS.md. They ask before any Git change, never push to the default branch and never merge a pull request.",
+              "  They read AGENTS.md and edit your files. They ask before committing, pushing or anything that rewrites or discards work,",
+              "  and never push to the default branch (main or master) or merge a pull request.",
               "  They do not edit .latex-ai/ (the workbench's own files) or switch a check off to get a green result.",
-              "", "More: make " + (names["help"] or "help") + " lists every command; docs/quickstart.md in the workbench package explains installing and upgrading."]
+              "", "More: make " + (names["help"] or "help") + " lists every command.",
+              "To update this project, follow docs/upgrading.md in a newer workbench folder (the one you installed from)."]
     differ = [(short, actual) for short, actual in names.items() if actual and actual != short]
     if differ:
         lines += ["", "Names: your Makefile keeps its own target for " + ", ".join(f"`{short}`" for short, _ in differ) +
@@ -297,7 +314,7 @@ def status_text(project, config, problem, installed, git, plan, plan_error, docu
                     validate_step.append(step + f"   ({STATES[state]})")
         check = f"make {names['check']}" if names["check"] else None
         if missing and check and not any(step.split("   ")[0] == check for step in last_steps):
-            last_steps.append(f"{check}   (no verified build yet: {', '.join(missing)})")
+            last_steps.append(f"{check}   (no build yet: {', '.join(missing)})")
     lines.append("")
     builds = validate_step + last_steps
     if waiting:  # a second build is refused while one runs, so the wait comes first and the rest follows it

@@ -87,6 +87,10 @@ Each is settled before the step that depends on it.
   - **A project without Git** always falls back to a full check; the latest snapshot as the planner's base stays under "Only on evidence", for if the full check proves too slow.
 - **G3, the manual.** Ratify the 44-line draft (`make guide`, capped at 60 lines by a test); choose how project notes grow, since the manual lives in code; and have a
   reader other than its author follow it.
+  - **Readers, done on 15 October 2026:** two agents, each given only the manual and a project (a newcomer's without Git; an owner's with two documents under Git). Their findings are in
+    [the 4.9.1 record](verification-4.9.1.md), and the manual was corrected in 4.9.1 (55 lines in this repository's reference).
+  - **Still open:** the owner's own reading, once he starts using it, and how project notes grow. The recommendation is that they stay in a project's README and `AGENTS.md` (the manual stays the tool's);
+    a project-owned file that `make guide` appends is the alternative, left unbuilt until a project wants it.
 - **G4, decided on 14 October 2026:** no biber. See step 3.4.
 
 ## Step 3: the reductions, safest first

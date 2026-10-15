@@ -30,6 +30,7 @@ removed from one record). The first version's pull requests and runs went with i
 - [Version 3.5.0 verification](verification-3.5.0.md): the pinned workflow actions, and what an upgrade does to a project's workflow.
 - [Version 3.6.0 verification](verification-3.6.0.md): `validation.ignore`, and what it never ignores.
 - [Version 4.8.1 verification](verification-4.8.1.md): audit repairs, source/output alias protection, graphics freshness, text integrity and bounded scans.
+- [Version 4.9.1 verification](verification-4.9.1.md): the manual after two independent readers used it, and what each reader found.
 - [Version 4.9.0 verification](verification-4.9.0.md): the doctor's stamp report, the update recipe in the skill file, and an agent other than the author following it on a copy.
 - [Version 4.8.0 verification](verification-4.8.0.md): snapshots in three stores with counted retention, so that no clock decides a deletion; the launchd agents, untested.
 - [Version 4.7.0 verification](verification-4.7.0.md): `make snapshot` and `make snapshots`, the deleting code held to its refusals, and a snapshot and a restore shown with and without the project's own Git.

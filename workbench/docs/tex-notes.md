@@ -43,8 +43,8 @@ layouts can set `output_dir` explicitly. Output identities must not overlap
 another document's compiler outputs or any exported PDF.
 
 Use `make latex-ai-documents` to list targets and their validity. Each document is
-`current` (its verified build matches its sources), `stale` (sources or build
-settings changed since), `failed` (its last build failed or was interrupted),
+`current` (built from these exact files without a LaTeX error; it does not mean the
+checks passed), `stale` (files or build settings changed since it was built), `failed` (its last build failed or was interrupted),
 `running` or `missing` (not built yet). `make latex-ai-status` lists the
 documents that are not current and the command for each. An exported PDF is a
 copy made by `make latex-ai-pdf-artifact`; rebuilding does not update it.
