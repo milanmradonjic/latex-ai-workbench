@@ -66,10 +66,17 @@ had a cost: the 3.12 job failed on the pushes to `main` for 4.3.0 and 4.4.0, a v
 
 Each is settled before the step that depends on it.
 
-- **G1, Git guardrails.** The rule files hold 148 deny and 121 ask entries for Claude Code and 43 rules for Codex, pinned to the policy by `test_workbench.py`. The
-  scope asks for less: ask before commit or push, no push to `main`, no merge. Options: keep the set; or keep the generated deny set (pushes to `main`, merges) and
-  prompt only on commands that write history, branches or the working tree. Also decide whether the record-merge exception (`merge_record_pr.py`) stays, and add a
-  test of equivalent command spellings in both agents' rules: `git push origin feature:main` only prompts today. Settle this before any change to the rule files.
+- **G1, Git guardrails, decided on 15 October 2026.** The rule files hold 148 deny and 121 ask entries for Claude Code and 43 rules for Codex, pinned to the policy by `test_workbench.py`. The
+  scope asked for less: ask before commit or push, no push to `main`, no merge. The owner chose the second option, with one addition about sessions:
+  - **Kept:** the generated deny set (push to `main` or `master` in every spelling, merges).
+  - **Shrunk:** the prompts, from every Git command that has an entry today to the commands that write history, branches or the working tree (commit, rebase, reset, cherry-pick, revert, branch, switch,
+    checkout, worktree, restore, clean, stash, apply, rm, mv, merge, update-ref and the like). The exact list is fixed in the step that changes the files. Commit and push keep their prompts in the
+    generated files, so a manuscript project's agent still asks.
+  - **A workbench session** does not prompt for the agent's own commits and pushes to a topic branch once the work the task requires is done, which `AGENTS.md` already says ("Git in a workbench
+    session"). That condition cannot be a permission rule, so it stays text there: the task done, its checks run, the diff read. Anything that rewrites or discards work (reset, clean, restore, stash,
+    rebase, amending a pushed commit, force-push) stays the owner's every time, and the deny set stays the mechanical backstop. Changing the agents' permission rules needs the owner's approval each time.
+  - **To do, when the files are changed:** a test of equivalent command spellings in both agents' rules: `git push origin feature:main` only prompts today. Not yet scheduled as a step.
+  - **Still open:** whether the record-merge exception (`merge_record_pr.py`) stays. It is unchanged until the owner decides.
 - **G2, changed-file routing.** The planner routes lightweight checks, affected documents, bibliography, package tests and a conservative fallback. Decide three
   things. Workflow YAML is ordinary text in the code but a protected build control in `validation.md`. Figure scripts get syntax checks only, so they must be declared in
   `validation.manuscript_inputs`, and the manual should say so. A project without Git always falls back to a full check; revisit that once snapshots exist, if the full
