@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import os
+import tempfile
 import time
 import processes
 import guide
@@ -280,8 +281,11 @@ def file_digest(path):
     key = (str(path), stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
     if key in DIGESTS:
         return DIGESTS[key]
-    data = path.read_bytes()
-    digest = hashlib.sha256(data).hexdigest()
+    hasher = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            hasher.update(chunk)
+    digest = hasher.hexdigest()
     # Every write changes the change time, so an entry keyed by it cannot hide a change, unless the write fell
     # within the same timestamp tick as the one recorded: recently changed files are hashed afresh each time.
     if time.time_ns() - max(stat.st_mtime_ns, stat.st_ctime_ns) > SETTLED_NS:
@@ -859,8 +863,11 @@ def verify(project, config, check_receipt=True, report=True):
     if fatal:
         raise WorkbenchError("Unresolved manuscript integrity errors:\n" + "\n".join(dict.fromkeys(fatal)), hint=read_the_log(project, config, log))
     pdf = stem.parent / (stem.name + ".pdf")
-    if not pdf.is_file() or not pdf.read_bytes().startswith(b"%PDF-"):
+    if not pdf.is_file():
         raise WorkbenchError(f"Missing or invalid PDF: {pdf}")
+    with pdf.open("rb") as stream:
+        if stream.read(5) != b"%PDF-":
+            raise WorkbenchError(f"Missing or invalid PDF: {pdf}")
     if report:
         print("Citation/reference integrity checks passed")
 
@@ -872,6 +879,7 @@ def artifact(project, config):
 
 
 def collect_artifact(project, config):
+    receipt = read_receipt(project, config)
     verify(project, config)
     _, _, stem = output_paths(project, config)
     pdf = stem.parent / (stem.name + ".pdf")
@@ -879,8 +887,23 @@ def collect_artifact(project, config):
         raise WorkbenchError("Build the document before collecting its PDF", hint=f"run {document_command(project, config, 'build')} first")
     name = config.get("name")
     destination = f".latex-ai/artifacts/documents/{name}/document.pdf"
-    local_path(project, destination).parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(pdf, local_path(project, destination))
+    path = local_path(project, destination)
+    if path != project.resolve() / destination or (path.exists() and path.stat().st_nlink > 1):
+        raise WorkbenchError(f"Refusing linked PDF export destination: {destination}",
+                             hint="move the link aside before exporting; it may point to an authored file")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    mode = path.stat().st_mode & 0o777 if path.exists() else 0o644
+    descriptor, temporary = tempfile.mkstemp(prefix=".latex-ai-tmp-", dir=path.parent)
+    os.close(descriptor)
+    try:
+        shutil.copyfile(pdf, temporary)
+        if not receipt_matches(project, config, receipt) or file_digest(Path(temporary)) != receipt['outputs']['.pdf']:
+            raise WorkbenchError("Build changed during PDF export; the previous export was preserved",
+                                 hint=f"wait for writes to finish, then run {document_command(project, config, 'build')} and export again")
+        os.chmod(temporary, mode)
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
     print("Collected " + destination)
 
 

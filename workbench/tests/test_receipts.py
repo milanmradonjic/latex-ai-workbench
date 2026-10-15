@@ -1111,11 +1111,11 @@ class Repairs_3_0_2(ProjectCase):
         changed["validation"]["manuscript_inputs"] = ["data.bin"]
         config = schema.DocumentView(changed)
         reads = []
-        original = Path.read_bytes
-        def counted(path):
+        original = Path.open
+        def counted(path, *arguments, **keywords):
             reads.append(path.name)
-            return original(path)
-        with patch.object(latex, "SETTLED_NS", 0), patch.object(Path, "read_bytes", counted):
+            return original(path, *arguments, **keywords)
+        with patch.object(latex, "SETTLED_NS", 0), patch.object(Path, "open", counted):
             first = latex.build_inputs(self.project, config)
             latex.build_inputs(self.project, config)
         self.assertEqual(reads.count("data.bin"), 1)
@@ -1227,6 +1227,96 @@ class Receipts(ProjectCase):
         config = configuration({"backend": "bibtex"}, files=["refs.bib"], export={"path": "refs.bib", "required": True, "format": "bibtex"})
         view = schema.document_settings(core.effective_config(config))
         self.assertEqual(latex.build_identity(self.project, view), BIBTEX_IDENTITY)
+
+
+class ExportSafetyAudit(ProjectCase):
+    """4.10.2: export must preserve source aliases and the previous complete export."""
+
+    def setUp(self):
+        super().setUp()
+        (self.project / 'main.tex').write_text(SOURCE_4_8_1)
+        self.configure()
+        self.builder()
+        self.install('init', '--skip-editor')
+        self.command('build')
+        self.destination = self.project / '.latex-ai/artifacts/documents/paper/document.pdf'
+
+    def linked_export(self, symbolic):
+        source = self.project / 'main.tex'
+        before = source.read_bytes()
+        if symbolic:
+            self.destination.symlink_to(source)
+        else:
+            self.destination.hardlink_to(source)
+        result = self.command('artifact', expected=1)
+        self.assertIn('linked PDF export', result.stderr)
+        self.assertEqual(source.read_bytes(), before)
+        self.assertEqual(self.state(), 'current')
+
+    def test_export_refuses_a_symlink_to_source(self):
+        self.linked_export(symbolic=True)
+
+    def test_export_refuses_a_hard_link_to_source(self):
+        self.linked_export(symbolic=False)
+
+    def test_export_refuses_a_redirected_parent_directory(self):
+        original = self.destination.parent
+        redirected = self.project / 'authored'
+        original.rename(redirected)
+        original.symlink_to(redirected, target_is_directory=True)
+        source = redirected / 'document.pdf'
+        source.write_bytes(b'%PDF-authored figure')
+        result = self.command('artifact', expected=1)
+        self.assertIn('linked PDF export', result.stderr)
+        self.assertEqual(source.read_bytes(), b'%PDF-authored figure')
+
+    def test_failed_export_preserves_the_previous_complete_pdf(self):
+        self.destination.write_bytes(b'%PDF-previous complete export')
+
+        def interrupted(source, destination):
+            Path(destination).write_bytes(b'partial copy')
+            raise OSError('simulated full disk')
+
+        view = schema.document_settings(schema.load_config(self.project))
+        with patch.object(latex.shutil, 'copyfile', side_effect=interrupted), self.assertRaises(OSError):
+            latex.artifact(self.project, view)
+        self.assertEqual(self.destination.read_bytes(), b'%PDF-previous complete export')
+        self.assertFalse(list(self.destination.parent.glob('.latex-ai-tmp-*')))
+
+    def test_a_pdf_changed_during_copy_is_not_published_as_verified(self):
+        self.destination.write_bytes(b'%PDF-previous complete export')
+        copy = shutil.copyfile
+
+        def changed(source, destination):
+            Path(source).write_bytes(b'%PDF-unverified replacement')
+            return copy(source, destination)
+
+        view = schema.document_settings(schema.load_config(self.project))
+        with patch.object(latex.shutil, 'copyfile', side_effect=changed), self.assertRaises(core.WorkbenchError):
+            latex.artifact(self.project, view)
+        self.assertEqual(self.destination.read_bytes(), b'%PDF-previous complete export')
+        self.assertFalse(list(self.destination.parent.glob('.latex-ai-tmp-*')))
+
+
+class DigestMemoryAudit(ProjectCase):
+    def test_hashing_a_large_input_uses_bounded_memory_and_preserves_the_digest(self):
+        import hashlib
+        import tracemalloc
+        path = self.project / 'large-data.bin'
+        data = b'12345678' * (1024 * 1024)
+        path.write_bytes(data)
+        expected = hashlib.sha256(data).hexdigest()
+        del data
+        tracemalloc.start()
+        try:
+            digest = latex.file_digest(path)
+            _, peak = tracemalloc.get_traced_memory()
+        finally:
+            tracemalloc.stop()
+        self.assertEqual(digest, expected)
+        self.assertLess(peak, 3 * 1024 * 1024)
+        path.write_bytes(b'changed data')
+        self.assertEqual(latex.file_digest(path), hashlib.sha256(b'changed data').hexdigest())
 
 
 class AuditRepairs(ProjectCase):

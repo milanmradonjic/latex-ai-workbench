@@ -61,6 +61,12 @@ class ProjectCase(unittest.TestCase):
         self.project = self.root / "project"
         self.project.mkdir()
         self.env = fixture_env()
+        # Commands that snapshot or populate TeX caches must never write into the real home.
+        home = self.root / "fixture-home"
+        home.mkdir()
+        cache = home / "texmf-var"
+        cache.mkdir()
+        self.env.update(HOME=str(home), TEXMFVAR=str(cache), TEXMFCACHE=str(cache))
 
     def run_command(self, *args, expected=0, env=None, cwd=None):
         result = subprocess.run(args, cwd=cwd or self.project, env=env or self.env, capture_output=True, text=True, timeout=60)

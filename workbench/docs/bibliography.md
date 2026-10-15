@@ -109,12 +109,11 @@ When the configured backend is `none`, old `.blg` files are ignored; current
 compiler warnings are still checked. Config and source must agree about the
 active backend.
 
-Default runtime builds hash bibliography files before and after compilation.
+Runtime builds, including configured custom commands, hash bibliography files before and after compilation.
 An intervening auto-export makes that build fail so it can be rerun on a stable
-snapshot. Existing direct Makefile build recipes retain their own execution;
-the final integrity target checks their resulting files, but cannot detect a
-mid-build export race. Avoid editing Zotero during those custom builds or adapt
-the recipe to invoke the configured runtime build.
+snapshot. A direct build outside the runtime cannot detect a mid-build export
+race. Run the configured runtime build to establish a verified receipt before
+exporting its PDF.
 
 Offline validation cannot establish whether a `.bib` matches the latest Zotero
 library state or whether metadata is true. Missing required fields, inaccurate

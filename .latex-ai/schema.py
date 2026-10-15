@@ -317,7 +317,8 @@ def required_tools(config):
     if has_module(config, "latex"):
         for target in specifications(config):
             tex = target.view
-            tools.extend(["latexmk", "pdflatex"])
+            command = tex.get("build_command")
+            tools.extend([command[0]] if command else ["latexmk", "pdflatex"])
             if tex.get("lint", {}).get("enabled", True):
                 tools.append("chktex")
             backend = tex.get("bibliography", {}).get("backend", "none")
@@ -404,12 +405,14 @@ def validate_config(project, config, planned_sources=None):
         raise WorkbenchError("Workbench 4.3 no longer saves the settings of a disabled module: disabled_modules is gone",
                              hint=f"delete \"disabled_modules\" from {CONFIG}; to turn a saved module on again, copy its settings into \"modules\"")
     unknown_keys(modules, MODULES, "", noun="module")
+    # A document resolves the shared bibliography, whatever order the modules were written in.
+    for name, values in modules.items():
+        if not isinstance(values, dict):
+            raise WorkbenchError(f"The {name} module configuration must be an object")
     for name, values in modules.items():
         if name == "latex":
             validate_latex(project, values, config, planned_sources=planned_sources)
             continue
-        if not isinstance(values, dict):
-            raise WorkbenchError(f"The {name} module configuration must be an object")
         unknown_keys(values, MODULES[name]["defaults"], f"{name} module")
     adapters = config.get("integrations", {})
     if not isinstance(adapters, dict):

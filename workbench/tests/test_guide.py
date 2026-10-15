@@ -582,6 +582,33 @@ class Guide(ProjectCase):
         self.assertEqual([l for l in diff.splitlines() if l.startswith("-") and not l.startswith("---")], [])
 
 
+class DocumentTargetSafety(ProjectCase):
+    def setUp(self):
+        super().setUp()
+        (self.project / 'main.tex').write_text(SOURCE)
+        (self.project / 'note.tex').write_text(SOURCE)
+        self.builder()
+
+    def test_a_document_named_clean_does_not_offer_the_cleanup_command_as_a_build(self):
+        self.configure({'paper': {'root': 'main.tex'}, 'clean': {'root': 'note.tex'}})
+        self.install('init', '--skip-editor')
+        output = self.command('guide').stdout
+        self.assertIn('clean has no target of its own: make build DOC=clean', output)
+        self.assertNotIn('make clean: each builds that document', output)
+
+    def test_an_unrelated_target_is_not_offered_as_a_document_build(self):
+        self.configure({'paper': {'root': 'main.tex'}, 'note': {'root': 'note.tex'}})
+        self.install('init', '--skip-editor')
+        makefile = self.project / 'Makefile'
+        text = makefile.read_text().replace('note:\n\t@$(PYTHON) .latex-ai/workbench.py build --document note',
+                                           'note:\n\t@echo unrelated task')
+        text = text.replace('build: latex-ai-build', 'build:\n\t@echo unrelated build')
+        makefile.write_text(text)
+        output = self.command('guide').stdout
+        self.assertIn('note has no target of its own: make latex-ai-build DOC=note', output)
+        self.assertNotIn('make note: each builds that document', output)
+
+
 class Manual(ProjectCase):
     """Origin: tests/test_scope_4_9_1.py, workbench 4.9.1."""
 
