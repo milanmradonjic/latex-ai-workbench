@@ -4,7 +4,7 @@ This records the release that replaces the two rotating tiers of [4.7.0](verific
 `weekly` (the first snapshot of each calendar week, the newest 6 kept) and `frequent` (when files changed, the newest 60 kept). It was asked for by the owner the day 4.7.0 was merged, after the question what a clock that
 jumps forward would do to the history of 4.7.0 (it deleted all of it); the design is the owner's, and the plan records it.
 Tested on 2026-10-14 on Linux (x86_64, GNU Make 4.3, Git 2.43.0, Python 3.13.16, 3.12.13 and 3.11.17) with TeX Live 2023 from Debian.
-The hosted results follow in the next record.
+The hosted results are at the end of this record (added by the record of 4.9.0).
 
 | Check | Result |
 |---|---|
@@ -31,11 +31,10 @@ The hosted results follow in the next record.
 
 ## Hosted verification
 
-The hosted results of this pull request follow in the next record.
+All six required checks passed on the pull request ([#12](https://github.com/milanmradonjic/latex-ai-workbench/pull/12): [`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38633621230) in 1m47s with TeX Live 2026; the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38633621194), 1m24s to 1m45s each), and again on the merge commit `e3c9c8f` on `main` ([`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38636012084); the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38636012059)).
 
 ## Not verified
 
-- **Hosted runs of this pull request**, with TeX Live 2026 in the `validate` job.
 - **launchd.** The two agents were written where launchd cannot be run. They are valid property lists and the command each runs works and fills the right store; what launchd does with them on a Mac (a start missed in sleep, one missed while switched off, `RunAtLoad`, the privacy protection of `~/Documents` and similar folders, log append) is from its documentation as remembered, and untested. The owner's first run is the test.
 - **An older Git.** Only 2.43.0 was run. `commit-tree -m` needs 1.7.9, `core.hooksPath` 2.9 (harmless on older Git: the repository has no hooks), and `%(committerdate:raw)`, `update-ref` with an empty old value and `init --template=` were not run on another version.
 - **macOS and Windows,** and a network file system for the lock.
