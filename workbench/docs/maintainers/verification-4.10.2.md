@@ -62,7 +62,8 @@ counted as validation evidence.
 | Generated Makefile/editor guard | Pass, unchanged stored fixtures |
 | Runtime `validate --files-only` | Pass: text/syntax, policy structure and local Markdown links |
 | `git diff --check` | Pass |
-| Hosted Python 3.10–3.14 and TeX Live checks | Separate evidence on the pull request's Checks tab; this record reports local verification |
+| Hosted Python 3.10–3.14 at implementation commit `b450643` | All five jobs pass: 557 tests and 22 tool-dependent skips per interpreter ([run](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38728747836)) |
+| Hosted TeX Live 2026 at `b450643` | All 51 portability scenarios and the reference manuscript's full check pass ([run](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38728747943)) |
 
 Local platform: macOS arm64, Python 3.14.8, GNU Make 3.81 (4.4.1 for the
 recipe-prefix fixture), TeX Live 2026, latexmk 4.88. Compiler portability also
@@ -73,11 +74,31 @@ LuaLaTeX, XeLaTeX, Biber, and macOS PID-reuse checks ran and passed.
 
 ## Review and limits
 
-This audit is single-agent, as the owner requested. The independent second-model
-review required for changes to `latex.py` by [the maintainer rules](README.md#working-on-the-workbench-itself)
-has not been performed: the owner's current instructions prohibit code-review
-subagents. The pull request remains a draft with that requirement visible.
-Self-review and regression evidence do not substitute for it.
+The original audit and implementation were single-agent. On 15 October 2026,
+the owner explicitly authorized a GPT-6.1 Sol subagent to perform the independent
+review required for `latex.py` repairs by [the maintainer rules](README.md#working-on-the-workbench-itself).
+It reviewed implementation commit `b450643` and found no actionable issues;
+no further production repairs were needed.
+
+The reviewer inspected the diff and surrounding receipt/build/export code,
+schema validation, doctor resolution, Make guidance, fixture isolation, tests
+and maintainer policy. It independently ran all eleven focused audit regressions:
+
+```sh
+cd workbench
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest tests.test_receipts.ExportSafetyAudit tests.test_receipts.DigestMemoryAudit tests.test_diagnostics.ConfigurationAudit tests.test_guide.DocumentTargetSafety
+```
+
+All eleven pass. Three additional inline probes use disposable synthetic projects
+and patch the copy operation to copy normally, then modify `main.tex`, append a
+fatal error to the compiler log, or replace the copied temporary PDF. Every probe
+raises `WorkbenchError`, preserves the previous export's exact bytes and leaves
+no temporary export file. These inline probes left no saved scripts or logs.
+
+The reviewer did not repeat the complete suite or hosted checks and did not test
+Windows, network filesystems or adversarial replacement of filesystem links
+during publication. The documentation follow-up records the completed review;
+its latest CI results are on [PR #22](https://github.com/milanmradonjic/latex-ai-workbench/pull/22).
 
 Windows, launchd scheduling, network-file-system locks and actual agent permission
 engines were not exercised locally. The suite tests guardrail definitions, which

@@ -6,7 +6,7 @@ retained historical records, with no backports or compatibility commitment.
 ## 4.10.2 — code audit repairs
 
 The [audit record](verification-4.10.2.md) gives the reproductions, failing-first
-tests, validation and remaining review requirement.
+tests, validation and completed independent review.
 
 - PDF export refuses linked destinations and redirected parents, and replaces a previous export only after a complete copy still matches the verified receipt.
 - The doctor checks a configured custom builder instead of requiring the native compiler tools for it.
