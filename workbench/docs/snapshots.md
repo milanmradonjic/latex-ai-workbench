@@ -41,7 +41,8 @@ A reference you add yourself (say `git update-ref refs/keep/before-rewrite <id>`
 Every file and link of the project, except:
 
 - Git's own folders (`.git`), and `.latex-ai/artifacts/` and `.latex-ai/backups/`, which are the running workbench's state and the installer's backups (the vendored runtime itself is kept);
-- the compiler's files (`.aux`, `.log`, `.out`, `.toc`, `.fls`, `.fdb_latexmk`, `.bbl`, `.blg`, `.bcf`, `.run.xml`, `.synctex.gz`) that lie beside a `.tex` file of the same name (a `train.log`, a `solver.out` or a `refs.bbl`
+- the compiler's files (`.aux`, `.log`, `.out`, `.toc`, `.fls`, `.fdb_latexmk`, `.bbl`, `.blg`, `.bcf`, `.run.xml`, `.synctex`, `.synctex.gz`, lists such as `.lof`, `.lot`, `.loa`, `.lol`, `.loe`, `.thm`, index and glossary files,
+  slide auxiliaries `.nav`, `.snm`, `.vrb`, and `.dvi`/`.xdv`) that lie beside a `.tex` file of the same name (a `train.log`, a `solver.out` or a `refs.bbl`
   with no such source is data, and kept), and the output folder of a document that builds into a folder of its own (its `output_dir`, or the `defaults.output_dir` it inherits);
   a PDF beside the sources is kept, since it may be a figure;
 - environments and caches: `.venv`, any folder with a `pyvenv.cfg` or a `conda-meta`, `node_modules`, `site-packages`, `dist-packages`, `__pycache__`;
@@ -58,6 +59,7 @@ temporary file) is not an error.
 In `~/.snapshots/NAME-HASH/`, where `NAME` is the project folder's name and `HASH` is eight hexadecimal digits of a hash of its full path (two projects with the same name do not share a folder); inside it, a folder for each store.
 `LATEX_AI_SNAPSHOT_DIR` names another folder instead of `~/.snapshots`; it cannot be inside the project. To free the space of one project, delete its folder yourself.
 `~/.snapshots` also holds a `.latex-ai/` with the lock files: one snapshot of a project is taken at a time (a second one for the same project, the timers of one project starting together for example, waits up to a minute for the first, and says so if it is still running); other projects do not wait for it.
+The file inventory is collected after taking that lock, so files created while waiting are included.
 Folders called `fine-*` and `daily-*` in a project's folder belong to the release before this one (4.7.0); they are not read or touched, and can be deleted by hand.
 
 ## Restoring

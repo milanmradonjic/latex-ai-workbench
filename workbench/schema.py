@@ -12,7 +12,7 @@ import re
 
 from commands import RECURSIVE_GOALS, RESERVED_PREFIX
 from core import (BACKENDS, CONFIG, ENGINES, EXPORT_FORMATS, MODULES, REMOVED_MODULES, WorkbenchError, document_paths, has_module, integrations, local_path, make_goals,
-                  module_config, path_identity, path_name, read_json)
+                  module_config, path_identity, path_name, read_json, OUTPUT_SUFFIXES)
 
 DEFAULTS = {"engine": "pdflatex", "backend": "none", "lint": {"enabled": True, "args": []},
             "output_dir": None, "build_command": None, "inputs": [], "bibliography_files": []}
@@ -365,6 +365,7 @@ def validate_latex(project, values, config, planned_sources=None):
                               "validation": config.get("validation", {})})
     roots, outputs = set(), set()
     exports = {path_identity(project, f".latex-ai/artifacts/documents/{name}/document.pdf") for name in targets}
+    root_ids = {path_identity(project, fields['root']) for fields in targets.values()}
     for target in specifications(active):
         view = target.view
         root = local_path(project, view["root"])
@@ -372,8 +373,8 @@ def validate_latex(project, values, config, planned_sources=None):
             raise WorkbenchError(f"Invalid TeX root: {view['root']}")
         identity = path_identity(project, view["root"])
         output = local_path(project, view["output_dir"]) / root.stem
-        output_ids = {path_identity(project, output.relative_to(project).as_posix() + suffix) for suffix in (".pdf", ".log", ".aux", ".fls")}
-        if identity in roots or output_ids & outputs:
+        output_ids = {path_identity(project, output.relative_to(project).as_posix() + suffix) for suffix in OUTPUT_SUFFIXES}
+        if identity in roots or output_ids & (outputs | root_ids):
             raise WorkbenchError(f"Document root or output collision: {target.name}")
         if output_ids & exports:
             raise WorkbenchError(f"Document build overlaps an exported PDF: {target.name}")

@@ -11,7 +11,7 @@ import os
 import time
 import processes
 import guide
-from core import BACKENDS, CONFIG, EXPORT_FORMATS, MAKEFILES, WorkbenchError, damaged_text, read_tex, local_path, read_json, run, has_module, atomic_write, path_name, operation_lock, document_paths, input_name, tracked_name
+from core import BACKENDS, CONFIG, EXPORT_FORMATS, MAKEFILES, OUTPUT_SUFFIXES, WorkbenchError, damaged_text, read_tex, local_path, read_json, run, has_module, atomic_write, path_name, operation_lock, document_paths, input_name, tracked_name, file_identity, input_identity
 
 SEPARATOR = "\x1f"
 
@@ -20,8 +20,11 @@ def output_paths(project, config):
 
 
 def tex_without_comments(source):
-    return "\n".join(
-        re.split(r"(?<!\\)%", line, maxsplit=1)[0] for line in source.splitlines())
+    lines = []
+    for line in source.splitlines():
+        comment = re.search(r"(?<!\\)(?:\\\\)*%", line)
+        lines.append(line[:comment.end() - 1] if comment else line)
+    return "\n".join(lines)
 
 
 def source_tree(project, root):
@@ -251,9 +254,6 @@ def lint(project, config):
             "decision for the project's owner, not a way to get a green result"))
 
 
-GENERATED = {".aux", ".log", ".blg", ".bbl", ".bcf", ".toc", ".out", ".fls", ".fdb_latexmk", ".synctex", ".run.xml"}
-
-
 def make_build(config):
     command = config.get("build_command") or []
     return bool(command) and Path(command[0]).name in {"make", "gmake"}
@@ -312,11 +312,47 @@ def declared_inputs(project, config):
     return names
 
 
-def command_files(project, config):
-    """Project files named in the document's build command: its scripts and makefiles."""
+def command_files(project, config, authored=False):
+    """Command file candidates, or only executable/script inputs when output intent matters."""
     root, names = project.resolve(), set()
-    for argument in config.get("build_command") or []:
-        if not argument.startswith("-"):
+    command = config.get("build_command") or []
+    script = 1
+    executable = Path(command[0]).name if command else ""
+    if re.fullmatch(r"python(?:\d+(?:\.\d+)*)?", executable):
+        while script < len(command) and command[script].startswith("-"):
+            option = command[script]
+            if option == "--":
+                script += 1
+                break
+            if option.startswith(("-c", "-m")):
+                script = len(command)
+                break
+            script += 2 if option in {"-W", "-X", "--check-hash-based-pycs"} else 1
+    elif executable in {"sh", "bash", "dash", "zsh", "ksh", "node", "perl", "ruby"}:
+        while executable in {"sh", "bash", "dash", "zsh", "ksh"} and script < len(command) and re.fullmatch(r"-[abefhkmnptuvxBCEHPT]+", command[script]):
+            script += 1
+        if script < len(command) and command[script] == "--":
+            script += 1
+    else:
+        script = len(command)
+    makefile_next, make_options = False, True
+    for index, argument in enumerate(command):
+        makefile = False
+        if make_build(config) and index:
+            if makefile_next:
+                makefile_next = False
+                makefile = True
+            elif make_options and argument in {"-f", "--file", "--makefile"}:
+                makefile_next = True
+                continue
+            elif make_options and argument.startswith(("-f", "--file=", "--makefile=")):
+                argument = argument[2:] if argument.startswith("-f") else argument.partition("=")[2]
+                makefile = True
+            elif argument == "--":
+                make_options = False
+        if authored and index and index != script and not makefile:
+            continue
+        if not argument.startswith("-") or makefile or index in {0, script}:
             resource = (root / argument).resolve()
             if resource.is_relative_to(root) and resource.is_file():
                 names.add(resource.relative_to(root).as_posix())
@@ -325,30 +361,36 @@ def command_files(project, config):
 
 def input_roles(project, config):
     """Source wins over policy when a file is both displayed/consumed and build control."""
-    sources = manuscript_dependencies(project, config, include_receipt=False, command_inputs=False)
-    declared = declared_inputs(project, config)
-    sources.update(declared)
+    sources, authored = static_inputs(project, config)
     previous = read_receipt(project, config)
-    recorded = recorded_inputs(project, config, previous)
+    recorded = set(recorded_inputs(project, config, previous)) | current_recorder_inputs(project, config)
     roles = previous.get("input_roles", {})
     if not isinstance(roles, dict):
         roles = {}
     sources.update(name for name in recorded if roles.get(name) == "source" or
                    roles.get(name) != "make-policy" and Path(name).name not in MAKEFILES)
-    sources.update(name for name in command_files(project, config)
+    commands = command_files(project, config)
+    command_sources = command_files(project, config, authored=True)
+    commands.update(command_sources)
+    authored.update(command_sources)
+    sources.update(name for name in commands
                    if not (make_build(config) and Path(name).name in MAKEFILES))  # a Makefile is policy, not source
     result = {}
     for name in MAKEFILES if make_build(config) else ():
         if (project / name).is_file():
             result[path_name(project, name)] = "make-policy"
+            authored.add(name)
     for name in (".latexmkrc", "latexmkrc"):
         if (project / name).is_file():
             sources.add(name)
+            authored.add(name)
     result.update({tracked_name(project, name): "source" for name in sources})
     _, _, stem = output_paths(project, config)
-    outputs = {str(stem) + suffix for suffix in (".pdf", ".log")}
-    return {name: role for name, role in sorted(result.items()) if str(project.resolve() / name) not in outputs
-            and (Path(name).suffix not in GENERATED or name in declared) and not name.startswith(".latex-ai/")}
+    outputs = {str(stem) + suffix for suffix in OUTPUT_SUFFIXES}
+    authored = {tracked_name(project, name) for name in authored}
+    # A suffix does not make a file generated: a displayed train.log or example.idx is source.
+    return {name: role for name, role in sorted(result.items())
+            if (str(project.resolve() / name) not in outputs and not name.startswith(".latex-ai/")) or name in authored}
 
 
 def build_inputs(project, config):
@@ -559,6 +601,12 @@ def prepare_build_locked(project, config, owner):
     atomic_write(active_path, json.dumps({"owner_pid": owner, "owner_token": process_token(owner),
                                         "receipt": receipt_path(config)}))
     atomic_write(local_path(project, receipt_path(config)), json.dumps(state))
+    source_ids = {input_identity(project, name) for name in inputs}
+    stem = output_paths(project, config)[2]
+    for suffix in OUTPUT_SUFFIXES:
+        output = Path(str(stem) + suffix)
+        if file_identity(output) in source_ids:
+            raise WorkbenchError(f"Compiler output aliases a source input: {output.relative_to(project)}")
     for pattern in config.get("inputs", []):
         if not any(path.is_file() for path in project.glob(pattern)):
             raise WorkbenchError(f"Missing declared document input: {pattern}")
@@ -850,22 +898,33 @@ def recorder_inputs(project, recorder):
 GRAPHICS = (".pdf", ".png", ".jpg", ".jpeg", ".jbig2", ".jb2", ".mps", ".eps", ".ps")  # graphicx's search, all drivers
 
 
-def manuscript_dependencies(project, config, include_receipt=True, command_inputs=True):
-    root, _, stem = output_paths(project, config)
+def current_recorder_inputs(project, config):
+    fls = Path(str(output_paths(project, config)[2]) + ".fls")
+    return recorder_inputs(project, fls) if fls.is_file() and fls.resolve().is_relative_to(project) else set()
+
+
+def static_inputs(project, config):
+    """Potential static dependencies and explicit source reads; mentioning a filename is not reading it."""
+    root, _, _ = output_paths(project, config)
     dependencies = {config["root"], *config.get("bibliography", {}).get("files", [])}
-    recorded = read_receipt(project, config)
-    if include_receipt:
-        dependencies.update(recorded_inputs(project, config, recorded))
     dependencies.update(declared_inputs(project, config))
     export = config.bibliography.get("export")
     if export:
         dependencies.add(export["path"])
-    for path, text in source_tree(project, root):
+    authored = set(dependencies)
+    sources = source_tree(project, root)
+    graphics_paths = {""}
+    for _, text in sources:
+        for group in re.findall(r"\\graphicspath\s*\{((?:\s*\{[^{}\\]*\}\s*)*)\}", text):
+            graphics_paths.update(re.findall(r"\{([^{}]*)\}", group))
+    for path, text in sources:
         dependencies.add(path.relative_to(project).as_posix())
-        resources = re.findall(r"\\(?:includegraphics|lstinputlisting|input|include|subfile)(?:\[[^\]]*\])?\s*\{([^{}\\]+)\}", text)
-        resources += [name if Path(name).suffix else name + ".tex" for name in
+        authored.add(path.relative_to(project).as_posix())
+        literals = re.findall(r"\\(?:includegraphics|lstinputlisting|verbatiminput|VerbatimInput|pgfplotstableread|csvreader|input|include|subfile)(?:\[[^\]]*\])?\s*\{([^{}\\]+)\}", text)
+        literals += [name if Path(name).suffix else name + ".tex" for name in
                       re.findall(r"\\(?:input|include|subfile)\s*\{([^{}\\]+)\}", text)]
-        resources += re.findall(r"\\inputminted(?:\[[^\]]*\])?\s*\{[^{}]+\}\s*\{([^{}\\]+)\}", text)
+        literals += re.findall(r"\\inputminted(?:\[[^\]]*\])?\s*\{[^{}]+\}\s*\{([^{}\\]+)\}", text)
+        resources = list(literals)
         # Macro-agnostic: any braced literal that looks like a file name (\verbatiminput,
         # \pgfplotstableread, \csvreader, ...). Unlike the recorder file below, this is
         # available on a fresh checkout. Extra candidates only add conservative checks.
@@ -878,8 +937,9 @@ def manuscript_dependencies(project, config, include_receipt=True, command_input
         # Files the compiler chooses by search, so a source names them without their extension: graphicx tries
         # each graphics extension in turn, and a package or class beside the document shadows the system one.
         # Those that exist are inputs; one created later changes the input set and so the build's validity.
-        styles += [name.strip() + extension for name in re.findall(r"\\includegraphics\*?(?:\[[^\]]*\])*\s*\{([^{}\\]+)\}", text)
-                   if not Path(name.strip()).suffix for extension in GRAPHICS]
+        styles += [str(Path(folder) / name.strip()) + extension
+                   for name in re.findall(r"\\includegraphics\*?(?:\[[^\]]*\])*\s*\{([^{}\\]+)\}", text)
+                   for folder in sorted(graphics_paths) for extension in (("",) if Path(name.strip()).suffix else GRAPHICS)]
         styles += [name.strip() + suffix for command, suffix in (("usepackage|RequirePackage", ".sty"), ("documentclass|LoadClass", ".cls"))
                    for names in re.findall(r"\\(?:" + command + r")\s*(?:\[[^\]]*\])?\s*\{([^{}\\]+)\}", text)
                    for name in names.split(",") if name.strip()]
@@ -888,10 +948,16 @@ def manuscript_dependencies(project, config, include_receipt=True, command_input
                 for parent in (root.parent, path.parent):
                     if (tracked := input_name(project, parent / name)) is not None and (not existing or (parent / name).is_file()):
                         dependencies.add(tracked)
-    fls = stem.parent / (stem.name + ".fls")
-    if fls.is_file() and fls.resolve().is_relative_to(project):
-        dependencies.update(recorder_inputs(project, fls))
+                        if existing or name in literals:
+                            authored.add(tracked)
+    return dependencies, authored
+
+
+def manuscript_dependencies(project, config, include_receipt=True, command_inputs=True):
+    dependencies, _ = static_inputs(project, config)
+    if include_receipt:
+        dependencies.update(recorded_inputs(project, config, read_receipt(project, config)))
+    dependencies.update(current_recorder_inputs(project, config))
     if command_inputs:
         dependencies.update(command_files(project, config))
     return dependencies
-

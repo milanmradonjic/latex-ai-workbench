@@ -216,9 +216,9 @@ def take(project, tier="manual", note="", base=None, now=None):
         raise WorkbenchError(f"The snapshot folder {base} is inside the project, so every snapshot would contain the one before",
                              hint="give LATEX_AI_SNAPSHOT_DIR a folder outside the project, or leave it unset (the default is ~/.snapshots)")
     need_git()
-    files, large = project_files(project)
     base.mkdir(mode=0o700, parents=True, exist_ok=True)  # private: a snapshot holds every file of the project, whoever may read them
     with operation_lock(base, "snapshot-" + project_key(project), wait=PATIENCE, busy="Another snapshot of this project is being taken; wait for it, then run this again"):
+        files, large = project_files(project)
         store = open_store(project, base, create=True)
         (number, commit, *_), status, dropped = snapshot_into(repository(store, tier, create=True), tier, project, files, note, now)
     print({"taken": f"Snapshot #{number} ({commit[:7]}) in the {tier} store: {len(files)} files",
