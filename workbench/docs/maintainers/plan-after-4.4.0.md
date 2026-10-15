@@ -76,7 +76,8 @@ Each is settled before the step that depends on it.
     session"). That condition cannot be a permission rule, so it stays text there: the task done, its checks run, the diff read. Anything that rewrites or discards work (reset, clean, restore, stash,
     rebase, amending a pushed commit, force-push) stays the owner's every time, and the deny set stays the mechanical backstop. Changing the agents' permission rules needs the owner's approval each time.
   - **To do, when the files are changed:** a test of equivalent command spellings in both agents' rules: `git push origin feature:main` only prompts today. Not yet scheduled as a step.
-  - **Still open:** whether the record-merge exception (`merge_record_pr.py`) stays. It is unchanged until the owner decides.
+  - **The record-merge exception is removed** (decided 15 October 2026): its script, its test and its paragraph in `AGENTS.md`. No pull request in this repository was merged through it, and its pattern still named the closed plan
+    of 3.0.2. An agent never merges; the owner merges every pull request, and an agent hands over the command.
 - **G2, changed-file routing, closed on 15 October 2026.** The planner routes lightweight checks, affected documents, bibliography, package tests and a conservative fallback. Its three open points
   came to little once tried on an example:
   - **Workflow YAML** is routed as ordinary text, and `docs/validation.md` said `validation.ignore` can never exclude "the workflows". That was left from before 4.1, when the workbench wrote workflows; it
@@ -155,7 +156,7 @@ Paste this as the first message of a new session in a clone of this repository:
 
 > This is a workbench session. Read `workbench/docs/maintainers/plan-after-4.4.0.md`, `minimal-scope.md` and the 4.4.0 verification record. Work on the first step not
 > marked done, and never on a step that waits for a gate. Follow the plan's rules: branch per step, failing-first tests, reference parity, and no personal data in any
-> file or message. Create your topic branches, commit, push them and open the pull requests yourself and report each; merge only a record pull request, and only with
-> `.github/scripts/merge_record_pr.py`; never push to `main`, or rewrite or discard work without asking me. Report what passed, what failed and what you could not verify.
+> file or message. Create your topic branches, commit, push them and open the pull requests yourself and report each; never merge, never push to `main`, and never rewrite or discard
+> work without asking me. Report what passed, what failed and what you could not verify.
 
 Mark a step done here (with the commit and release) when it lands on `main`.
