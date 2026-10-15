@@ -3,7 +3,7 @@
 This records the release that corrects the manual (`make guide`) after two independent readers used it: gate G3 of [the plan after 4.4.0](plan-after-4.4.0.md) asked for "a reader other than its author", and the 4.2.0 record
 had said that nobody but the author had read it. The owner asked for the readers and for the manual to be improved by what they found; the owner's own reading is still to come, when the manual is in use.
 Built on 4.9.0 (`c45c374`). Tested on 2026-10-15 on Linux (x86_64, GNU Make 4.3, Git 2.43.0, Python 3.13.16, 3.12.13 and 3.11.17) with TeX Live 2023 from Debian.
-The hosted results are not yet in this record; they are added by the record that follows it.
+The hosted results are at the end of this record (added by the record of 4.10.1).
 
 | Check | Result |
 |---|---|
@@ -56,6 +56,8 @@ Reported by the readers and **not changed**, because they are outside the manual
 - `make build` does not print where the PDF is; the manual now says.
 - A reader suggested ending `status` with "all green: commit", and a line on `git restore FILE`; neither was added (the first is `status`'s behaviour, the second is ordinary Git).
 
+**Update (4.10.1):** the missing Hint, the cut-off ERROR line and the failed document's log in `status` were fixed in [4.10.1](verification-4.10.1.md); the others stay as listed.
+
 ## Found on the way
 
 - **Claims checked, not copied.** I verified the reader claims the new text rests on before writing it: `make all` stops at the first failure (the loop in `do_build` and the 4.6.0 test), undefined references and citations both fail a build and leave `failed`, the PDF folder pattern, and that the integrity error has no Hint line.
@@ -63,12 +65,15 @@ Reported by the readers and **not changed**, because they are outside the manual
 - **A custom folder is shown as it is.** In this repository's reference the manuscript builds beside its source, so the manual says "build the PDF (into ./)"; with several documents that set their own folders, each is named.
 - **A test of mine was wrong, not the tool,** twice: a document's source file must exist before the configuration is valid, and the documents are listed in alphabetical order.
 
+## Hosted verification
+
+All six required checks passed on the pull request ([#18](https://github.com/milanmradonjic/latex-ai-workbench/pull/18): [`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38711302394) in 1m58s with TeX Live 2026; the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38711302351), 2m04s to 2m45s each), and again on the merge commit `ac737c1` on `main` ([`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38712404040); the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38712404070)).
+
 ## Not verified
 
 - **The owner's reading.** The readers are language models told to behave as newcomers. They found wording that misled them; whether the manual suits the owner is for the owner, and G3 stays open for it.
 - **How project notes grow** (the second question of G3) is not decided; the recommendation is in the plan.
 - **The PDF folder for a project whose documents mix the usual folder and their own:** each is named, as tested with three documents that all set their own; the mixed case was not run.
-- **Hosted results.** The pull request is the first run of this version's workflows.
 - **macOS and Windows.**
 
 ## Open items

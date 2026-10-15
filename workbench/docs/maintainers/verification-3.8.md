@@ -4,7 +4,7 @@ This records step 3.8 of [the plan after 4.4.0](plan-after-4.4.0.md), the last o
 (`test_scope_4_7_0.py`, `test_repairs_3_0_1.py`, `test_blind_repairs.py`), so the tests of one component were spread over many files and one file mixed many components. Now there is a module for each
 component, each test class names, in its docstring, the file and release it came from, and [where the tests are](tests-map.md) says where each older file went.
 Built on 4.10.0 (`a458277`). Tested on 2026-10-15 on Linux (x86_64, GNU Make 4.3, Git 2.43.0, Python 3.13.16, 3.12.13 and 3.11.17) with TeX Live 2023 from Debian.
-**There is no release:** nothing the installer vendors or generates changed, and the tests are not shipped to a project. The workbench stays at 4.10.0. The hosted results are not yet in this record; they are added by the record that follows it.
+**There is no release:** nothing the installer vendors or generates changed, and the tests are not shipped to a project. The workbench stays at 4.10.0. The hosted results are at the end of this record (added by the record of 4.10.1).
 
 | Check | Result |
 |---|---|
@@ -35,10 +35,13 @@ Some tests had to be placed by what they assert, and could sit in two modules. T
 `policy_names_orientation_commands...` and `policy_never_names_a_short_form...` are in `test_agent_rules.py` though they read the policy text for the manual's commands; the tests of removed features are in `test_scope.py` even where the feature belonged to the installer;
 the comment-stripping tests are in `test_planner.py`, the compiler's-ownership ones in `test_processes.py`. The class docstrings say where each came from, so a test can be moved back or elsewhere without losing its history.
 
+## Hosted verification
+
+All six required checks passed on the pull request ([#20](https://github.com/milanmradonjic/latex-ai-workbench/pull/20): [`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38722505716); the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38722505938)), and again on the merge commit `8f22d5f` on `main` ([`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38722852922); the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38722852984)).
+
 ## Not verified
 
 - **That the grouping is the one the owner would draw.** The plan named four components and left the rest to the step; the table that assigns each test is mine.
-- **Hosted results.** The pull request is the first run of this version's workflows.
 - **macOS and Windows.**
 
 ## Open items

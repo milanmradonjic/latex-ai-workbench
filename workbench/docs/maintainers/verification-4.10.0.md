@@ -4,7 +4,7 @@ This records the release that carries gate G1 of [the plan after 4.4.0](plan-aft
 working tree (so `git add` and `git fetch` no longer prompt), commit and push keep their prompts in every generated project, and the equivalent spellings of a push to the default branch are tested. The agents' own commits and pushes of a topic branch in a
 workbench session stay a line of this repository's `AGENTS.md`, not a rule of the generated files.
 Built on 4.9.1 (`ac737c1`). Tested on 2026-10-15 on Linux (x86_64, GNU Make 4.3, Git 2.43.0, Python 3.13.16, 3.12.13 and 3.11.17) with TeX Live 2023 from Debian.
-The hosted results are not yet in this record; they are added by the record that follows it.
+The hosted results are at the end of this record (added by the record of 4.10.1).
 
 | Check | Result |
 |---|---|
@@ -35,6 +35,10 @@ The hosted results are not yet in this record; they are added by the record that
 - **Codex cannot say "any source".** Its rules are whole words, so `git push origin feature:main` can only prompt there; the docs say so, and the test asks of Codex only that no such push is silent.
 - **An agent updating a project will not take the relaxation.** The update recipe tells it to keep the stricter rule where two differ, and `latex-ai-init diff` only shows the three files; the owner reads them and takes what they want. The release notes say so.
 
+## Hosted verification
+
+All six required checks passed on the pull request ([#19](https://github.com/milanmradonjic/latex-ai-workbench/pull/19): [`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38715847657) in 2m30s with TeX Live 2026; the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38715847656), 2m06s to 2m30s each), and again on the merge commit `a458277` on `main` ([`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38718340499); the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38718340736)).
+
 ## Not verified
 
 - **Claude Code's own engine.** The matcher in the test is written from the permissions page and checked against its examples; no Claude Code was run here against these rules. The 3.0.4 record observed that the GitHub-tool denies took effect in a running session; the shell denies, old or new, were not observed.
@@ -42,7 +46,6 @@ The hosted results are not yet in this record; they are added by the record that
 - **An older Claude Code** that does not read `*` inside a rule: the literal denies stay, and the wildcard ones would not apply. Which versions do is not recorded here.
 - **What the rules do not match, as the docs say:** `git -C . push origin main`, `git -c ... push`, a quoted `'push'`, an absolute path to `git`, `sh -c '...'`, a plain `git push` on a checked-out `main`. The policy covers them, and the optional `pre-push` hook of `docs/agents.md` refuses them on a machine that installs it.
 - **The owner's own settings,** which can allow commit and push locally; they are the owner's file and not tested here.
-- **Hosted results.** The pull request is the first run of this version's workflows.
 - **macOS and Windows.**
 
 ## Open items

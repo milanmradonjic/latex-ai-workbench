@@ -735,5 +735,47 @@ class Manual(ProjectCase):
         self.assertIn("build the PDF (into paper: outputs/; poster: out-poster/; talk: out-talk/)", text)  # several, each with its own folder: each named
 
 
+class FailedDocumentLog(ProjectCase):
+    """Workbench 4.10.1, after the readers of the manual used it: `status` says where the log of a failed document is.
+
+    Origin: workbench 4.10.1 (the reader findings recorded in verification-4.9.1.md).
+    """
+
+    def fixture(self, log, code=0):
+        """A project whose stand-in compiler writes this log and exits with this code."""
+        (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}x\\end{document}\n")
+        self.configure()
+        self.install("init", "--skip-editor")
+        self.compiler(log, code)
+
+    def compiler(self, log, code=0):
+        (self.project / "builder.py").write_text(
+            "import sys\n"
+            "from pathlib import Path\n"
+            "out = Path('outputs'); out.mkdir(exist_ok=True)\n"
+            "(out / 'main.pdf').write_bytes(b'%PDF-fixture')\n"
+            f"(out / 'main.log').write_text({log!r})\n"
+            "(out / 'main.fls').write_text('PWD ' + str(Path.cwd()) + '\\nINPUT main.tex\\n')\n"
+            f"sys.exit({code})\n")
+
+    def test_status_names_the_log_of_a_failed_document_and_only_of_a_failed_one(self):
+        self.fixture("LaTeX Warning: Reference `fig:one' on page 1 undefined on input line 3.\nLaTeX Warning: There were undefined references.\n")
+        self.assertNotIn("read its log", self.command("status").stdout)            # never built
+        self.command("build", expected=1)
+        self.assertEqual(self.state(), "failed")
+        self.assertIn("read its log: outputs/main.log", self.command("status").stdout)
+        self.compiler("Clean log\n")
+        self.command("build")
+        self.assertEqual(self.state(), "current")
+        self.assertNotIn("read its log", self.command("status").stdout)
+
+    def test_status_does_not_name_a_log_that_is_not_there(self):
+        self.fixture("LaTeX Warning: Reference `fig:one' on page 1 undefined on input line 3.\nLaTeX Warning: There were undefined references.\n")
+        self.command("build", expected=1)
+        (self.project / "outputs/main.log").unlink()
+        self.assertEqual(self.state(), "failed")
+        self.assertNotIn("read its log", self.command("status").stdout)
+
+
 if __name__ == "__main__":
     unittest.main()

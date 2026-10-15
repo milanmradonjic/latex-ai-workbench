@@ -5,9 +5,10 @@ the project's own Makefile and configuration, so a command that is not installed
 This module is also the one place that knows how a workbench command is named in a given Makefile.
 """
 import re
+from pathlib import Path
 
 from commands import COMMANDS  # the registry derives every name shown to readers
-from core import MAKEFILES, MODULES, VERSION, WorkbenchError, has_module
+from core import MAKEFILES, MODULES, VERSION, WorkbenchError, document_paths, has_module
 from schema import STATES, specifications
 
 
@@ -186,6 +187,16 @@ def pdf_folders(config):
     return "; ".join(f"{target.name}: {target.view['output_dir']}/" for target in targets)
 
 
+def failed_log(project, config, name):
+    """Where the compiler's log of a document is, project-relative, when there is one to read."""
+    for target in specifications(config):
+        if target.name == name:
+            stem = document_paths(project, target.view["root"], target.view["output_dir"])[2]
+            log = Path(str(stem) + ".log")
+            return log.relative_to(project.resolve()).as_posix() if log.is_file() and log.is_relative_to(project.resolve()) else None
+    return None
+
+
 def manual_text(project, config, problem, documents=None):
     """The short manual: how to work in this project, written with the command names that work in it."""
     names = available(project, config)
@@ -300,6 +311,10 @@ def status_text(project, config, problem, installed, git, plan, plan_error, docu
             state = document["state"]
             lines.append(f"               {document['id']}: {state} ({STATES.get(state, state)}; {document['root']}, {document['engine']})")
             lines += [f"                 {reason}" for reason in document.get("reasons", ())]
+            if state == "failed":
+                log = failed_log(project, config, document["id"])
+                if log:
+                    lines.append(f"                 read its log: {log}")
             if state == "running" and document.get("ownership"):
                 ownership = document["ownership"]
                 lines.append(f"                 owner PID {ownership['owner_pid']} ({'alive' if ownership['owner_alive'] else 'ended'}); "
