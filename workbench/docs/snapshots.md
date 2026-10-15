@@ -15,7 +15,7 @@ Each store is a Git repository of its own, so what goes into one can never push 
 |---|---|---|---|
 | `manual` | you, with `make snapshot` | when files differ from your last manual snapshot | all of them; the workbench never deletes one |
 | `weekly` | a timer that asks every day ([below](#timers-on-a-mac-launchd)) | the first time in a calendar week (Monday to Sunday, by the computer's own clock and time zone) that files differ from the last weekly snapshot | the newest 6 |
-| `frequent` | a timer that asks every 30 minutes | whenever files differ from the last frequent snapshot | the newest 60 |
+| `frequent` | a timer that asks every 30 minutes | each time the timer asks, if files differ from the last frequent snapshot | the newest 60 |
 
 The two timers run `python3 .latex-ai/workbench.py snapshot --tier frequent` and `--tier weekly`; `make snapshot` is the manual one (`--tier manual`, the default). A snapshot that would be identical to the
 newest of its store is not taken, and the run says so, so a timer that fires while you are away costs almost nothing and uses none of the 60.

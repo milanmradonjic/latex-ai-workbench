@@ -16,7 +16,7 @@ import sys
 import tempfile
 import traceback
 
-from core import VERSION, git_output, local_path
+from core import VERSION, WorkbenchError, git_output, local_path
 
 REPORTS = ".latex-ai/artifacts/issues"
 KEEP = 20
@@ -116,6 +116,33 @@ def installation(project):
     return {"record_version": record.get("version"), "runtime_version": VERSION,
             "version_matches": record.get("version") == VERSION, "files": files,
             "differing": sorted(name for name, state in files.items() if state in DIFFERING)}
+
+
+def version_report(project):
+    """The project's version stamp as `make doctor` prints it: what the installation record says, what the vendored runtime is, and which runtime files were edited or are missing."""
+    state = installation(project)
+    if "record" in state:
+        return [f"stamp: .latex-ai/installation.json is {state['record']}"]
+    differing = state["differing"]
+    return [f"stamp: .latex-ai/installation.json records {state['record_version']}; the vendored runtime is {state['runtime_version']}" + ("" if state["version_matches"] else " (they differ)"),
+            "runtime files: " + (f"all {len(state['files'])} unmodified" if not differing else ", ".join(f"{name} ({state['files'][name]})" for name in differing))]
+
+
+def template_report(project, template):
+    """The template's side: what the installer of the release in that folder says of this project, by its own read-only `diff`, so that there is one rule for what differs."""
+    folder = Path(template).expanduser().resolve()
+    installer = folder / "latex-ai-init"
+    if not (installer.is_file() and (folder / "core.py").is_file()):
+        raise WorkbenchError(f"{folder} is not a workbench folder: it has no latex-ai-init and core.py",
+                             hint="give the folder that holds latex-ai-init, the templates and the runtime together, the one the installer is run from")
+    try:
+        done = subprocess.run([sys.executable, str(installer), "diff", str(project)], capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError) as error:
+        raise WorkbenchError(f"The installer in {folder} could not be run: {error}") from error
+    if done.returncode not in (0, 1):  # 1 means that a runtime file differs, which is a report; the installer's refusals are 2
+        raise WorkbenchError("That release's installer stopped: " + (done.stderr.strip() or done.stdout.strip() or f"exit status {done.returncode}"),
+                             hint="it names the setting or file it stopped at; docs/upgrading.md in that folder says what to do")
+    return [f"template: {folder}", *("  " + line for line in done.stdout.splitlines())]
 
 
 def tool_versions():

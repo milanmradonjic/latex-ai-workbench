@@ -3,6 +3,22 @@
 Workbench 4 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 4.9.0 — the doctor reports the version stamp, and the update recipe is in the skill file
+
+Step 3.7 of [the plan after 4.4.0](plan-after-4.4.0.md).
+
+- **Added to `make doctor`:** the project's stamp: what `.latex-ai/installation.json` records, what the vendored runtime is (with "(they differ)" when they do), and the runtime files edited or missing since the
+  record was written. It is printed after the tool check and before a missing tool stops the doctor, so it is there when the doctor fails. A record that cannot be read is named, not fatal.
+- **Added: the template's side.** Given the folder of a release, `make doctor LATEX_AI_TEMPLATE=/path/to/workbench` (or `doctor --template PATH`) adds that release's own `latex-ai-init diff` of this project:
+  the runtime files that differ, the generated files that differ, and `Project runtime X; this release Y`. The doctor runs the installer rather than repeating its rule, writes nothing, and a difference
+  does not fail it; a folder that is not a workbench, or an installer that refuses the project, is an error with the installer's own message. Without a template the doctor says how to ask for one.
+  The variable is named like `LATEX_AI_BASE`, so no Makefile line changes; Make passes a variable given on its command line to the recipe.
+- **Moved:** the update recipe now lives in the skill file (`skills/latex-ai-workbench/references/installation.md`, "Update"): snapshot, read the notes, see the difference, refresh the runtime, edit what is the project's,
+  and check with the doctor, `make check` and `git diff`. `docs/upgrading.md` is the short guide that points to it.
+- **Unchanged:** every other action, the generated Makefile and editor files (the guard is unchanged), the receipts and the snapshots.
+
+See [the verification record](verification-4.9.0.md), which includes an agent other than the author following the recipe on a copy of a project made by 4.6.0.
+
 ## 4.8.1 — audit repairs for output safety, freshness and validation
 
 - **Output safety:** validate the conventional list, index, glossary, slide and SyncTeX outputs as well as PDF/log/recorder paths. Reject symlinks leaving the project and outputs aliasing any declared root or known source, including hard links. A genuine source with a generated-looking suffix remains protected and fingerprinted; an actual generated auxiliary remains excluded.
