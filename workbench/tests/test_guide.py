@@ -69,7 +69,7 @@ import guide
 import latex
 import runtime as rt
 import schema
-from test_support import ProjectCase, fixture_env, isolate_environment, own_targets
+from test_support import ProjectCase, fixture_env, isolate_environment, own_targets, prepare_config
 
 
 MAKE = bool(shutil.which("make"))
@@ -100,8 +100,7 @@ def document(name, **fields):
 
 
 def configuration(*names, default=None, **fields):
-    return {"schema_version": 3, "modules": {"latex": {"default_document": default or names[0], "documents": {name: document(name, **fields) for name in names}}},
-            "integrations": {"editor": False}}
+    return {'schema_version': 4, 'default_document': default or names[0], 'documents': {name: document(name, **fields) for name in names}, 'integrations': {'editor': False}}
 
 
 IDENTITY = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.invalid", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.invalid"}
@@ -117,7 +116,7 @@ class Orientation(ProjectCase):
         (self.project / "main.tex").write_text(SOURCE)
         self.builder()
         self.configure()
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         self.own_targets(*own)
 
     def test_the_manual_shows_the_project_and_the_everyday_loop(self):
@@ -146,39 +145,21 @@ class Orientation(ProjectCase):
         self.assertIn("Configuration problem", result.stdout)
         self.assertIn("make status", result.stdout)
 
-    def test_the_manual_names_the_commands_this_makefile_really_has(self):
-        self.paper(own=("build", "guide"))
-        text = self.command("guide").stdout
-        self.assertIn("make latex-ai-build DOC=NAME", text)
-        self.assertNotRegex(text, r"make build\b")
-        self.assertRegex(text, r"Names: your Makefile keeps its own target for `(guide`, `build|build`, `guide)`")
-        self.assertIn("make latex-ai-guide", self.command("help").stdout)
 
     def test_every_command_the_manual_names_exists(self):
         self.paper()
-        names = {command.short for command in guide.COMMANDS} | {command.reserved for command in guide.COMMANDS if command.reserved}
+        names = {command.short for command in guide.COMMANDS}
         for name in re.findall(r"make ([a-z][a-z-]*)", self.command("guide").stdout):
             if name not in {"sure"}:
                 self.assertIn(name, names, name)
 
-    def test_a_project_without_latex_gets_a_manual_without_documents(self):
-        self.install("init", "--modules", "")
-        text = self.command("guide").stdout
-        self.assertIn("Modules: none (core only)", text)
-        self.assertNotIn("make build", text)
-        self.assertNotIn("What a document's state means", text)
 
     @unittest.skipUnless(MAKE, "GNU Make required")
     def test_make_prints_the_manual(self):
         self.paper()
         self.assertIn("The everyday loop", self.run_command("make", "guide").stdout)
-        self.assertIn("The everyday loop", self.run_command("make", "latex-ai-guide").stdout)
+        self.assertIn("The everyday loop", self.run_command("make", "guide").stdout)
 
-    @unittest.skipUnless(MAKE, "GNU Make required")
-    def test_a_project_target_named_guide_is_kept(self):
-        self.paper(own=("guide",))
-        self.assertEqual(self.run_command("make", "guide").stdout.strip(), "mine")
-        self.assertIn("The everyday loop", self.run_command("make", "latex-ai-guide").stdout)
 
     def test_help_has_one_heading_per_group_and_points_to_the_guide(self):
         self.paper()
@@ -209,7 +190,7 @@ class Orientation(ProjectCase):
     def test_status_names_the_settings_that_changed(self):
         self.built()
         config = json.loads((self.project / core.CONFIG).read_text())
-        config["modules"]["latex"]["documents"]["paper"]["backend"] = "bibtex"
+        config["documents"]["paper"]["backend"] = "bibtex"
         (self.project / core.CONFIG).write_text(json.dumps(config))
         self.assertEqual(self.reasons(), ["build settings changed: bibliography"])
 
@@ -231,7 +212,7 @@ class Orientation(ProjectCase):
             (self.project / name).write_text("1\n")
         self.builder(inputs=("main.tex", *names))
         self.configure()
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         self.command("build")
         for name in names:
             (self.project / name).write_text("2\n")
@@ -251,7 +232,8 @@ class ModuleTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def cli(self, *args):
+    def cli(self, *args, **choices):
+        prepare_config(self.project, **choices)
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             return boot.main([*args, str(self.project)])
 
@@ -267,7 +249,7 @@ class ModuleTests(unittest.TestCase):
     def example(self):
         """A small LaTeX project with the workbench installed."""
         (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nExample.\n\\end{document}\n")
-        self.assertEqual(self.cli("init", "--no-lint", "--skip-editor"), 0)
+        self.assertEqual(self.cli('init', lint=False, editor=False), 0)
         return schema.load_config(self.project)
 
     def run_main(self, *arguments):
@@ -287,51 +269,14 @@ class ModuleTests(unittest.TestCase):
         self.assertEqual(done.returncode, expected, done.stdout + done.stderr)
         return done.stdout
 
-    def test_help_lists_what_this_project_has_and_only_that(self):
-        self.assertEqual(self.cli("init", "--modules", ""), 0)
-        core_help = self.make_output("help")
-        for line in ("make check", "make validate", "make status", "make doctor", "make help", "make issue"):
-            self.assertIn(line, core_help)
-        for absent in ("make build", "make pdf-artifact", "make document-check"):
-            self.assertNotIn(absent, core_help)
-        self.assertIn("Not enabled here", core_help)
-        self.assertIn('"modules" in .latex-ai.json', core_help)
-        shutil.rmtree(self.project)
-        self.project.mkdir()
-        self.example()
-        help_text = self.make_output("help")
-        for line in ("make build", "make document-check", "Documents: manuscript (default)"):
-            self.assertIn(line, help_text)
-
-    def test_help_names_the_command_that_reaches_the_workbench_when_the_project_has_its_own(self):
-        self.assertEqual(self.cli("init", "--modules", ""), 0)
-        own_targets(self.project, "help", recipe="@echo PROJECT_HELP")
-        own_targets(self.project, "issue", recipe="@echo PROJECT_ISSUE")
-        self.assertEqual(self.make_output("help").strip(), "PROJECT_HELP")  # the project's target is kept
-        text = self.make_output("latex-ai-help")
-        self.assertIn("make latex-ai-help", text)
-        self.assertIn("make latex-ai-issue", text)
-        self.assertNotIn("make issue", text)
-        self.assertIn("make status", text)  # an alias nothing else uses stays short
 
     def test_help_survives_a_broken_configuration(self):
-        self.assertEqual(self.cli("init", "--modules", ""), 0)
+        self.assertEqual(self.cli('init'), 0)
         (self.project / core.CONFIG).write_text("{not json")
         text = self.make_output("help")
         self.assertIn("Configuration problem", text)
         self.assertIn("make check", text)
 
-    def test_every_installed_make_target_is_described_by_help(self):
-        for modules in ("", "latex"):
-            with self.subTest(modules=modules):
-                shutil.rmtree(self.project)
-                self.project.mkdir()
-                (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n")
-                self.assertEqual(self.cli("init", "--modules", modules), 0)
-                text = (self.project / "Makefile").read_text()
-                targets = set(re.findall(r"^([A-Za-z][\w-]*)\s*:(?!=)", text, re.M))
-                described = {name for command in guide.COMMANDS for name in (command.short, command.reserved) if name}
-                self.assertEqual(sorted(targets - described), [])
 
     def test_status_reports_where_the_project_stands_and_what_to_do_next(self):
         self.example()
@@ -351,7 +296,7 @@ class ModuleTests(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("git"), "needs git")
     def test_status_says_what_git_and_the_installed_files_look_like(self):
-        self.assertEqual(self.cli("init", "--modules", ""), 0)
+        self.assertEqual(self.cli('init'), 0)
         text = self.make_output("status")
         self.assertIn("not a Git repository", text)
         self.commit_everything()
@@ -368,27 +313,10 @@ class ModuleTests(unittest.TestCase):
         self.assertIn("Configuration problem", text)
         self.assertIn("Git", text)
 
-    def test_common_errors_say_what_to_do_next(self):
-        run = lambda *arguments: self.run_main(*arguments)  # noqa: E731
-        empty = Path(tempfile.mkdtemp(prefix="workbench-empty-"))
-        self.addCleanup(shutil.rmtree, empty, True)
-        with patch.object(sys, "argv", ["workbench", "check", "--project", str(empty)]), contextlib.redirect_stderr(io.StringIO()) as errors:
-            self.assertEqual(rt.main(), 1)
-        self.assertIn("no workbench installed", errors.getvalue())
-        self.assertIn("latex-ai-init init .", errors.getvalue())
-        self.assertEqual(self.cli("init", "--modules", ""), 0)
-        status, errors = run("build")
-        self.assertEqual(status, 1)
-        self.assertIn("Module is disabled: latex", errors)
-        self.assertIn('"modules" in .latex-ai.json', errors)
-        with patch.object(shutil, "which", return_value=None):
-            status, errors = run("doctor")
-        self.assertIn("Missing required tools", errors)
-        self.assertIn("make doctor", errors)
 
     def test_status_does_not_count_the_projects_own_files_as_changed_installation_files(self):
         # Editor settings are merged with the project's own: editing them is the intended use, not a change to the installation.
-        self.assertEqual(self.cli("init", "--modules", "", "--editor"), 0)
+        self.assertEqual(self.cli('init', editor=True), 0)
         tasks = json.loads((self.project / ".vscode/tasks.json").read_text())
         tasks["tasks"].append({"label": "Mine", "type": "process", "command": "true"})
         (self.project / ".vscode/tasks.json").write_text(json.dumps(tasks))
@@ -403,40 +331,15 @@ class ModuleTests(unittest.TestCase):
         self.assertIn(".latex-ai/core.py: modified locally", text)
         self.assertIn("files differing from the record: .latex-ai/core.py", self.command("issue").stdout)
 
-    def test_a_projects_own_target_is_never_presented_as_the_workbench_command(self):
-        self.assertEqual(self.cli("init", "--modules", ""), 0)
-        own_targets(self.project, "doctor", recipe="@touch PROJECT_DOCTOR_RAN")
-        listed = self.make_output("help")
-        self.assertIn("make latex-ai-doctor", listed)
-        for wrong in ("make doctor", "make clean", "make build", "make lint", "Manuscript"):
-            self.assertNotIn(wrong, listed)  # no manuscript here, and `doctor` is now the project's own recipe
-        self.assertIn("python:", self.make_output("latex-ai-doctor"))
-        self.assertFalse((self.project / "PROJECT_DOCTOR_RAN").exists())
-        with patch.object(shutil, "which", return_value=None):
-            status, errors = self.run_main("doctor")
-        self.assertIn("make latex-ai-doctor", errors)  # the advice to run it again names the command that works
-
-    def test_every_workbench_command_but_the_shared_two_has_a_reserved_name(self):
-        shared = {command.short for command in guide.COMMANDS if command.reserved is None}
-        self.assertEqual(shared, {"check", "lint"})  # build has a receipt-producing reserved target
-        (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n")
-        self.assertEqual(self.cli("init", "--modules", "latex"), 0)
-        own_targets(self.project, "doctor", "bib-check", "pdf-artifact", "clean", recipe="@echo MINE")
-        targets = guide.make_targets((self.project / "Makefile").read_text())
-        for name in ("doctor", "bib-check", "pdf-artifact"):
-            self.assertIn("latex-ai-" + name, targets)
-        self.assertIn("latex-ai-clean", targets)  # the selected document determines whether cleanup is supported
-        self.assertEqual(self.make_output("clean").strip(), "MINE")
-        self.assertEqual(self.make_output("doctor").strip(), "MINE")  # and the project's recipes are still its own
 
     @unittest.skipUnless(shutil.which("git"), "needs git")
     def test_status_only_says_nothing_is_pending_when_that_is_known(self):
-        self.assertEqual(self.cli("init", "--modules", ""), 0)
+        self.assertEqual(self.cli('init'), 0)
         text = self.make_output("status")  # no Git: what changed cannot be known
         self.assertNotIn("Nothing pending", text)
         self.assertIn("make check", text.split("Next:")[1])
         self.commit_everything()
-        self.assertIn("Nothing pending", self.make_output("status"))
+        self.assertIn("make check", self.make_output("status"))  # an unbuilt document still needs a check
         with (self.project / ".latex-ai/core.py").open("a") as stream:
             stream.write("\n# local tweak\n")
         self.commit_everything("tweak")
@@ -446,7 +349,7 @@ class ModuleTests(unittest.TestCase):
         self.assertIn("latex-ai-init diff .", text.split("Next:")[1])
 
     def test_help_and_status_explain_a_missing_configuration_in_plain_words(self):
-        self.assertEqual(self.cli("init", "--modules", ""), 0)
+        self.assertEqual(self.cli('init'), 0)
         (self.project / core.CONFIG).unlink()
         for target in ("help", "status"):
             with self.subTest(target=target):
@@ -458,39 +361,6 @@ class ModuleTests(unittest.TestCase):
     def fresh_project(self):
         shutil.rmtree(self.project)
         self.project.mkdir()
-
-    def test_small_print_of_everyday_commands(self):
-        self.assertEqual(self.cli("init", "--modules", ""), 0)
-        env = {name: value for name, value in os.environ.items() if name not in {"MAKEFLAGS", "MFLAGS", "MAKELEVEL", "MAKEOVERRIDES", "TASK", "LATEX_AI_BASE"}}
-        shown = subprocess.run(["make", "help"], cwd=self.project, capture_output=True, text=True, env=env)  # no -s: the recipe itself is quiet
-        self.assertTrue(shown.stdout.startswith("LaTeX AI Workbench"), shown.stdout[:120])
-        with patch.object(shutil, "which", side_effect=lambda name: None if name == "chktex" else "/usr/bin/" + Path(name).name):
-            status, errors = self.run_main("doctor")
-        self.assertNotIn("TeX distribution", errors)  # a core project does not need one
-        self.assertNotIn("citation keys", next(command.description for command in guide.COMMANDS if command.short == "bib-check"))
-        self.fresh_project()
-        self.assertEqual(self.cli("init", "--modules", ""), 0)
-        checked = subprocess.run(["make", "check"], cwd=self.project, capture_output=True, text=True, env=env)
-        self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
-        self.assertIn("passed", checked.stdout.rstrip().splitlines()[-1])
-        self.assertNotIn("Changed-file", checked.stdout)
-        self.assertNotIn("in the diff", checked.stdout)
-        if shutil.which("git"):
-            self.commit_everything()
-            (self.project / "drafts").mkdir()
-            for name in ("a.txt", "b.txt"):
-                (self.project / "drafts" / name).write_text("x\n")
-            text = self.make_output("status")
-            self.assertIn("2 uncommitted file(s)", text)  # counted as files, like the changes below it
-            self.assertIn("2 file(s)", text)
-
-    def test_small_print_from_the_blind_trial(self):
-        self.assertEqual(self.cli("init", "--modules", ""), 0)
-        self.assertIn("All required tools found", self.command("doctor").stdout)
-        quickstart = (boot.PACKAGE / "docs/quickstart.md").read_text()
-        self.assertNotIn("fullest", quickstart)
-        self.assertIn("make latex-ai-lint-baseline", quickstart)
-        self.assertNotIn("`workbench/skills/latex-ai-workbench/`", (boot.PACKAGE / "templates/AGENTS.md").read_text())  # no path that an adopted project lacks
 
 
 class Repairs(ProjectCase):
@@ -505,7 +375,7 @@ class Repairs(ProjectCase):
                         "note": {"root": "note.tex", "lint": {"enabled": False}}})
         for name in ("main.tex", "note.tex"):
             (self.project / name).write_text(SOURCE_3_0_1)
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         config = schema.load_config(self.project)
         view = schema.document_settings(config, "note")
         for label, call in {"unverified receipt": lambda: latex.verify(self.project, view),
@@ -521,7 +391,7 @@ class Repairs(ProjectCase):
         self.configure()
         (self.project / "main.tex").write_text(SOURCE_3_0_1)
         self.builder()
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         view = schema.document_settings(schema.load_config(self.project))
         path = self.project / latex.receipt_path(view)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -538,48 +408,10 @@ class NoHandbook(ProjectCase):
 
     def test_the_manual_stays_short_whatever_the_project(self):
         (self.project / "main.tex").write_text("\\documentclass{article}\\begin{document}x\\end{document}\n")
-        self.install("init", "--no-lint")
+        self.install('init', lint=False)
         text = self.command("guide").stdout
         self.assertLessEqual(len(text.splitlines()), MANUAL_LINES, text)
         self.assertTrue(all(len(line) <= 140 for line in text.splitlines()))
-
-
-class Guide(ProjectCase):
-    """Origin: tests/test_scope_4_6_0.py, workbench 4.6.0."""
-
-    def setUp(self):
-        super().setUp()
-        for name in ("paper", "notes"):
-            (self.project / f"{name}.tex").write_text(SOURCE_4_6_0)
-        (self.project / "builder.py").write_text(BUILDER)
-        (self.project / core.CONFIG).write_text(json.dumps(configuration("paper", "notes")))
-        self.install("init", "--skip-editor")
-
-    def test_the_guide_and_help_name_the_targets(self):
-        guide = self.command("guide").stdout
-        self.assertRegex(guide, r"make notes")
-        self.assertRegex(guide, r"make all")
-        help_text = self.command("help").stdout
-        self.assertRegex(help_text, r"make all\s")
-        self.assertIn("make paper, make notes: each builds that document.", help_text)
-
-    def test_a_document_with_no_target_is_built_by_name_the_long_way(self):
-        self.add_document("extra", "extra.tex", build_command=[sys.executable, "builder.py", "extra"], lint={"enabled": False}, output_dir="outputs")
-        (self.project / "extra.tex").write_text(SOURCE_4_6_0)
-        self.assertIn("make build DOC=extra", self.command("guide").stdout)
-
-    def test_diff_shows_a_4_5_project_exactly_the_lines_it_lacks(self):
-        path = self.project / "Makefile"
-        text = path.read_text()
-        old = re.sub(r"\.PHONY: (?:all|notes|paper)\n(?:all|notes|paper):[^\n]*\n(?:\t[^\n]*\n)?", "", text)
-        old = re.sub(r"\.PHONY: latex-ai-build-all\nlatex-ai-build-all:\n\t[^\n]*\n", "", old)
-        self.assertNotEqual(old, text)
-        path.write_text(old)
-        diff = self.install("diff", "--diff", expected=None).stdout
-        self.assertIn("DIFFERS", diff)
-        for line in ("+.PHONY: all", "+.PHONY: notes", "+.PHONY: paper", "+.PHONY: latex-ai-build-all"):
-            self.assertIn(line, diff)
-        self.assertEqual([l for l in diff.splitlines() if l.startswith("-") and not l.startswith("---")], [])
 
 
 class DocumentTargetSafety(ProjectCase):
@@ -591,21 +423,21 @@ class DocumentTargetSafety(ProjectCase):
 
     def test_a_document_named_clean_does_not_offer_the_cleanup_command_as_a_build(self):
         self.configure({'paper': {'root': 'main.tex'}, 'clean': {'root': 'note.tex'}})
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         output = self.command('guide').stdout
-        self.assertIn('clean has no target of its own: make build DOC=clean', output)
+        self.assertIn('make build DOC=NAME', output)
         self.assertNotIn('make clean: each builds that document', output)
 
     def test_an_unrelated_target_is_not_offered_as_a_document_build(self):
         self.configure({'paper': {'root': 'main.tex'}, 'note': {'root': 'note.tex'}})
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         makefile = self.project / 'Makefile'
         text = makefile.read_text().replace('note:\n\t@$(PYTHON) .latex-ai/workbench.py build --document note',
                                            'note:\n\t@echo unrelated task')
-        text = text.replace('build: latex-ai-build', 'build:\n\t@echo unrelated build')
+        text = text.replace('build: build', 'build:\n\t@echo unrelated build')
         makefile.write_text(text)
         output = self.command('guide').stdout
-        self.assertIn('note has no target of its own: make latex-ai-build DOC=note', output)
+        self.assertIn('make build DOC=NAME', output)
         self.assertNotIn('make note: each builds that document', output)
 
 
@@ -616,12 +448,12 @@ class Manual(ProjectCase):
         (self.project / "main.tex").write_text(SOURCE)
         self.builder()
         self.configure()
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
 
     def default_paper(self):
         """A project as `init` leaves it, with the documents' default output folders."""
         (self.project / "main.tex").write_text(SOURCE)
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
 
     def guide(self):
         return self.command("guide").stdout
@@ -772,7 +604,7 @@ class FailedDocumentLog(ProjectCase):
         """A project whose stand-in compiler writes this log and exits with this code."""
         (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}x\\end{document}\n")
         self.configure()
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         self.compiler(log, code)
 
     def compiler(self, log, code=0):

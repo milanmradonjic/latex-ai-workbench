@@ -1,4 +1,4 @@
-"""Dependency-free core utilities and versioned module configuration."""
+"""Dependency-free core utilities and project utilities."""
 import copy
 import contextlib
 import errno
@@ -14,7 +14,7 @@ import tempfile
 import time
 import processes
 
-VERSION = "4.10.2"
+VERSION = "5.0.0"
 CONFIG = ".latex-ai.json"
 # Trees that are never project sources: version control, workbench state, environments, caches and installed packages. Every
 # walk and every check of a declared path agrees on them; the installer adds the folders it alone leaves out.
@@ -174,7 +174,7 @@ def run(command, cwd, env=None, started=None, display=True, startup=None):
     the whole group (a compiler and its children), not just the immediate child."""
     executable = str(Path(cwd) / command[0]) if not Path(command[0]).is_absolute() and "/" in command[0] else command[0]
     if not shutil.which(executable):
-        raise WorkbenchError(f"Required tool not found: {command[0]}", hint="the doctor command (make doctor, or make latex-ai-doctor) lists every tool this project needs")
+        raise WorkbenchError(f"Required tool not found: {command[0]}", hint="make doctor lists every tool this project needs")
     if display:
         print("+ " + " ".join(command), flush=True)
     capture = CAPTURE_COMMANDS.get()
@@ -220,28 +220,9 @@ stop_process = processes.stop
 MAKEFILES = ("GNUmakefile", "makefile", "Makefile")  # the order in which GNU Make itself looks for one
 
 
-# A module names the runtime file that serves it and declares its configuration defaults. Paths belong to the
-# project; the installer resolves these defaults once, never during an upgrade.
-MODULES = {
-    "latex": {"runtime": "latex.py", "defaults": {"default_document": "manuscript", "documents": {"manuscript": {"root": "main.tex"}}}},
-    "bibliography": {"runtime": "latex.py", "defaults": {"files": [], "export": None}},
-}
-# Modules of workbench 3 that workbench 4 no longer has. A configuration naming one is refused with a hint, not as an unknown name.
-# What a document is built with by default: one engine, and BibTeX or no bibliography program. A document that needs more declares a build_command.
 ENGINES = ("pdflatex",)
 BACKENDS = ("none", "bibtex")
 EXPORT_FORMATS = ("bibtex",)
-REMOVED_MODULES = ("notes", "markdown", "numerics", "figures", "provenance", "freshness", "claims")
-
-
-def has_module(config, name):
-    return name in config.get("modules", {})
-
-
-def module_config(config, name):
-    if name == "latex":
-        return copy.deepcopy(config.get("modules", {}).get(name, {}))
-    return {**copy.deepcopy(MODULES[name]["defaults"]), **config.get("modules", {}).get(name, {})}
 
 
 def integrations(config):
@@ -351,13 +332,9 @@ def make_goals(command):
 def effective_config(config):
     """One in-memory schema with defaults; never rewrites the persisted configuration."""
     result = copy.deepcopy(config)
-    result["modules"] = {name: module_config(result, name) for name in MODULES if has_module(result, name)}
+    result.setdefault("bibliography", {"files": [], "export": None})
     result["integrations"] = integrations(result)
     return result
-
-
-def module_names(config):
-    return tuple(name for name in MODULES if has_module(config, name))
 
 
 # Every file of the distribution whose change affects installed projects: the planner treats a change to
@@ -368,17 +345,15 @@ RUNTIME_FILES = ("runtime.py", "commands.py", "schema.py", "core.py", "latex.py"
 
 
 def runtime_sources(config):
-    return {"runtime.py": "workbench.py", "commands.py": "commands.py", "schema.py": "schema.py", "core.py": "core.py", "diagnostics.py": "diagnostics.py", "guide.py": "guide.py",
-            "processes.py": "processes.py", "snapshot.py": "snapshot.py",
-            **{MODULES[name]["runtime"]: MODULES[name]["runtime"] for name in module_names(config)},
-            **({"documents.py": "documents.py"} if has_module(config, "latex") else {}),
-            **({"output_transaction.py": "output_transaction.py"} if has_module(config, "latex") else {})}
+    """Every project receives the same standalone LaTeX runtime."""
+    return {name: ("workbench.py" if name == "runtime.py" else name)
+            for name in RUNTIME_FILES if name not in {"bootstrap.py", "latex-ai-init"}}
 
 
 # The checks `validate` can run, in their order. Which of them a change needs is decided once, in validation_actions.
 VALIDATION_ACTIONS = {
     "unit": {"label": "Test workbench", "argv": ("make", "-C", "{package}", "test")},
-    "bibliography": {"label": "Check bibliography", "argv": ("make", "latex-ai-bib-check")},
+    "bibliography": {"label": "Check bibliography", "argv": ("make", "bib-check")},
     "portability": {"label": "Test compiler portability", "argv": ("make", "-C", "{package}", "portability")},
     "full": {"label": "Check project", "argv": ("make", "check")},
 }

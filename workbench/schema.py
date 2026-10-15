@@ -10,9 +10,9 @@ import json
 from pathlib import Path, PurePosixPath
 import re
 
-from commands import RECURSIVE_GOALS, RESERVED_PREFIX
-from core import (BACKENDS, CONFIG, ENGINES, EXPORT_FORMATS, MODULES, REMOVED_MODULES, WorkbenchError, document_paths, has_module, integrations, local_path, make_goals,
-                  module_config, path_identity, path_name, read_json, OUTPUT_SUFFIXES)
+from commands import RECURSIVE_GOALS
+from core import (BACKENDS, CONFIG, ENGINES, EXPORT_FORMATS, WorkbenchError, document_paths, integrations, local_path, make_goals,
+                  path_identity, path_name, read_json, OUTPUT_SUFFIXES)
 
 DEFAULTS = {"engine": "pdflatex", "backend": "none", "lint": {"enabled": True, "args": []},
             "output_dir": None, "build_command": None, "inputs": [], "bibliography_files": []}
@@ -120,7 +120,7 @@ def validate_document_settings(project, config, planned_sources=None):
     root = local_path(project, config["root"])
     if root.suffix != ".tex" or not (root.is_file() or path_name(project, config["root"]) in (planned_sources or {})):
         raise WorkbenchError(f"Root TeX document does not exist: {root}",
-                             hint="create the .tex source first, or select an existing project-relative root with --root")
+                             hint="create the .tex source first, or declare an existing project-relative root in .latex-ai.json")
     check_choice(config.get("engine"), ENGINES, "engine", ENGINE_HINT)
     # Whitespace is safe in subprocess argv, but latexmk/TeX cannot reliably
     # handle every special filename. Refuse rather than silently misbuild.
@@ -139,7 +139,7 @@ def validate_document_settings(project, config, planned_sources=None):
 
 
 def validate_common(project, view):
-    # Shared project policy does not require a TeX document.
+    # Shared bibliography and validation declarations are checked before resolving documents.
     check_bibliography(project, view.get("bibliography", {}))
     check_validation(project, view.get("validation", {}))
 
@@ -203,23 +203,17 @@ class FrozenDict(dict):
         return (dict, (_thaw(self),))
 
 
-class SharedSettings(FrozenDict):
-    """What a project shares with every document: the bibliography and the validation declarations. A project without
-    LaTeX has only this, so the bibliography checks take it; a document view is one too."""
+class DocumentView(FrozenDict):
+    """Immutable resolved settings for one declared LaTeX document."""
     __slots__ = ()
 
     @property
     def bibliography(self):
-        return self.get("bibliography", {})
+        return self["bibliography"]
 
     @property
     def validation(self):
-        return self.get("validation", {})
-
-class DocumentView(SharedSettings):
-    """One declared document, resolved: what the LaTeX backend needs to build, verify and lint it. Its JSON is exactly
-    what a build record stores as "configuration" (``Document.configuration``)."""
-    __slots__ = ()
+        return self["validation"]
 
     @property
     def name(self):
@@ -263,9 +257,7 @@ class Document:
 
 
 def specifications(config):
-    if not has_module(config, "latex"):
-        return ()
-    values = config["modules"]["latex"]
+    values = config
     base = {**copy.deepcopy(DEFAULTS), **copy.deepcopy(values.get("defaults", {}))}
     default = values.get("default_document")
     result = []
@@ -275,7 +267,7 @@ def specifications(config):
         if settings.get("output_dir") is None:
             settings["output_dir"] = f".latex-ai/artifacts/documents/{name}/build"
         settings["lint"].setdefault("baseline", f".latex-ai/lint-baselines/{name}.json")
-        bib = module_config(config, "bibliography") if has_module(config, "bibliography") else {"files": [], "export": None}
+        bib = {"files": [], "export": None, **copy.deepcopy(config.get("bibliography", {}))}
         bib["files"] = list(dict.fromkeys([*bib.get("files", []), *settings.pop("bibliography_files", [])]))
         bib["backend"] = settings.pop("backend")
         inputs = settings["inputs"]
@@ -289,7 +281,7 @@ def specifications(config):
 def resolve(config, name=None):
     targets = specifications(config)
     if not targets:
-        raise WorkbenchError("Module is disabled: latex")
+        raise WorkbenchError("Project needs at least one LaTeX document")
     selected = name or next((target.name for target in targets if target.default), None)
     for target in targets:
         if target.name == selected:
@@ -298,52 +290,43 @@ def resolve(config, name=None):
 
 
 def document_settings(config, document=None):
-    """A project configuration's document (the default one unless named) as a read-only view; a project without LaTeX
-    has only the settings it shares. Resolve once, where the configuration is held: the backends take the result."""
+    """Resolve project configuration once; backends accept only its immutable document view."""
     if "schema_version" not in config:
-        raise TypeError("document_settings resolves a project configuration; this is already resolved, so use it as it is")
-    if config.get("schema_version") != 3:
-        raise WorkbenchError("Workbench 4 supports only project configuration schema 3")
-    if has_module(config, "latex"):
-        return resolve(config, document).view
-    if document:
-        raise WorkbenchError("Module is disabled: latex")
-    return SharedSettings({"bibliography": module_config(config, "bibliography") if has_module(config, "bibliography") else {},
-                           "validation": config.get("validation", {})})
+        raise TypeError("document_settings resolves a project configuration; use an existing view as it is")
+    if config["schema_version"] != 4:
+        raise WorkbenchError("Workbench 5 supports only project configuration schema 4")
+    return resolve(config, document).view
 
 
 def required_tools(config):
     tools = ["make"]
-    if has_module(config, "latex"):
-        for target in specifications(config):
-            tex = target.view
-            command = tex.get("build_command")
-            tools.extend([command[0]] if command else ["latexmk", "pdflatex"])
-            if tex.get("lint", {}).get("enabled", True):
-                tools.append("chktex")
-            backend = tex.get("bibliography", {}).get("backend", "none")
-            if backend != "none":
-                tools.append(backend)
+    for target in specifications(config):
+        tex = target.view
+        command = tex.get("build_command")
+        tools.extend([command[0]] if command else ["latexmk", "pdflatex"])
+        if tex.get("lint", {}).get("enabled", True):
+            tools.append("chktex")
+        backend = tex.get("bibliography", {}).get("backend", "none")
+        if backend != "none":
+            tools.append(backend)
     return list(dict.fromkeys(tools))
 
 
-def validate_latex(project, values, config, planned_sources=None):
-    if not isinstance(values, dict):
-        raise WorkbenchError("The latex module configuration must be an object")
-    unknown_keys(values, {"default_document", "defaults", "documents"}, "latex module")
+def validate_documents(project, config, planned_sources=None):
+    values = config
     defaults = values.get("defaults", {})
     targets = values.get("documents")
     if not isinstance(defaults, dict):
-        raise WorkbenchError("latex.defaults must be an object")
+        raise WorkbenchError("defaults must be an object")
     unknown_keys(defaults, set(DEFAULTS) - {"build_command", "inputs", "bibliography_files"}, "document defaults")  # roots, commands and inputs belong to documents
     check_choice(defaults.get("engine", "pdflatex"), ENGINES, "default document engine", ENGINE_HINT)
     check_choice(defaults.get("backend", "none"), BACKENDS, "default bibliography backend", BACKEND_HINT)
     if defaults.get("output_dir") is not None:
         local_path(project, defaults["output_dir"])
     if not isinstance(targets, dict) or not targets:
-        raise WorkbenchError("latex.documents must be a nonempty object")
+        raise WorkbenchError("documents must be a nonempty object")
     if not isinstance(values.get("default_document"), str) or values["default_document"] not in targets:
-        raise WorkbenchError("latex.default_document must name a declared document")
+        raise WorkbenchError("default_document must name a declared document")
     for name, fields in targets.items():
         if not isinstance(name, str) or not ID.fullmatch(name):
             raise WorkbenchError(f"Invalid document ID: {name!r}")
@@ -354,20 +337,19 @@ def validate_latex(project, values, config, planned_sources=None):
             raise WorkbenchError(f"Document {name} needs a root TeX file", hint=f'for example "{name}": {{"root": "main.tex"}}')
         for where, lint in (("defaults.lint", defaults.get("lint", {})), (f"documents.{name}.lint", fields.get("lint", {}))):
             check_lint(project, lint, where)
-        if any(goal in RECURSIVE_GOALS or goal.startswith(RESERVED_PREFIX) for goal in make_goals(fields.get("build_command"))):
+        if any(goal in RECURSIVE_GOALS for goal in make_goals(fields.get("build_command"))):
             raise WorkbenchError(f"Recursive build_command for document {name}; use the project's raw build target")
         check_validation(project, {"manuscript_inputs": fields.get("inputs", [])})
         if not isinstance(fields.get("bibliography_files", []), list):
             raise WorkbenchError(f"bibliography_files must be a list: {name}")
         for filename in fields.get("bibliography_files", []):
             local_path(project, filename)
-    active = {**config, "modules": {**config.get("modules", {}), "latex": values}}
-    validate_common(project, {"bibliography": module_config(config, "bibliography") if has_module(config, "bibliography") else {},
+    validate_common(project, {"bibliography": config.get("bibliography", {}),
                               "validation": config.get("validation", {})})
     roots, outputs = set(), set()
     exports = {path_identity(project, f".latex-ai/artifacts/documents/{name}/document.pdf") for name in targets}
     root_ids = {path_identity(project, fields['root']) for fields in targets.values()}
-    for target in specifications(active):
+    for target in specifications(config):
         view = target.view
         root = local_path(project, view["root"])
         if root.suffix != ".tex" or re.search(r"[\s%#{}\\]", view["root"]):
@@ -388,44 +370,21 @@ def validate_latex(project, values, config, planned_sources=None):
 def validate_config(project, config, planned_sources=None):
     if not isinstance(config, dict):
         raise WorkbenchError("Configuration must be a JSON object")
-    if config.get("schema_version") != 3:
-        raise WorkbenchError(f"Workbench 4 supports only project configuration schema 3 (this file declares {config.get('schema_version')!r})",
-                             hint="older configurations are not migrated and your authored files are untouched: write a schema-3 "
-                                  f"{CONFIG} (format: docs/configuration.md in the workbench package; `latex-ai-init init` writes one for a new project)")
-    unknown_keys(config, {"schema_version", "modules", "disabled_modules", "integrations", "validation"}, "core configuration")
-    modules = config.get("modules")
-    if not isinstance(modules, dict):
-        raise WorkbenchError("modules must be an object")
-    gone = [name for name in REMOVED_MODULES if name in modules]
-    if gone:
-        raise WorkbenchError(f"Workbench 4 no longer has the module{'s' if len(gone) > 1 else ''}: {', '.join(gone)}",
-                             hint=f"remove {'them' if len(gone) > 1 else 'it'} from \"modules\" in {CONFIG}; "
-                                  "your notes, results and other files are not touched (docs/maintainers/minimal-scope.md says why)")
-    if "disabled_modules" in config:  # known only so that it is refused with a reason, not as an unknown key
-        raise WorkbenchError("Workbench 4.3 no longer saves the settings of a disabled module: disabled_modules is gone",
-                             hint=f"delete \"disabled_modules\" from {CONFIG}; to turn a saved module on again, copy its settings into \"modules\"")
-    unknown_keys(modules, MODULES, "", noun="module")
-    # A document resolves the shared bibliography, whatever order the modules were written in.
-    for name, values in modules.items():
-        if not isinstance(values, dict):
-            raise WorkbenchError(f"The {name} module configuration must be an object")
-    for name, values in modules.items():
-        if name == "latex":
-            validate_latex(project, values, config, planned_sources=planned_sources)
-            continue
-        unknown_keys(values, MODULES[name]["defaults"], f"{name} module")
+    if config.get("schema_version") != 4:
+        raise WorkbenchError(f"Workbench 5 supports only project configuration schema 4 (this file declares {config.get('schema_version')!r})",
+                             hint=f"prepare {CONFIG} using examples/minimal/.latex-ai.json in the workbench package")
+    unknown_keys(config, {"schema_version", "default_document", "defaults", "documents", "bibliography", "integrations", "validation"}, "project configuration")
+    bibliography = config.get("bibliography", {})
+    if not isinstance(bibliography, dict):
+        raise WorkbenchError("bibliography must be an object")
+    unknown_keys(bibliography, {"files", "export"}, "shared bibliography")
+    validate_documents(project, config, planned_sources)
     adapters = config.get("integrations", {})
     if not isinstance(adapters, dict):
         raise WorkbenchError("integrations must be an object")
-    if "ci" in adapters:
-        raise WorkbenchError("Workbench 4.1 no longer generates CI workflows: integrations.ci is gone",
-                             hint=f"remove \"ci\" from \"integrations\" in {CONFIG}; a workflow the workbench wrote earlier stays in "
-                                  ".github/workflows/ as your own file (docs/maintainers/minimal-scope.md says why)")
     unknown_keys(adapters, {"editor"}, "integrations")
     if not isinstance(adapters.get("editor", False), bool):
         raise WorkbenchError("integrations.editor must be true or false")
-    validate_common(project, {"bibliography": module_config(config, "bibliography") if has_module(config, "bibliography") else {},
-                              "validation": config.get("validation", {})})
     return config
 
 

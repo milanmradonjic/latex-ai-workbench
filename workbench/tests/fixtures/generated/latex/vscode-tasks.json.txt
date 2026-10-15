@@ -18,7 +18,7 @@
       "type": "process",
       "command": "make",
       "args": [
-        "latex-ai-build",
+        "build",
         "DOC=manuscript"
       ],
       "options": {
@@ -31,7 +31,7 @@
       "type": "process",
       "command": "make",
       "args": [
-        "latex-ai-document-check",
+        "document-check",
         "DOC=manuscript"
       ],
       "options": {
@@ -44,7 +44,7 @@
       "type": "process",
       "command": "make",
       "args": [
-        "latex-ai-pdf-artifact",
+        "pdf-artifact",
         "DOC=manuscript"
       ],
       "options": {

@@ -105,22 +105,13 @@ REMOVED_FILES_4_4_0 = ("make_graph.py", "adapters.py", "recipe-shell.sh")
 class Scope(unittest.TestCase):
     """Origin: tests/test_scope_4_0_0.py, workbench 4.0.0."""
 
-    def test_two_modules_remain(self):
-        self.assertEqual(set(core.MODULES), {"latex", "bibliography"})
-
-    def test_a_configuration_naming_a_removed_module_is_refused_by_name(self):
-        for name in REMOVED_MODULES:
-            with self.subTest(module=name), self.assertRaises(core.WorkbenchError) as raised:
-                schema.validate_config(PACKAGE, {"schema_version": 3, "modules": {name: {}}})
-            self.assertIn(name, str(raised.exception))
-            self.assertIn("modules", raised.exception.hint)  # the hint says what to edit
 
     def test_no_removed_action_has_a_command_a_handler_or_a_make_target(self):
         for name in REMOVED_ACTIONS:
             with self.subTest(action=name):
                 self.assertNotIn(name, commands.NAMES)
                 self.assertFalse(hasattr(runtime, "do_" + name.replace("-", "_")))
-        shown = {name for command in commands.COMMANDS for name in (command.short, command.reserved) if name}
+        shown = {name for command in commands.COMMANDS for name in (command.short,)}
         self.assertFalse(shown & {"run", "figure", "freshness", "history", "claims-check", "md-check", "md-render",
                                   "research-check", "research-validate", "latex-ai-run", "latex-ai-figure", "latex-ai-freshness"})
 
@@ -128,16 +119,15 @@ class Scope(unittest.TestCase):
         for name in REMOVED_FILES:
             with self.subTest(file=name):
                 self.assertFalse((PACKAGE / name).exists())
-        for config in ({"schema_version": 3, "modules": {}},
-                       {"schema_version": 3, "modules": {"latex": {"default_document": "p", "documents": {"p": {"root": "main.tex"}}},
-                                                         "bibliography": {}}}):
+        for config in ({'schema_version': 4},
+                       {'schema_version': 4, 'default_document': 'p', 'documents': {'p': {'root': 'main.tex'}}, 'bibliography': {}}):
             sources = core.runtime_sources(config)
             self.assertFalse({"research.py", "task_graph.py", "markdown.py"} & set(sources))
         self.assertFalse({"research.py", "task_graph.py", "markdown.py"} & set(core.RUNTIME_FILES))
 
     def test_the_plan_and_the_validation_actions_no_longer_know_research_or_markdown(self):
         self.assertEqual(set(core.VALIDATION_ACTIONS), {"unit", "bibliography", "portability", "full"})
-        plan = runtime.validation_plan(PACKAGE, {"schema_version": 3, "modules": {}}, ["notes.md"])
+        plan = runtime.validation_plan(PACKAGE, {'schema_version': 4}, ["notes.md"])
         self.assertFalse({"research", "research_modules", "markdown"} & set(plan))
 
     def test_no_generated_file_mentions_a_removed_capability(self):
@@ -153,7 +143,7 @@ class Scope(unittest.TestCase):
             text = (PACKAGE / name).read_text(encoding="utf-8")
             with self.subTest(file=name):
                 self.assertIsNone(REMOVED_WORDS.search(text), REMOVED_WORDS.search(text))
-        self.assertFalse({"research", "numerics", "provenance", "freshness", "claims"} & set(guide.PURPOSE))
+        self.assertFalse(hasattr(core, "MODULES"))
 
     def test_no_live_document_describes_what_is_gone(self):
         for path in sorted((PACKAGE / "docs").glob("*.md")):
@@ -182,19 +172,20 @@ class NoGeneratedCI(ProjectCase):
         self.assertNotEqual(done.returncode, 0)
 
     def test_a_configuration_that_asks_for_ci_is_refused_with_a_hint(self):
-        config = {"schema_version": 3, "modules": {}, "integrations": {"editor": False, "ci": {"enabled": True}}}
+        config = {'schema_version': 4, 'default_document': 'paper', 'documents': {'paper': {'root': 'main.tex'}}, 'integrations': {'editor': False, 'ci': {'enabled': True}}}
+        (self.project / 'main.tex').write_text(SOURCE)
         with self.assertRaises(core.WorkbenchError) as raised:
             schema.validate_config(self.project, config)
-        self.assertIn("integrations.ci", str(raised.exception))
-        self.assertIn("remove", raised.exception.hint)
-        self.assertIn(".github/workflows/", raised.exception.hint)
+        self.assertIn("ci", str(raised.exception))
+        self.assertIn("editor", raised.exception.hint)
+        self.assertIn("supported: editor", raised.exception.hint)
 
     def test_an_install_writes_no_workflow_and_leaves_an_existing_one_alone(self):
         (self.project / "main.tex").write_text("\\documentclass{article}\\begin{document}x\\end{document}\n")
         workflow = self.project / ".github/workflows/mine.yml"
         workflow.parent.mkdir(parents=True)
         workflow.write_text("name: mine\non: workflow_dispatch\n")
-        self.install("init", "--no-lint")
+        self.install('init', lint=False)
         self.assertEqual(sorted(p.name for p in workflow.parent.iterdir()), ["mine.yml"])
         self.assertEqual(workflow.read_text(), "name: mine\non: workflow_dispatch\n")
         self.install("runtime")
@@ -216,7 +207,7 @@ class NoHandbook(ProjectCase):
             with self.subTest(file=name):
                 self.assertFalse((PACKAGE / name).exists())
         self.assertNotIn("handbook.py", core.RUNTIME_FILES)
-        self.assertNotIn("handbook.py", core.runtime_sources({"schema_version": 3, "modules": {}}))
+        self.assertNotIn("handbook.py", core.runtime_sources({'schema_version': 4}))
         self.assertNotIn("handbook", (PACKAGE / "Makefile").read_text(encoding="utf-8"))
 
     def test_there_is_one_guide_command_and_it_takes_no_topic(self):
@@ -230,7 +221,7 @@ class NoHandbook(ProjectCase):
 
     def test_no_installed_makefile_exports_a_topic(self):
         (self.project / "main.tex").write_text("\\documentclass{article}\\begin{document}x\\end{document}\n")
-        self.install("init", "--no-lint")
+        self.install('init', lint=False)
         self.assertIsNone(re.search(r"TOPIC", (self.project / "Makefile").read_text(encoding="utf-8")))
         self.assertFalse((self.project / ".latex-ai/handbook.py").exists())
 
@@ -253,26 +244,12 @@ class NoUpgradeMachinery(ProjectCase):
             self.assertFalse(hasattr(bootstrap, name), name)
         self.assertFalse(hasattr(diagnostics, "manifest"))
         (self.project / "main.tex").write_text(SOURCE)
-        self.install("init", "--no-lint", "--skip-editor")
+        self.install('init', lint=False, editor=False)
         self.assertFalse((self.project / ".latex-ai/installation.py").exists())
 
     def test_the_installer_stays_small(self):
         lines = (PACKAGE / "bootstrap.py").read_text(encoding="utf-8").count("\n")
         self.assertLess(lines, 640, "the installer is a create script, not an engine")
-
-    def test_a_configuration_that_remembers_disabled_modules_is_refused_by_name(self):
-        config = {"schema_version": 3, "modules": {}, "disabled_modules": {"bibliography": {"files": ["refs.bib"]}}}
-        with self.assertRaises(core.WorkbenchError) as raised:
-            schema.validate_config(self.project, config)
-        self.assertIn("disabled_modules", str(raised.exception))
-        self.assertIn("modules", raised.exception.hint)
-
-    def test_a_disabled_module_is_one_that_is_absent_and_the_commands_say_how_to_turn_it_on(self):
-        self.install("init", "--modules", "")
-        done = self.command("bib-check", expected=None)
-        self.assertNotEqual(done.returncode, 0)
-        self.assertIn('"modules"', done.stderr)
-        self.assertNotRegex(done.stderr, REMOVED_WORDS_4_3_0)
 
 
 class NothingDescribesWhatIsGone(unittest.TestCase):
@@ -303,19 +280,14 @@ class NoAdoption(unittest.TestCase):
             with self.subTest(file=name):
                 self.assertFalse((PACKAGE / name).exists())
                 self.assertNotIn(name, core.RUNTIME_FILES)
-                for config in ({"schema_version": 3, "modules": {}}, {"schema_version": 3, "modules": {"latex": {"default_document": "p", "documents": {"p": {"root": "main.tex"}}}}}):
+                for config in ({'schema_version': 4}, {'schema_version': 4, 'default_document': 'p', 'documents': {'p': {'root': 'main.tex'}}}):
                     self.assertNotIn(name, core.runtime_sources(config))
 
-    def test_the_build_hooks_are_not_actions_and_are_refused_by_name_with_a_pointer(self):
-        for name in REMOVED_ACTIONS_4_4_0:
-            with self.subTest(action=name):
-                self.assertNotIn(name, commands.NAMES)
-                self.assertFalse(hasattr(runtime, "do_" + name.replace("-", "_")))
-                self.assertIn(name, commands.REMOVED_ACTIONS)
-                done = subprocess.run([sys.executable, "-B", str(PACKAGE / "runtime.py"), name], capture_output=True, text=True)
-                self.assertEqual(done.returncode, 2)
-                self.assertIn("docs/migrating.md", done.stderr)
-                self.assertNotIn("invalid choice", done.stderr)
+    def test_removed_build_hooks_are_unknown_actions(self):
+        for action in REMOVED_ACTIONS_4_4_0:
+            done = subprocess.run([sys.executable, "-B", str(PACKAGE / "runtime.py"), action], capture_output=True, text=True)
+            self.assertEqual(done.returncode, 2)
+            self.assertIn("invalid choice", done.stderr)
 
     def test_no_make_version_is_required(self):
         self.assertFalse(hasattr(core, "ADOPTED_MAKE"))
@@ -358,7 +330,7 @@ class WhatIsGone(ProjectCase):
     def test_messages_only_biber_printed_are_not_read_as_errors(self):
         """The log patterns kept are LaTeX's and BibTeX's: a Biber `ERROR -` or `WARN -` line is neither a failure nor a warning."""
         self.configure()
-        self.edit_config(lambda data: data["modules"]["latex"]["documents"]["paper"].update(backend="bibtex"))
+        self.edit_config(lambda data: data["documents"]["paper"].update(backend="bibtex"))
         out = self.project / "outputs"
         out.mkdir()
         (out / "main.pdf").write_bytes(b"%PDF-1.5\n")

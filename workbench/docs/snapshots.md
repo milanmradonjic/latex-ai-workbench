@@ -1,7 +1,7 @@
 # Snapshots
 
 A snapshot is a copy of every file of the project, kept outside it, so that a bad edit, a bad update or an agent's mistake can be undone, whether or not the project is in Git.
-`make snapshot` takes one by hand: before an update ([updating](upgrading.md)), a migration ([migrating](migrating.md)), a large edit, or an agent let loose on the files.
+`make snapshot` takes one by hand: before an update ([updating](upgrading.md)), a migration ([migrating](installing.md)), a large edit, or an agent let loose on the files.
 `SNAPSHOT_NOTE="before the rewrite of section 3" make snapshot` gives it a label (put the assignment before `make`, as here, if the label has a `$` in it: after `make`, Make reads `$` itself).
 `make snapshots` lists the snapshots and prints the command that restores from one.
 
@@ -110,8 +110,8 @@ so a week with no changes gives none and the first day of a week with changes gi
   <dict><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>
   <key>StartInterval</key><integer>1800</integer>
   <key>RunAtLoad</key><true/>
-  <key>StandardOutPath</key><string>/Users/YOU/Library/Logs/latex-ai-snapshot-PROJECT.log</string>
-  <key>StandardErrorPath</key><string>/Users/YOU/Library/Logs/latex-ai-snapshot-PROJECT.log</string>
+  <key>StandardOutPath</key><string>/Users/YOU/Library/Logs/snapshot-PROJECT.log</string>
+  <key>StandardErrorPath</key><string>/Users/YOU/Library/Logs/snapshot-PROJECT.log</string>
 </dict>
 </plist>
 ```
@@ -139,8 +139,8 @@ so a week with no changes gives none and the first day of a week with changes gi
   <key>StartCalendarInterval</key>
   <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
   <key>RunAtLoad</key><true/>
-  <key>StandardOutPath</key><string>/Users/YOU/Library/Logs/latex-ai-snapshot-PROJECT.log</string>
-  <key>StandardErrorPath</key><string>/Users/YOU/Library/Logs/latex-ai-snapshot-PROJECT.log</string>
+  <key>StandardOutPath</key><string>/Users/YOU/Library/Logs/snapshot-PROJECT.log</string>
+  <key>StandardErrorPath</key><string>/Users/YOU/Library/Logs/snapshot-PROJECT.log</string>
 </dict>
 </plist>
 ```

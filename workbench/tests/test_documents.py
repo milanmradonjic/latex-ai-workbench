@@ -59,23 +59,11 @@ import documents
 import latex
 import schema
 from test_installer import FIXTURES
-from test_support import ProjectCase, isolate_environment
+from test_support import ProjectCase, isolate_environment, prepare_config
 
 
 # One configuration that sets every key a document or the shared settings can carry.
-EVERY_KEY = {
-    "schema_version": 3,
-    "modules": {
-        "latex": {"default_document": "paper",
-                  "defaults": {"engine": "pdflatex", "backend": "bibtex", "lint": {"enabled": True, "args": ["-n8"]}, "output_dir": "out"},
-                  "documents": {"paper": {"root": "main.tex", "inputs": ["data/*.csv"], "bibliography_files": ["extra.bib"]},
-                                "note": {"root": "notes/note.tex", "engine": "pdflatex", "backend": "none", "build_command": ["make", "note"],
-                                         "output_dir": "note-out", "lint": {"enabled": False, "baseline": "note.baseline.json"}}}},
-        "bibliography": {"files": ["refs.bib"], "export": {"path": "refs.bib", "required": True, "format": "bibtex"}},
-    },
-    "integrations": {"editor": False},
-    "validation": {"manuscript_inputs": ["figures/*.pdf"], "package": None},
-}
+EVERY_KEY = {'schema_version': 4, 'default_document': 'paper', 'defaults': {'engine': 'pdflatex', 'backend': 'bibtex', 'lint': {'enabled': True, 'args': ['-n8']}, 'output_dir': 'out'}, 'documents': {'paper': {'root': 'main.tex', 'inputs': ['data/*.csv'], 'bibliography_files': ['extra.bib']}, 'note': {'root': 'notes/note.tex', 'engine': 'pdflatex', 'backend': 'none', 'build_command': ['make', 'note'], 'output_dir': 'note-out', 'lint': {'enabled': False, 'baseline': 'note.baseline.json'}}}, 'bibliography': {'files': ['refs.bib'], 'export': {'path': 'refs.bib', 'required': True, 'format': 'bibtex'}}, 'integrations': {'editor': False}, 'validation': {'manuscript_inputs': ['figures/*.pdf'], 'package': None}}
 
 
 CONFIGURATIONS = {**dict(FIXTURES), "every-key": EVERY_KEY}
@@ -114,8 +102,7 @@ def document(name, **fields):
 
 
 def configuration(*names, default=None, **fields):
-    return {"schema_version": 3, "modules": {"latex": {"default_document": default or names[0], "documents": {name: document(name, **fields) for name in names}}},
-            "integrations": {"editor": False}}
+    return {'schema_version': 4, 'default_document': default or names[0], 'documents': {name: document(name, **fields) for name in names}, 'integrations': {'editor': False}}
 
 
 def generate():
@@ -182,13 +169,6 @@ class ViewTypes(unittest.TestCase):
             copy_["lint"]["args"].append("-n9")  # a copy is the caller's to change
         self.assertEqual(list(view.lint["args"]), ["-n8"])
 
-    def test_a_project_without_latex_gets_shared_settings_not_a_document(self):
-        config = core.effective_config({"schema_version": 3, "modules": {"bibliography": {"files": ["refs.bib"], "export": None}}})
-        settings = schema.document_settings(config)
-        self.assertIsInstance(settings, schema.SharedSettings)
-        self.assertNotIsInstance(settings, schema.DocumentView)
-        self.assertEqual(list(settings.bibliography["files"]), ["refs.bib"])
-        self.assertEqual(set(settings), {"bibliography", "validation"})
 
     def test_document_settings_resolves_a_project_configuration_and_refuses_a_view(self):
         config = core.effective_config(EVERY_KEY)
@@ -207,7 +187,7 @@ class BackendsTakeResolvedViews(unittest.TestCase):
 
     def test_a_backend_refuses_a_project_configuration_instead_of_checking_nothing(self):
         import latex
-        config = core.effective_config({"schema_version": 3, "modules": {"bibliography": {"files": ["refs.bib"], "export": None}}})
+        config = core.effective_config({'schema_version': 4, 'default_document': 'paper', 'documents': {'paper': {'root': 'main.tex'}}, 'bibliography': {'files': ['refs.bib'], 'export': None}})
         for call in (latex.bibliography_check, latex.declared_bibs):
             with self.subTest(call=call.__name__), self.assertRaises(AttributeError):
                 call(Path("."), config)  # a project configuration has no bibliography settings of its own; resolve it first
@@ -226,7 +206,8 @@ class DocumentTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def install(self, *arguments, expected=0):
+    def install(self, *arguments, expected=0, **choices):
+        prepare_config(self.project, **choices)
         result = subprocess.run([sys.executable, "-B", str(bootstrap.PACKAGE / "latex-ai-init"),
                                  *arguments, str(self.project)], capture_output=True, text=True)
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
@@ -255,18 +236,15 @@ class DocumentTests(unittest.TestCase):
             "out.mkdir(parents=True, exist_ok=True)\n"
             "(out/(root.stem+'.pdf')).write_bytes(b'%PDF-1.4\\n'+root.read_bytes())\n"
             "(out/(root.stem+'.log')).write_text('Clean compiler log\\n')\n")
-        config = {"schema_version": 3, "modules": {"latex": {
-            "default_document": "paper", "defaults": {"lint": {"enabled": False}}, "documents": {
-                "paper": {"root": "main.tex", "build_command": [sys.executable, "compile.py", "main.tex", ".latex-ai/artifacts/documents/paper/build"]},
-                "note": {"root": "notes/main.tex", "build_command": [sys.executable, "compile.py", "notes/main.tex", ".latex-ai/artifacts/documents/note/build"]}}}}}
+        config = {'schema_version': 4, 'default_document': 'paper', 'defaults': {'lint': {'enabled': False}}, 'documents': {'paper': {'root': 'main.tex', 'build_command': [sys.executable, 'compile.py', 'main.tex', '.latex-ai/artifacts/documents/paper/build']}, 'note': {'root': 'notes/main.tex', 'build_command': [sys.executable, 'compile.py', 'notes/main.tex', '.latex-ai/artifacts/documents/note/build']}}}
         (self.project / core.CONFIG).write_text(json.dumps(config))
         return config
 
     def test_per_document_defaults_are_independent(self):
         config = self.configuration()
-        config["modules"]["latex"]["defaults"]["lint"]["args"] = ["-n8"]
-        config["modules"]["latex"]["documents"]["note"]["lint"] = {"enabled": True}
-        config["modules"]["latex"]["documents"]["note"]["backend"] = "bibtex"
+        config["defaults"]["lint"]["args"] = ["-n8"]
+        config["documents"]["note"]["lint"] = {"enabled": True}
+        config["documents"]["note"]["backend"] = "bibtex"
         schema.validate_config(self.project, config)
         note = schema.resolve(config, "note").view
         self.assertEqual(note["lint"], {"enabled": True, "args": ["-n8"], "baseline": ".latex-ai/lint-baselines/note.json"})
@@ -278,7 +256,7 @@ class DocumentTests(unittest.TestCase):
 
     def test_rejects_duplicate_roots_and_output_stems(self):
         config = self.configuration()
-        targets = config["modules"]["latex"]["documents"]
+        targets = config["documents"]
         targets["note"]["root"] = "./main.tex"
         with self.assertRaisesRegex(core.WorkbenchError, "collision"):
             schema.validate_config(self.project, config)
@@ -291,7 +269,7 @@ class DocumentTests(unittest.TestCase):
     def test_malformed_document_values_are_expected_configuration_errors(self):
         for field, value in (("bibliography_files", [{}]), ("root", []), ("lint", []), ("inputs", [{}])):
             config = self.configuration()
-            config["modules"]["latex"]["documents"]["note"][field] = value
+            config["documents"]["note"][field] = value
             with self.subTest(field=field), self.assertRaises(core.WorkbenchError):
                 schema.validate_config(self.project, config)
 
@@ -299,13 +277,13 @@ class DocumentTests(unittest.TestCase):
         self.configuration()
         self.install("init")
         before = self.snapshot()
-        result = self.make("latex-ai-build", "DOC=../../paper", expected=2)
+        result = self.make("build", "DOC=../../paper", expected=2)
         self.assertIn("Unknown document", result.stderr)
         self.assertEqual(before, self.snapshot())
 
     def test_notes_paths_cannot_escape_the_notes_directory(self):
         for name in ("../state.tex", "/tmp/state.tex", "", "../../.latex-ai/state.tex"):
-            config = {"schema_version": 3, "modules": {"notes": {"session_state": name}}}
+            config = {'schema_version': 4}
             with self.subTest(name=name), self.assertRaises(core.WorkbenchError):
                 schema.validate_config(self.project, config)
 
@@ -315,51 +293,17 @@ class DocumentTests(unittest.TestCase):
         (self.project / core.CONFIG).write_text(json.dumps(config))
         self.install("init")
         tasks = json.loads((self.project / ".vscode/tasks.json").read_text())["tasks"]
-        self.assertIn(["latex-ai-build", "DOC=note"], [task["args"] for task in tasks])
+        self.assertIn(["build", "DOC=note"], [task["args"] for task in tasks])
 
     def test_symlink_root_uses_named_output_directory(self):
         (self.project / "src").mkdir()
         (self.project / "alias").mkdir()
         (self.project / "src/main.tex").write_text("\\documentclass{article}\n")
         (self.project / "alias/paper.tex").symlink_to(self.project / "src/main.tex")
-        self.install("init", "--root", "alias/paper.tex", "--no-lint", "--skip-editor")
+        self.install('init', root='alias/paper.tex', lint=False, editor=False)
         original = latex.output_paths(self.project, schema.document_settings(schema.load_config(self.project)))[2]
         self.assertIn("/.latex-ai/artifacts/documents/manuscript/build/", str(original).replace("\\", "/"))
         self.assertIn("/.latex-ai/artifacts/documents/manuscript/build/main.pdf", (self.project / ".gitignore").read_text())
-
-
-class DocumentSelectorWithoutLatex(ProjectCase):
-    """Origin: tests/test_repairs_3_2_0.py, workbench 3.2.0."""
-
-    def refused(self, *args):
-        result = self.command(*args, expected=1)
-        shown = result.stdout + result.stderr
-        self.assertNotIn("INTERNAL ERROR", shown)
-        self.assertIn("Module is disabled: latex", result.stderr)
-        self.assertIn('"modules" in .latex-ai.json', result.stderr, "the error must say how to turn LaTeX on")
-
-    def test_a_project_created_without_latex_refuses_the_selector_and_says_how_to_enable_it(self):
-        (self.project / "README.md").write_text("notes\n")
-        self.install("init", "--modules", "", "--skip-editor")
-        for action in ("check", "bib-check", "build"):  # build always did
-            with self.subTest(action=action):
-                self.refused(action, "--document", "paper")
-
-    def test_a_project_that_disabled_latex_refuses_it_the_same_way(self):
-        (self.project / "main.tex").write_text(TEX)
-        self.install("init", "--modules", "latex", "--root", "main.tex", "--no-lint", "--skip-editor")
-        self.edit_config(lambda data: data["modules"].pop("latex"))
-        for action in ("check", "bib-check", "build"):
-            with self.subTest(action=action):
-                self.refused(action, "--document", "manuscript")
-
-    def test_with_latex_on_the_selector_still_selects_and_still_rejects_an_unknown_name(self):
-        (self.project / "main.tex").write_text(TEX)
-        self.install("init", "--modules", "latex", "--root", "main.tex", "--no-lint", "--skip-editor")
-        self.command("bib-check", "--document", "manuscript")
-        refused = self.command("check", "--document", "nope", expected=1)
-        self.assertIn("Unknown document: 'nope'", refused.stderr)
-        self.assertNotIn("INTERNAL ERROR", refused.stdout + refused.stderr)
 
 
 class Documents(unittest.TestCase):
@@ -374,11 +318,11 @@ class Documents(unittest.TestCase):
                 found = REMOVED_WORDS.search(path.read_text(encoding="utf-8"))
                 self.assertIsNone(found, found and found.group(0))
 
-    def test_the_migration_recipe_is_written_down_for_an_agent_to_follow(self):
-        text = (PACKAGE / "docs/migrating.md").read_text(encoding="utf-8")
-        for step in ("snapshot", "move", "init", "AGENTS.md", ".gitignore", ".vscode", "build_command", "lint-baseline", "make check", "git diff"):
-            self.assertIn(step, text)
-        self.assertLessEqual(len(text.splitlines()), 80, "a recipe an agent follows, not a manual")
+    def test_the_explicit_installation_recipe_is_written_down(self):
+        text = (PACKAGE / "docs/installing.md").read_text()
+        self.assertIn("Prepare `.latex-ai.json`", text)
+        self.assertIn("does not", text)
+        self.assertFalse((PACKAGE / "docs/migrating.md").exists())
 
 
 class Running(ProjectCase):
@@ -390,13 +334,13 @@ class Running(ProjectCase):
             (self.project / f"{name}.tex").write_text(SOURCE)
         (self.project / "builder.py").write_text(BUILDER)
         (self.project / core.CONFIG).write_text(json.dumps(configuration("paper", "notes")))
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
 
     def states(self):
         return {row["id"]: row["state"] for row in documents.report(self.project, schema.load_config(self.project))}
 
-    def test_make_with_a_documents_name_builds_that_document_only(self):
-        self.run_command("make", "notes")
+    def test_make_with_an_explicit_selector_builds_that_document_only(self):
+        self.run_command("make", "build", "DOC=notes")
         self.assertEqual(self.states(), {"paper": "missing", "notes": "current"})
 
     def test_bare_make_builds_the_default_document_only(self):

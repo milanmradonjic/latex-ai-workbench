@@ -68,8 +68,17 @@ def main():
             path.write_text(content)
         return root
 
-    def init(name, root, *flags):
-        run(name + "-init", root, [sys.executable, str(CLI), "init", str(root), *flags])
+    def declare(root, root_file="paper.tex", backend="none", bibliography=(), lint=True, command=None):
+        path = root / ".latex-ai.json"
+        if not path.exists():
+            path.write_text(json.dumps({"schema_version": 4, "default_document": "manuscript",
+                "documents": {"manuscript": {"root": root_file, "backend": backend, "lint": {"enabled": lint},
+                    "build_command": command, "output_dir": "." if command else None}},
+                "bibliography": {"files": list(bibliography)}, "integrations": {"editor": False}}, indent=2) + "\n")
+
+    def init(name, root, **settings):
+        declare(root, **settings)
+        run(name + "-init", root, [sys.executable, str(CLI), "init", str(root)])
 
     def config(root, change):
         path = root / ".latex-ai.json"
@@ -81,7 +90,7 @@ def main():
         "paper.tex": "\\documentclass{article}\n\\begin{document}\n\\section{Test}\\label{sec:test}\nSee Section~\\ref{sec:test} and fixture~\\cite{fixture}.\n\\bibliographystyle{plain}\n\\bibliography{bib/references}\n\\end{document}\n",
         "bib/references.bib": BIB,
     })
-    init("pdflatex", pdf)
+    init("pdflatex", pdf, backend="bibtex", bibliography=("bib/references.bib",))
     run("pdflatex-check", pdf, ["make", "check"])
     run("pdflatex-artifact", pdf, ["make", "pdf-artifact"])
     if not (pdf / ".latex-ai/artifacts/documents/manuscript/document.pdf").is_file():
@@ -119,20 +128,20 @@ def main():
         "chapters/result.tex": "\\section{Result}\\label{sec:result}\nSee Section~\\ref{sec:result} and fixture~\\cite{fixture}.\n",
         "bib/references.bib": BIB,
     })
-    init("multifile", multi)
-    config(multi, lambda c: c["modules"]["bibliography"].update(export={"path": "bib/references.bib", "required": True, "format": "bibtex"}))
+    init("multifile", multi, backend="bibtex", bibliography=("bib/references.bib",))
+    config(multi, lambda c: c["bibliography"].update(export={"path": "bib/references.bib", "required": True, "format": "bibtex"}))
     run("multifile-check", multi, ["make", "check"])
 
     nested = create("nested-root", {"source/thesis.v1.tex": PLAIN})
-    init("nested", nested)
-    config(nested, lambda c: c["modules"]["latex"]["documents"]["manuscript"].update(output_dir="build"))
+    init("nested", nested, root_file="source/thesis.v1.tex")
+    config(nested, lambda c: c["documents"]["manuscript"].update(output_dir="build"))
     run("nested-check", nested, ["make", "check"])
     run("nested-runtime", nested, [sys.executable, str(CLI), "runtime", str(nested)])
     run("nested-artifact", nested, ["make", "pdf-artifact"])
 
     # A project with a build of its own: init writes beside the workflow it has, the project's Make target goes in after it.
     custom = create("existing-build", {"paper.tex": PLAIN, ".github/workflows/custom.yml": "name: Existing workflow\non: workflow_dispatch\n"})
-    init("existing", custom, "--build-command", '["make", "pdf"]')
+    init("existing", custom, command=["make", "pdf"])
     with (custom / "Makefile").open("a") as stream:
         stream.write("\npdf:\n\tlatexmk -pdf -interaction=nonstopmode -halt-on-error paper.tex\n")
     if sorted(p.name for p in (custom / ".github/workflows").iterdir()) != ["custom.yml"]:
@@ -143,14 +152,15 @@ def main():
 
     # A file the project has is never merged into: init refuses it, and writes nothing.
     gnu = create("existing-gnumakefile", {"paper.tex": PLAIN, "GNUmakefile": "build:\n\tlatexmk -pdf -interaction=nonstopmode -halt-on-error paper.tex\n"})
-    run("gnumakefile-refused", gnu, [sys.executable, str(CLI), "init", str(gnu)], expected=2, diagnostic="docs/migrating.md")
-    if {p.name for p in gnu.iterdir()} != {"paper.tex", "GNUmakefile"}:
+    declare(gnu)
+    run("gnumakefile-refused", gnu, [sys.executable, str(CLI), "init", str(gnu)], expected=2, diagnostic="GNUmakefile")
+    if {p.name for p in gnu.iterdir()} != {"paper.tex", "GNUmakefile", ".latex-ai.json"}:
         raise RuntimeError("A refused init wrote files")
 
     # Compiler-dependent failure checks bypass lint intentionally to prove
     # unresolved citations/references fail after a successful PDF build.
     bad = create("integrity-negative", {"paper.tex": PLAIN})
-    init("negative", bad, "--no-lint")
+    init("negative", bad, lint=False)
     run("negative-baseline", bad, ["make", "check"])
     for name, body in [
         ("undefined-reference", "Missing~\\ref{absent}."),
@@ -168,12 +178,10 @@ def main():
     run("negative-recovered", bad, ["make", "check"])
 
     notebook = create("notes-only", {"notes/session.md": "A question.\n"})
-    init("notes-only", notebook, "--modules", "")
-    run("notes-only-doctor", notebook, ["make", "doctor"])
-    run("notes-only-check", notebook, ["make", "check"])
-    run("notes-only-diff", notebook, [sys.executable, str(CLI), "diff", str(notebook)])
-    if (notebook / ".latex-ai/latex.py").exists() or (notebook / ".vscode").exists():
-        raise RuntimeError("Notes-only project acquired a LaTeX/editor module")
+    run("notes-only-refused", notebook, [sys.executable, str(CLI), "init", str(notebook)], expected=2,
+        diagnostic="Installation requires an explicit .latex-ai.json")
+    if sorted(p.name for p in notebook.iterdir()) != ["notes"]:
+        raise RuntimeError("Refused non-LaTeX installation wrote files")
 
     run("mixed-runtime", bad, [sys.executable, str(CLI), "runtime", str(bad)])
     run("mixed-check", bad, ["make", "check"])
@@ -185,12 +193,12 @@ def main():
     name = "named-documents"
     project = create(name, {"main.tex": PLAIN, "notes/derivation.tex": PLAIN, "notes/notebook.tex": notebook_source,
                             "notes/session-state.tex": "\\section*{Current question}\n"})
-    init(name, project, "--modules", "latex", "--root", "main.tex")
+    init(name, project, root_file="main.tex")
     for document, root in (("notebook", "notes/notebook.tex"), ("derivation", "notes/derivation.tex")):
-        config(project, lambda c, document=document, root=root: c["modules"]["latex"]["documents"].update({document: {"root": root}}))
+        config(project, lambda c, document=document, root=root: c["documents"].update({document: {"root": root}}))
     run(name + "-check", project, ["make", "-j4", "check"])
     for target in ("notebook", "derivation"):
-        run(name + "-export-" + target, project, ["make", "latex-ai-pdf-artifact", "DOC=" + target])
+        run(name + "-export-" + target, project, ["make", "pdf-artifact", "DOC=" + target])
         if not (project / f".latex-ai/artifacts/documents/{target}/document.pdf").is_file():
             raise RuntimeError("Missing named PDF: " + target)
     receipts = project / ".latex-ai/artifacts/documents"
@@ -208,7 +216,7 @@ def main():
     shutil.copytree(PACKAGE / "examples/tex-notes", mixed_notes, dirs_exist_ok=True)
     init("mixed-tex-notes", mixed_notes)
     run("mixed-tex-notes-check", mixed_notes, ["make", "check"])
-    run("mixed-tex-notes-export", mixed_notes, ["make", "latex-ai-pdf-artifact", "DOC=derivation"])
+    run("mixed-tex-notes-export", mixed_notes, ["make", "pdf-artifact", "DOC=derivation"])
     if not (mixed_notes / ".latex-ai/artifacts/documents/derivation/document.pdf").is_file():
         raise RuntimeError("Mixed notes example failed to export its named PDF")
     run("mixed-tex-notes-fragment-validation", mixed_notes,

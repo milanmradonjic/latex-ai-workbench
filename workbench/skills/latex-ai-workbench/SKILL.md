@@ -1,13 +1,13 @@
 ---
 name: latex-ai-workbench
-description: Bootstrap, review, update, edit, and review projects using the local modular LaTeX AI Workbench. Use for its manuscript workflows; follow enabled modules, canonical Make commands and project policy. Preserve human approval for Git mutations.
+description: Bootstrap, review, update, edit, and review projects using the local LaTeX AI Workbench. Use for its manuscript workflows; follow declared documents, canonical Make commands and project policy. Preserve human approval for Git mutations.
 ---
 
 # LaTeX AI Workbench operating skill
 
-Use the workbench as deterministic infrastructure for the project's enabled modules. Start
+Use the workbench as deterministic infrastructure for the project's declared LaTeX documents. Start
 with the selected project's AGENTS policy; CLAUDE delegates to it. Read the
-project config and Makefile to learn enabled modules, paths, commands and conventions. Do not
+project config and Makefile to learn declared documents, paths, commands and conventions. Do not
 copy an example's root name or bibliography style into an unrelated manuscript.
 
 This skill gives procedure, not authority. Respect the user's project scope,
@@ -34,23 +34,19 @@ For committed review changes use `LATEX_AI_BASE=<verified revision>`; for a full
 manuscript check use `make check`. Read the package's
 [validation guide](../../docs/validation.md) for comparison behavior.
 
-## Named documents and modules
+## Named documents
 
-For schema-3 named documents, read [TeX notes](../../docs/tex-notes.md). `make check` covers every declared
-document. Use `make latex-ai-document-check DOC=NAME` for one document and
-`make latex-ai-pdf-artifact DOC=NAME` for its verified export. Included TeX
+For schema-4 named documents, read [TeX notes](../../docs/tex-notes.md). `make check` covers every declared
+document. Use `make document-check DOC=NAME` for one document and
+`make pdf-artifact DOC=NAME` for its verified export. Included TeX
 fragments are checked through their consuming document. Preserve handwritten
 sources; a project's own build steps are Make targets or scripts that `build_command` names.
 
-For module selection/disable and adapter choices,
-read [modules](../../docs/modules.md). Use the project's declared paths and tool environment; LaTeX is optional.
+Use declared paths and the project's tool environment. Every project has LaTeX
+documents; ordinary documentation and code can coexist with them. `make check`
+checks all documents. Input hashes and green checks do not prove scientific validity.
 
-Preview change-aware checks. Notes-only changes do not need a manuscript build.
-`make check` runs full manuscript checks only when LaTeX is enabled. Review units,
-tolerances and assumptions yourself; input hashes and green checks do not prove
-scientific validity. Preserve sources when disabling modules.
-
-## Manuscript editing workflow (LaTeX enabled)
+## Manuscript editing workflow
 
 1. Inspect branch, status and current diff before changing files. Distinguish
    existing user changes from your work. Do not reset, restore or clean them.
@@ -110,9 +106,8 @@ or export another project's sources. The user controls GUI applications.
   CLAUDE, editor prompts or this skill.
 - Make commands are canonical; the editor invokes them instead of replicating
   TeX command logic. Preserve the project's own build steps.
-  This skill writes commands by their short names. Where the project gave such a name a
-  recipe of its own, the workbench command is the
-  `latex-ai-` form; `make latex-ai-help` lists the names that apply in a project.
+  Commands have fixed names: `make build DOC=name` and `make all` select documents.
+  There are no reserved aliases; local overrides are an explicit project customization.
 - Git reads are allowed. Staging, commits, pushes/pulls, integration, branch
   changes, stashes, resets/restores/cleaning and worktree changes require the
   owner's explicit approval. Existing session authorization remains valid for
@@ -122,7 +117,7 @@ or export another project's sources. The user controls GUI applications.
 - A suspected workbench defect (`INTERNAL ERROR`, a verdict that contradicts
   its inputs or a check that skips what it should cover) is reported, not repaired in passing:
   distrust that verdict for the task, never edit `.latex-ai/` or weaken a check, capture
-  evidence with `make latex-ai-issue ISSUE_NOTE="..."`, and tell the user. Ordinary failures such as a
+  evidence with `make issue ISSUE_NOTE="..."`, and tell the user. Ordinary failures such as a
   stale report or a failing scientific check are not defects.
 - Safe file edits and validation proceed autonomously. Pause for a consequential
   ambiguity, GUI action, destructive operation, privileged/system change or

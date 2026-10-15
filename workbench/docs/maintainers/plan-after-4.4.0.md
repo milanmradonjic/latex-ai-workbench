@@ -26,7 +26,7 @@ These come from the repository's `AGENTS.md`, plus what 4.0.0 to 4.4.0 taught.
 - **Old against new.** Where output must not change, install the previous release and this tree into identical projects, run every action, and compare. The
   generated Makefile and editor files stay byte-identical unless the step says otherwise and the release notes announce it.
 - **Removals.** What goes is refused by name, with a hint, as the removed modules were in 4.0.0; a configuration that only uses what stays keeps working
-  unchanged. [`migrating.md`](../migrating.md) and [`upgrading.md`](../upgrading.md) say what a project does.
+  unchanged. [`migrating.md`](https://github.com/milanmradonjic/latex-ai-workbench/blob/9734f587095ba691c00020a4105aadd827294410/workbench/docs/migrating.md) and [`upgrading.md`](../upgrading.md) say what a project does.
 - **Reference parity.** After any change under `workbench/`, run `make -C workbench upgrade-reference` and commit the regenerated `.latex-ai/` with it.
 - **Before pushing,** these must pass: `make -C workbench test`; `make -C workbench portability` where TeX is installed; and in the reference
   `python3 -B .latex-ai/workbench.py validate --files-only`.

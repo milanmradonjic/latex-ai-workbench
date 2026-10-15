@@ -46,7 +46,7 @@ import core
 import runtime
 import runtime as rt
 import schema
-from test_support import ProjectCase, fixture_env, isolate_environment
+from test_support import ProjectCase, fixture_env, isolate_environment, prepare_config
 
 
 SOURCE = "\\documentclass{article}\n\\begin{document}A note.\\end{document}\n"
@@ -90,7 +90,8 @@ class BlindRepairTests(unittest.TestCase):
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return result
 
-    def install(self, *args, expected=0):
+    def install(self, *args, expected=0, **choices):
+        prepare_config(self.project, **choices)
         return self.command(sys.executable, "-B", str(PACKAGE / "latex-ai-init"),
                             *args, expected=expected)
 
@@ -105,7 +106,7 @@ class BlindRepairTests(unittest.TestCase):
         if custom:
             settings["build_command"] = ["latexmk", "-pdf", "-recorder", "-interaction=nonstopmode",
                                          "-halt-on-error", "-outdir=custom/output with spaces", "tex/nested/paper.tex"]
-        config = {"schema_version": 3, "modules": {"latex": {"default_document": "paper", "documents": {"paper": settings}}}}
+        config = {'schema_version': 4, 'default_document': 'paper', 'documents': {'paper': settings}}
         (project / core.CONFIG).write_text(json.dumps(config))
         self.install("init", str(project))
         return config
@@ -115,13 +116,13 @@ class BlindRepairTests(unittest.TestCase):
         (self.project / "note.tex").write_text(SOURCE)
         (self.project / "paper.bib").write_text("@misc{paper, title={Paper}}\n")
         (self.project / "note.bib").write_text("@misc{note, title={Note}}\n")
-        config["modules"]["latex"]["documents"]["paper"]["bibliography_files"] = ["paper.bib"]
-        config["modules"]["latex"]["documents"]["note"] = {"root": "note.tex", "bibliography_files": ["note.bib"], "lint": {"enabled": False}}
+        config["documents"]["paper"]["bibliography_files"] = ["paper.bib"]
+        config["documents"]["note"] = {"root": "note.tex", "bibliography_files": ["note.bib"], "lint": {"enabled": False}}
         (self.project / core.CONFIG).write_text(json.dumps(config))
         result = self.command(sys.executable, ".latex-ai/workbench.py", "bib-check", "--document", "note", "--json")
         data = json.loads(result.stdout)
         self.assertEqual(data["result"]["bibliographies"], [{"document": "note", "files": ["note.bib"]}])
-        result = self.command("make", "latex-ai-bib-check")
+        result = self.command("make", "bib-check")
         self.assertIn("paper: paper.bib", result.stdout)
         self.assertIn("note: note.bib", result.stdout)
 
@@ -144,7 +145,8 @@ class DocumentLifecycleTests(unittest.TestCase):
                 pass
         self.temp.cleanup()
 
-    def install(self, *arguments, expected=0):
+    def install(self, *arguments, expected=0, **choices):
+        prepare_config(self.project, **choices)
         result = subprocess.run([sys.executable, "-B", str(bootstrap.PACKAGE / "latex-ai-init"),
                                  *arguments, str(self.project)], capture_output=True, text=True)
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
@@ -166,12 +168,9 @@ class DocumentLifecycleTests(unittest.TestCase):
             path = self.project / root
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(SOURCE)
-        config = {"schema_version": 3, "modules": {"latex": {
-            "default_document": "paper", "defaults": {"lint": {"enabled": False}}, "documents": {
-                "paper": {"root": "main.tex", "build_command": [sys.executable, "compile.py", "main.tex", ".latex-ai/artifacts/documents/paper/build"]},
-                "note": {"root": "notes/main.tex", "build_command": [sys.executable, "compile.py", "notes/main.tex", ".latex-ai/artifacts/documents/note/build"]}}}}}
+        config = {'schema_version': 4, 'default_document': 'paper', 'defaults': {'lint': {'enabled': False}}, 'documents': {'paper': {'root': 'main.tex', 'build_command': [sys.executable, 'compile.py', 'main.tex', '.latex-ai/artifacts/documents/paper/build']}, 'note': {'root': 'notes/main.tex', 'build_command': [sys.executable, 'compile.py', 'notes/main.tex', '.latex-ai/artifacts/documents/note/build']}}}
         for name, values in documents.items():
-            config["modules"]["latex"]["documents"][name].update(values)
+            config["documents"][name].update(values)
         (self.project / core.CONFIG).write_text(json.dumps(config))
         return config
 
@@ -179,10 +178,13 @@ class DocumentLifecycleTests(unittest.TestCase):
     def test_bibliography_check_covers_every_documents_own_files(self):
         config = self.named(note={"bibliography_files": ["notes/note.bib"]})
         (self.project / "notes/note.bib").write_text("@misc{dup, title={A}, year={2000}}\n@misc{dup, title={B}, year={2001}}\n")
+        self.install("init", expected=2)  # preflight catches the malformed secondary bibliography
+        (self.project / "notes/note.bib").write_text("@misc{dup, title={A}}\n")
         self.install("init")
+        (self.project / "notes/note.bib").write_text("@misc{dup, title={A}}\n@misc{dup, title={B}}\n")
         self.assertIn("Duplicate bibliography key", self.command("bib-check", expected=1).stderr)
-        self.assertIn("Duplicate bibliography key", self.make("latex-ai-bib-check", "DOC=note", expected=2).stderr)
-        self.make("latex-ai-bib-check", "DOC=paper")
+        self.assertIn("Duplicate bibliography key", self.make("bib-check", "DOC=note", expected=2).stderr)
+        self.make("bib-check", "DOC=paper")
         self.assertTrue(runtime.validation_plan(self.project, config, ["notes/note.bib"])["bibliography"])
 
 
@@ -197,7 +199,8 @@ class DocumentTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def install(self, *arguments, expected=0):
+    def install(self, *arguments, expected=0, **choices):
+        prepare_config(self.project, **choices)
         result = subprocess.run([sys.executable, "-B", str(bootstrap.PACKAGE / "latex-ai-init"),
                                  *arguments, str(self.project)], capture_output=True, text=True)
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
@@ -209,8 +212,9 @@ class DocumentTests(unittest.TestCase):
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return result
 
-    def test_schema_three_no_tex_fallback_checks_bibliography(self):
-        config = {"schema_version": 3, "modules": {"bibliography": {"files": ["refs.bib"]}}}
+    def test_validation_checks_shared_bibliography(self):
+        config = {'schema_version': 4, 'default_document': 'paper', 'documents': {'paper': {'root': 'main.tex', 'lint': {'enabled': False}}}, 'bibliography': {'files': ['refs.bib']}}
+        (self.project / 'main.tex').write_text(TEX)
         (self.project / core.CONFIG).write_text(json.dumps(config))
         (self.project / "refs.bib").write_text("@misc{fixture, title={Synthetic fixture}}\n")
         self.install("init")
@@ -229,7 +233,8 @@ class ModuleTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def cli(self, *args):
+    def cli(self, *args, **choices):
+        prepare_config(self.project, **choices)
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             return boot.main([*args, str(self.project)])
 
@@ -239,17 +244,6 @@ class ModuleTests(unittest.TestCase):
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return result
 
-    def test_independent_bibliography_without_tex(self):
-        (self.project / "refs.bib").write_text("@misc{synthetic,title={Synthetic test fixture}}\n")
-        config = {'schema_version': 3, 'modules': {'bibliography': {'files': ['refs.bib']}}}
-        (self.project / core.CONFIG).write_text(json.dumps(config))
-        self.assertEqual(self.cli("init"), 0)
-        self.command("bib-check")
-        self.command("check")
-        plan = json.loads(self.command("plan", "--files", "refs.bib", "--json").stdout)
-        self.assertTrue(plan["bibliography"])
-        self.assertFalse(plan["manuscript"])
-
 
 class AuditRepairs(ProjectCase):
     """Origin: tests/test_scope_4_8_1.py, workbench 4.8.1."""
@@ -258,17 +252,16 @@ class AuditRepairs(ProjectCase):
         super().setUp()
         (self.project / 'main.tex').write_text(SOURCE_4_8_1)
 
-    def test_f7_bibliography_backend_and_discovery_accept_the_same_whitespace(self):
+    def test_bibliography_scanning_accepts_whitespace_with_explicit_declarations(self):
         (self.project / 'refs.bib').write_text('@misc{fixture,title={Synthetic fixture}}\n')
+        config = self.configure(documents_={"paper": {"root": "main.tex", "backend": "bibtex"}})
+        config["bibliography"] = {"files": ["refs.bib"]}
         for whitespace in (' ', '\n', '\t'):
             with self.subTest(whitespace=repr(whitespace)):
                 (self.project / 'main.tex').write_text(SOURCE_4_8_1.replace('Fixture.', '\\bibliography' + whitespace + '{refs}'))
-                args = argparse.Namespace(modules=None, root=None, build_command=None,
-                    no_lint=True, skip_editor=True, editor=False)
-                config = bootstrap.detect_config(self.project, bootstrap.discover(self.project), args)
-                view = schema.document_settings(config)
+                view = schema.document_settings(schema.validate_config(self.project, config))
                 self.assertEqual(view.bibliography['backend'], 'bibtex')
-                self.assertEqual(view.bibliography['files'], ['refs.bib'])
+                self.assertEqual([p.name for p in rt.bibliography_check(self.project, view)], ['refs.bib'])
 
 
 class WorkbenchTests(unittest.TestCase):
@@ -279,11 +272,13 @@ class WorkbenchTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix="latex-ai-unit-")
         self.project = Path(self.temp.name).resolve()
         (self.project / "paper.tex").write_text(TEX)
+        prepare_config(self.project, root="paper.tex", output_dir=".")
 
     def tearDown(self):
         self.temp.cleanup()
 
-    def cli(self, *args):
+    def cli(self, *args, **choices):
+        prepare_config(self.project, **{"root": "paper.tex", "output_dir": ".", **choices})
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             return boot.main([*args, str(self.project)])
 
@@ -302,8 +297,8 @@ class WorkbenchTests(unittest.TestCase):
     def test_duplicate_keys_across_bibliographies(self):
         self.init()
         config = rt.load_config(self.project)
-        config["modules"].setdefault("bibliography", {"files": [], "export": None})["files"] = ["one.bib", "two.bib"]
-        for name in config["modules"].setdefault("bibliography", {"files": [], "export": None})["files"]:
+        config.setdefault("bibliography", {"files": [], "export": None})["files"] = ["one.bib", "two.bib"]
+        for name in config.setdefault("bibliography", {"files": [], "export": None})["files"]:
             (self.project / name).write_text('@book{same, title={T}}')
         with self.assertRaisesRegex(rt.WorkbenchError, "Duplicate"):
             rt.bibliography_check(self.project, schema.document_settings(config))
@@ -311,26 +306,26 @@ class WorkbenchTests(unittest.TestCase):
     def test_case_variant_duplicate_keys_follow_the_backend(self):
         self.init()
         config = rt.load_config(self.project)
-        config["modules"].setdefault("bibliography", {"files": [], "export": None})["files"] = ["one.bib", "two.bib"]
+        config.setdefault("bibliography", {"files": [], "export": None})["files"] = ["one.bib", "two.bib"]
         (self.project / "one.bib").write_text('@book{Smith2020, title={T}}')
         (self.project / "two.bib").write_text('@book{smith2020, title={U}}')
-        config["modules"]["latex"]["documents"]["manuscript"]["backend"] = "bibtex"
+        config["documents"]["manuscript"]["backend"] = "bibtex"
         with self.assertRaisesRegex(rt.WorkbenchError, r"Duplicate bibliography key 'smith2020' \(same key as 'Smith2020'; BibTeX ignores case\)"):
             rt.bibliography_check(self.project, schema.document_settings(config))
-        config["modules"]["latex"]["documents"]["manuscript"]["backend"] = "none"  # unprocessed exports keep case-variant keys distinct
+        config["documents"]["manuscript"]["backend"] = "none"  # unprocessed exports keep case-variant keys distinct
         self.assertEqual(len(rt.bibliography_check(self.project, schema.document_settings(config))), 2)
         (self.project / "two.bib").write_text('@book{Smith2020, title={U}}')  # exact duplicates stay errors everywhere
         for backend in ("bibtex", "none"):
-            config["modules"]["latex"]["documents"]["manuscript"]["backend"] = backend
+            config["documents"]["manuscript"]["backend"] = backend
             with self.subTest(backend=backend, exact=True), self.assertRaisesRegex(rt.WorkbenchError, "Duplicate bibliography key 'Smith2020': "):
                 rt.bibliography_check(self.project, schema.document_settings(config))
 
     def test_optional_then_required_export(self):
         self.init()
         config = rt.load_config(self.project)
-        config["modules"].setdefault("bibliography", {"files": [], "export": None})["export"] = {"path": "zotero.bib", "required": False, "format": "bibtex"}
+        config.setdefault("bibliography", {"files": [], "export": None})["export"] = {"path": "zotero.bib", "required": False, "format": "bibtex"}
         self.assertEqual(rt.bibliography_check(self.project, schema.document_settings(config)), {})
-        config["modules"].setdefault("bibliography", {"files": [], "export": None})["export"]["required"] = True
+        config.setdefault("bibliography", {"files": [], "export": None})["export"]["required"] = True
         with self.assertRaisesRegex(rt.WorkbenchError, "Missing"):
             rt.bibliography_check(self.project, schema.document_settings(config))
         (self.project / "zotero.bib").write_text("% Empty export\n")
@@ -340,7 +335,7 @@ class WorkbenchTests(unittest.TestCase):
     def test_log_failures_and_advisory_warnings(self):
         self.init()
         config = rt.load_config(self.project)
-        config["modules"]["latex"]["documents"]["manuscript"]["output_dir"] = "."
+        config["documents"]["manuscript"]["output_dir"] = "."
         (self.project / "paper.pdf").write_bytes(b"%PDF-1.5\n")
         for warning in ["LaTeX Warning: There were undefined references.", "LaTeX Warning: There were undefined citations.",
                         "LaTeX Warning: Label `same' multiply defined.", "LaTeX Warning: Please (re)run BibTeX on the file(s)."]:
@@ -354,13 +349,13 @@ class WorkbenchTests(unittest.TestCase):
     def test_stale_backend_log_ignored_when_bibliography_disabled(self):
         self.init()
         config = rt.load_config(self.project)
-        config["modules"]["latex"]["documents"]["manuscript"]["output_dir"] = "."
+        config["documents"]["manuscript"]["output_dir"] = "."
         (self.project / "paper.pdf").write_bytes(b"%PDF-1.5\n")
         (self.project / "paper.log").write_text("Output written on paper.pdf.\n")
         (self.project / "paper.blg").write_text("I couldn't open database file obsolete.bib\n")
         with contextlib.redirect_stdout(io.StringIO()):
             rt.verify(self.project, schema.document_settings(config), check_receipt=False)
-        config["modules"]["latex"]["documents"]["manuscript"]["backend"] = "bibtex"
+        config["documents"]["manuscript"]["backend"] = "bibtex"
         with self.assertRaisesRegex(rt.WorkbenchError, "integrity"):
             rt.verify(self.project, schema.document_settings(config), check_receipt=False)
 

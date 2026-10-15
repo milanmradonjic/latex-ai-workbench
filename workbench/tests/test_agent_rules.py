@@ -54,7 +54,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import bootstrap
 import bootstrap as boot
 import guide
-from test_support import ProjectCase, fixture_env, isolate_environment, own_targets
+from test_support import ProjectCase, fixture_env, isolate_environment, own_targets, prepare_config
 
 
 OWNER_MERGES = "only the owner merges"
@@ -181,7 +181,8 @@ class ModuleTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def cli(self, *args):
+    def cli(self, *args, **choices):
+        prepare_config(self.project, **choices)
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             return boot.main([*args, str(self.project)])
 
@@ -203,31 +204,6 @@ class ModuleTests(unittest.TestCase):
         self.assertEqual(done.returncode, expected, done.stdout + done.stderr)
         return done.stdout
 
-    def test_policy_names_orientation_commands_that_reach_the_workbench(self):
-        # The rule that made the report command `latex-ai-issue`: a project's own target of the short name is
-        # kept, so guidance an agent follows blindly must name the command that always reaches the workbench.
-        self.assertEqual(self.cli("init", "--modules", ""), 0)
-        own_targets(self.project, "help", recipe="@touch PROJECT_HELP_RAN")
-        own_targets(self.project, "status", recipe="@touch PROJECT_STATUS_RAN")
-        policies = {"full policy": (boot.PACKAGE / "templates/AGENTS.md").read_text(), "installed policy": (self.project / "AGENTS.md").read_text()}
-        for name, text in policies.items():
-            with self.subTest(policy=name):
-                self.assertNotRegex(text, r"make (?:help|status)\b")
-                for advertised in ("make latex-ai-help", "make latex-ai-status"):
-                    self.assertIn(advertised, text)
-        self.assertIn("LaTeX AI Workbench", self.make_output("latex-ai-status"))
-        self.assertIn("make latex-ai-status", self.make_output("latex-ai-help"))
-        self.assertFalse(any((self.project / name).exists() for name in ("PROJECT_HELP_RAN", "PROJECT_STATUS_RAN")))
-
-    def test_policy_never_names_a_short_form_the_project_may_own(self):
-        policies = {"full policy": (boot.PACKAGE / "templates/AGENTS.md").read_text()}
-        for command in guide.COMMANDS:
-            for name, text in policies.items():
-                if command.reserved:
-                    with self.subTest(policy=name, command=command.short):
-                        self.assertNotRegex(text, rf"\bmake {re.escape(command.short)}\b")
-        self.assertIn("`latex-ai-` form", (boot.PACKAGE / "skills/latex-ai-workbench/SKILL.md").read_text())
-
 
 class PullRequestPolicy(ProjectCase):
 
@@ -240,7 +216,7 @@ class PullRequestPolicy(ProjectCase):
 
     def test_installed_projects_receive_the_rule(self):
         (self.project / "main.tex").write_text(SOURCE)
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         self.assertIn(RULE, (self.project / "AGENTS.md").read_text())
 
     def test_agents_refuse_pushes_to_the_default_branch_and_still_ask_for_other_pushes(self):
@@ -357,7 +333,7 @@ class Wording(ProjectCase):
 
     def test_an_installed_project_receives_the_rules_and_the_policy(self):
         (self.project / "main.tex").write_text("\\documentclass{article}\\begin{document}x\\end{document}\n")
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         for name in (".claude/settings.json", ".codex/rules/git-safety.rules", "AGENTS.md"):
             self.assertEqual((self.project / name).read_bytes(), (TEMPLATES / name).read_bytes(), name)
         self.assertIn("Bash(git push *:main)", json.loads((self.project / ".claude/settings.json").read_text())["permissions"]["deny"])
@@ -382,6 +358,7 @@ class WorkbenchTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix="latex-ai-unit-")
         self.project = Path(self.temp.name).resolve()
         (self.project / "paper.tex").write_text(TEX)
+        prepare_config(self.project, root="paper.tex", output_dir=".")
 
     def tearDown(self):
         self.temp.cleanup()
@@ -423,7 +400,7 @@ class WorkbenchTests(unittest.TestCase):
     def test_policy_tells_agents_how_to_treat_a_suspected_workbench_defect(self):
         template = (boot.PACKAGE / "templates/AGENTS.md").read_text()
         section = template[template.index("# Suspected workbench defects"):template.index("# Writer/reviewer workflow")]
-        for phrase in ("INTERNAL ERROR", "Error 70", "Do not edit `.latex-ai/`", "make latex-ai-issue", "nothing is sent anywhere", "need the user's approval"):
+        for phrase in ("INTERNAL ERROR", "Error 70", "Do not edit `.latex-ai/`", "make issue", "nothing is sent anywhere", "need the user's approval"):
             self.assertIn(phrase, section)
 
 

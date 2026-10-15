@@ -14,28 +14,19 @@ and runtime together. A local CLI invocation is:
 python3 /path/to/workbench/latex-ai-init init /path/to/project --dry-run --diff
 ```
 
-`init` is for a project that has no `.latex-ai/installation.json`; it refuses one that has it
-(see Update below). Select modules and enable the editor adapter only
-when needed; read [module setup](../../../docs/modules.md). Projects without a manuscript
-do not need a TeX root (`--modules ''`). `--modules` chooses the initial configuration only.
-For handwritten TeX notes, add independent roots under `modules.latex.documents` in
-`.latex-ai.json` by hand. Read [TeX notes](../../../docs/tex-notes.md) for named output ownership,
-mixed formats and `build_command`. Only project configuration schema 3 is supported.
-Ambiguous root detection returns 2 and requires an explicit choice after
-inspection. Select `--root` for multiple manuscripts. The workbench builds with pdflatex and BibTeX; a manuscript that needs
-another engine or biber declares a `build_command`.
-Do not ask the owner to resolve ordinary choices evident from local files.
+Before `init`, prepare `.latex-ai.json` explicitly using [configuration](../../../docs/configuration.md).
+Use schema 4 with at least one named document, its root, and an explicit default.
+Inspect local files to choose settings; the installer does not infer them. Multiple
+documents remain supported. Declare bibliography files, custom argv build commands,
+output directories, lint settings, and editor preference in the configuration.
+Do not ask the owner to resolve ordinary choices evident from the authorized project.
 
-For a build that is not latexmk, supply `--build-command` as a JSON
-argv list invoking the project's script or a Make target it adds after `init`. Check where its PDF/log are written;
-config `output_dir` must match. Never delegate a runtime build to itself.
-
-`init` changes no file the project has: each file that exists and differs is a `CONFLICT`, and nothing is written until none is left.
-Read the conflicts; for an existing project follow [migrating](../../../docs/migrating.md): move the file aside, run `init`, carry
-the project's own content back by hand. Differing agent permissions are explained to the owner and merged keeping the stricter
-rule, never overwritten. Use `--skip-editor` when the project has editor files of its own and the user does not need immediate
-GUI integration; document the manual integration still pending. The workbench writes no
-workflow; never remove one the project has without authorization.
+`init` refuses an installation record and any conflicting generated destination.
+It never adopts or merges Makefiles, editor files, or policies. Preserve local
+content and stricter guardrails when resolving conflicts explicitly. Set
+`integrations.editor` to false to keep editor setup outside installation.
+A custom command must produce the configured PDF/log and must not call a generated
+build/check target recursively. Setup writes no workflow and changes no Git state.
 
 When the dry run shows no conflict, apply it with the same command minus dry-run.
 Do not request approval for harmless authorized file changes. Setup does not
@@ -71,26 +62,24 @@ observed files and command results.
 
 A project is updated by following this recipe, and an update never ends without a diff and a check for the owner to read. The installer does not merge, audit or recover: it creates a project
 (`init`), shows how a project differs from a release (`diff`) and refreshes the runtime files it vendored (`runtime`). Everything else is text you read and edit, with a diff to check it.
-Only schema-3 projects are supported; an older schema is refused with a hint, and nothing is converted. Locate the new release's folder (the one with `latex-ai-init`, the templates and the runtime
+Only schema-4 projects are supported; an older schema is refused with a hint, and nothing is converted. Locate the new release's folder (the one with `latex-ai-init`, the templates and the runtime
 together) first; it is called `/path/to/new-workbench` below.
 
 1. **Be able to undo.** `make snapshot SNAPSHOT_NOTE="before updating to X"` keeps a copy of every file outside the project, with or without Git ([snapshots](../../../docs/snapshots.md)
-   says how to restore from it). If `make snapshot` says there is no rule for it (a project from before 4.7), the new release snapshots it:
-   `python3 /path/to/new-workbench/runtime.py snapshot --project /path/to/project --note "before updating"`. A clean `git status`, or the work committed on a branch, is a second way back.
-2. **Read what changed.** The project's stamp is the version in `.latex-ai/installation.json`: `make status` shows it against the vendored runtime's, and from 4.9 on `make doctor` prints it, with the runtime
+   says how to restore from it). A clean `git status`, or the work committed on a branch, is a second way back.
+2. **Read what changed.** The project's stamp is the version in `.latex-ai/installation.json`: `make status` shows it against the vendored runtime's, and `make doctor` prints it, with the runtime
    files edited or missing. Read the [release notes](../../../docs/maintainers/releases.md) for every release after that version, up to the new one: they name the generated files that changed and the settings
    that were removed. A removed setting is refused by name, with a hint.
 3. **See the difference.** From the new release's folder, `python3 /path/to/new-workbench/latex-ai-init diff /path/to/project --diff` lists the runtime files that differ (`RUNTIME differs` or
    `missing`) and the other files (policy, Makefile, editor settings) that differ from what a new project would get. It writes nothing; it exits 1 when a runtime file differs. In its unified diffs a `-` line is the project's and a `+` line is what the release would write, so the project's own
-   content shows as a deletion: take over only the additions you want. (A project from 4.9
-   on can ask for the same from inside: `make doctor LATEX_AI_TEMPLATE=/path/to/new-workbench`.) If the release notes list a setting that the new release refuses, `diff` and `runtime` stop at it,
+   content shows as a deletion: take over only the additions you want. (A project can ask for the same from inside: `make doctor LATEX_AI_TEMPLATE=/path/to/new-workbench`.) If the release notes list a setting that the new release refuses, `diff` and `runtime` stop at it,
    because they read `.latex-ai.json`: make the edit of step 6 first.
 4. **Refresh the runtime.** `python3 /path/to/new-workbench/latex-ai-init runtime /path/to/project --dry-run`, then without `--dry-run`. It replaces `.latex-ai/*.py` (a file the release adds, `snapshot.py` for one, is new and untracked until the owner commits it), backs the old files up under
    `.latex-ai/backups/`, and rewrites the record. A runtime file that was edited, or that the record does not know, is refused; restore it from version control. `--force` replaces it, and that is the
    owner's call, not a way past a refusal (the runtime is not meant to be edited: report a defect with `make issue` instead).
 5. **Read, then edit, the files that are yours.** `AGENTS.md`, `CLAUDE.md`, the Makefile, `.gitignore`, `.vscode/` and the guardrails (`.claude/`, `.codex/`) belong to the project. Take over what
    the release notes name and the diff shows as new (a new command's lines in the Makefile, a line of policy); never weaken a permission or a Git guardrail, keep the stricter rule when two differ, and do not paste over local content.
-6. **Edit `.latex-ai.json` by hand** where the release notes say a setting changed. To turn a module on, add it to `"modules"`; to turn it off, remove it (its files stay).
+6. **Edit `.latex-ai.json` by hand** where the release notes say a setting changed. Keep named documents and optional bibliography/editor settings explicit.
 7. **Check.** `make doctor LATEX_AI_TEMPLATE=/path/to/new-workbench`: the stamp now matches the template and no runtime file differs, and whatever generated file still differs is the project's own
    and was kept on purpose. Then `make check`, then `git diff`. Report what changed, what was kept and why, and what did not run. Commits and pushes are the owner's separate step.
 
@@ -98,5 +87,5 @@ Never delete the installation record to bypass a check. Backups are recovery evi
 file/version choice.
 
 Updating the package itself requires versioning its release and regression
-testing observed failures. Only schema-3 projects are supported. Unsupported configurations must fail
+testing observed failures. Only schema-4 projects are supported. Unsupported configurations must fail
 before writes; do not add old-release conversion paths.

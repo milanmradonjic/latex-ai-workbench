@@ -15,7 +15,7 @@
       "args": [
         "-C",
         "%WORKSPACE_FOLDER%",
-        "latex-ai-build",
+        "build",
         "DOC=paper"
       ]
     },
@@ -25,7 +25,7 @@
       "args": [
         "-C",
         "%WORKSPACE_FOLDER%",
-        "latex-ai-build",
+        "build",
         "DOC=derivation"
       ]
     },
@@ -35,7 +35,7 @@
       "args": [
         "-C",
         "%WORKSPACE_FOLDER%",
-        "latex-ai-build",
+        "build",
         "DOC=notebook"
       ]
     }

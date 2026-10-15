@@ -1,23 +1,23 @@
 # Find the next action
 
-Start with `make latex-ai-status` and `make latex-ai-doctor`. Help lists commands
-that exist in this project, and `make latex-ai-guide` is a short manual for it. Do not edit the vendored runtime to hide a failure.
+Start with `make status` and `make doctor`. Help lists commands
+that exist in this project, and `make guide` is a short manual for it. Do not edit the vendored runtime to hide a failure.
 
 | Symptom | Next action |
 |---|---|
-| Missing compiler/checker | Install the tool reported by doctor in the project's environment. Optional modules need only their own toolchains. |
-| Document is missing | Run `make latex-ai-document-check DOC=name`. |
-| Document is stale | `make latex-ai-status` names what changed under the document (sources, build settings or outputs). Preview the plan and rebuild consuming documents. Verify hidden dependencies are declared. |
+| Missing compiler/checker | Install the tool reported by doctor in the project's environment. Required tools come from each declared document's settings. |
+| Document is missing | Run `make document-check DOC=name`. |
+| Document is stale | `make status` names what changed under the document (sources, build settings or outputs). Preview the plan and rebuild consuming documents. Verify hidden dependencies are declared. |
 | Build failed | Read the first compiler error and current log reported by the command. Correct the source and rerun the document check. |
 | "Build inputs changed during execution" | The build rewrote a file it reads, and the rewrite differed on the protected second compilation. The message names the files. Make the generator write only when the content differs (Make rules usually do), or keep a nondeterministic generator (timestamps, random seeds) out of the build command. |
 | A file was lost or overwritten | If a snapshot was taken, `make snapshots` lists the copies and prints the Git command that restores a file from one ([snapshots](snapshots.md)); otherwise, version control. |
 | Source restored but status still failed | Rebuild; restoring bytes does not certify the failed attempt. |
-| Export refused | Build/check the document successfully, then run `make latex-ai-pdf-artifact DOC=name`. |
+| Export refused | Build/check the document successfully, then run `make pdf-artifact DOC=name`. |
 | Another build is active | Status lists its owner PID and live compiler groups. Wait, or inspect only your own build as described below. |
 | Installed runtime belongs to another project | Run from that runtime's project root or pass its `--project` path. For another project, use that project's runtime. |
 | `runtime` refuses a file | It was edited, or the record does not know it. Read `latex-ai-init diff . --diff`, restore the file from version control, or pass `--force`. Never delete the record to get past it. |
-| Unsupported configuration schema | Workbench 4 accepts schema 3 only. Preserve authored files and prepare a reviewed current configuration; there is no migration flag. |
-| Internal error or false success | Capture `make latex-ai-issue ISSUE_NOTE="observed ... expected ..."` and report it; distrust the affected verdict. |
+| Unsupported configuration schema | Workbench 5 accepts schema 4 only. Preserve authored files and prepare a reviewed current configuration; there is no migration flag. |
+| Internal error or false success | Capture `make issue ISSUE_NOTE="observed ... expected ..."` and report it; distrust the affected verdict. |
 
 For custom builders, check `output_dir` and that the command writes both PDF and
 log. For macro-computed inputs, declare document `inputs` or shared validation
@@ -45,7 +45,7 @@ live compiler groups; JSON documents/status include the same ownership details.
 On a POSIX system inspect processes before sending signals:
 
 ```sh
-make latex-ai-status
+make status
 ps -eo user,pid,ppid,pgid,args
 ```
 

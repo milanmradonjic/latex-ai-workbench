@@ -136,7 +136,7 @@ def output_folders(project):
     """The folders that hold only build output, as the configuration declares them (a document's own output_dir, or the default it inherits); read leniently,
     since a snapshot has to work when the configuration is broken."""
     try:
-        latex = json.loads((project / CONFIG).read_text(encoding="utf-8"))["modules"]["latex"]
+        latex = json.loads((project / CONFIG).read_text(encoding="utf-8"))
         inherited = latex.get("defaults", {}).get("output_dir")
         documents = [d for d in latex["documents"].values() if isinstance(d, dict)]
         roots = [PurePosixPath(posixpath.normpath(d["root"])) for d in documents if isinstance(d.get("root"), str)]
@@ -228,7 +228,7 @@ def take(project, tier="manual", note="", base=None, now=None):
         print(f"Dropped snapshot #{old}: the {tier} store keeps the newest {KEEP[tier]}")
     for name, size in large:
         print(f"Left out, over {LIMIT // 1024 // 1024} MB: {name} ({size / 1024 / 1024:.1f} MB)")
-    lister = command_name(project, "snapshots")  # a project without the 4.7 Makefile has no target for it
+    lister = command_name(project, "snapshots") if (project / ".latex-ai/workbench.py").is_file() else None
     print(f"Kept in {store}; {'make ' + lister if lister else 'the snapshots action of the runtime'} lists the snapshots and says how to restore one.")
     return {"tier": tier, "number": number, "commit": commit, "status": status, "changed": status == "taken", "files": len(files),
             "skipped": [name for name, _ in large], "dropped": dropped, "store": str(store)}
@@ -247,7 +247,7 @@ def listing(project, base=None):
             rows += [{"tier": tier, "number": number, "commit": commit[:7], "time": seconds, "label": label, "path": str(path)}
                      for number, commit, _, seconds, label in records(path)]
     if not rows:
-        taker = command_name(project, "snapshot")
+        taker = command_name(project, "snapshot") if (project / ".latex-ai/workbench.py").is_file() else None
         print(f"No snapshots of {project.name} yet: {'make ' + taker if taker else 'the snapshot action of the runtime'} makes one.")
         return {"snapshots": []}
     print(f"Snapshots of {project.name}, in {store}")

@@ -1,6 +1,6 @@
 # TeX notes and multiple documents
 
-Schema 3 supports named LaTeX documents alongside TeX fragments. Each declared document has its own configuration, compiler outputs,
+Schema 4 supports named LaTeX documents alongside TeX fragments. Each declared document has its own configuration, compiler outputs,
 verified build receipt and exported PDF. A fragment included by a document is
 checked with that document; it does not need its own document entry.
 
@@ -17,24 +17,19 @@ Write the derivation here.
 \end{document}
 ```
 
-Register it by adding it under `modules.latex.documents` in `.latex-ai.json`:
+Register it by adding it under `documents` in `.latex-ai.json`:
 
 ```json
 "derivation": {"root": "notes/derivation.tex"}
 ```
 
-Then build, check and export it explicitly. `init` wrote a target named after each document when the project had several, so `make derivation` builds it (and `make all`
-builds every document, one after another); a document added later gets one by adding these lines to the Makefile, or is built with `make build DOC=derivation`:
-
-```make
-.PHONY: derivation
-derivation:
-	@$(PYTHON) .latex-ai/workbench.py build --document derivation
-```
+Build, check, and export with the fixed commands. `make all` builds every document;
+no Makefile edits or document-name targets are needed when a document is added.
 
 ```sh
-make latex-ai-document-check DOC=derivation
-make latex-ai-pdf-artifact DOC=derivation
+make build DOC=derivation
+make document-check DOC=derivation
+make pdf-artifact DOC=derivation
 ```
 
 The exported PDF is `.latex-ai/artifacts/documents/derivation/document.pdf`.
@@ -42,33 +37,33 @@ Compilation defaults to that document's `build/` subdirectory. Existing custom
 layouts can set `output_dir` explicitly. Output identities must not overlap
 another document's compiler outputs or any exported PDF.
 
-Use `make latex-ai-documents` to list targets and their validity. Each document is
+Use `make documents` to list targets and their validity. Each document is
 `current` (built from these exact files without a LaTeX error; it does not mean the
 checks passed), `stale` (files or build settings changed since it was built), `failed` (its last build failed or was interrupted),
-`running` or `missing` (not built yet). `make latex-ai-status` lists the
+`running` or `missing` (not built yet). `make status` lists the
 documents that are not current and the command for each. An exported PDF is a
-copy made by `make latex-ai-pdf-artifact`; rebuilding does not update it.
-`make check` checks all documents and enabled shared modules. Build, lint and export without
+copy made by `make pdf-artifact`; rebuilding does not update it.
+`make check` checks all documents and their bibliography declarations. Build, lint and export without
 `DOC` select the configured default. Select a different default with
 `default_document` in `.latex-ai.json`. Cleanup targets one document and
 invalidates its receipt; custom builds keep their own cleanup convention.
 
 ## Bring in an existing paper
 
-Every paper is a named document from initial setup. An existing project is [migrated](migrating.md) to the workbench's layout:
-`init` writes only files that are absent, and the project's own Make targets and policy go in after it. To add a note,
+Every paper is a named document from initial setup. Prepare explicit configuration before
+[installing](installing.md); existing generated-file conflicts must be resolved first. To add a note,
 create its root and add it under `documents` in `.latex-ai.json`; no schema migration is needed. Custom build output
 locations must agree with `output_dir`.
 
 ## Configure documents and note organization
 
-The LaTeX module declares a `default_document`, optional `defaults`, and a
+The project configuration declares a `default_document`, optional `defaults`, and a
 `documents` object keyed by stable IDs. IDs start with a letter and contain
 letters, digits, underscores or hyphens (maximum 64 characters).
 
 Each document needs a `root`. It may override `backend`, `lint`,
 `output_dir`, `build_command`, `inputs` and `bibliography_files`.
-`make latex-ai-bib-check` checks the shared bibliography and every document's own
+`make bib-check` checks the shared bibliography and every document's own
 `bibliography_files`; `DOC=name` checks one document's. Lint defaults
 merge field by field. Roots, custom build commands and input declarations belong
 to individual documents. Explicit `inputs` are project-relative paths/globs;
@@ -77,11 +72,11 @@ that static traversal or the compiler recorder cannot discover.
 
 ## Validation and integrations
 
-`make latex-ai-plan` lists affected document IDs and the reasons for each. Editing an
+`make validation-plan` lists affected document IDs and the reasons for each. Editing an
 input checks every consuming document; unrelated Markdown does not build TeX.
 A document whose last build failed stays selected until it builds.
 Deleted declared inputs remain selected. Unknown TeX/resources and shared build
-policy conservatively select all documents. `make latex-ai-validate` executes
+policy conservatively select all documents. `make validate` executes
 that selection and identifies failed documents, leading with the first TeX
 error from the compiler log. When the project's Makefile has its own `check`
 rule, it runs `make check` instead so that rule is not skipped. It never runs
@@ -104,7 +99,7 @@ Additional targets use explicit commands.
 
 Editor setup creates named Make tasks and recipes. Automatic builds on
 save are disabled in the generated settings so a note save cannot build the
-wrong default document. Existing user settings are preserved when `init` merges them. Open the exported PDF for the selected document; no single
+wrong default document. Existing user settings are preserved by leaving editor integration disabled when files conflict. Open the exported PDF for the selected document; no single
 global compiler output directory is imposed on mixed layouts.
 
 Source bibliography and

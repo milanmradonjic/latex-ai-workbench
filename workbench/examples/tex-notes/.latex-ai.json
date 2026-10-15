@@ -1,22 +1,18 @@
 {
-  "schema_version": 3,
-  "modules": {
-    "latex": {
-      "default_document": "paper",
-      "documents": {
-        "paper": {
-          "root": "main.tex"
-        },
-        "derivation": {
-          "root": "notes/derivation.tex"
-        },
-        "notebook": {
-          "root": "notes/notebook.tex"
-        }
-      }
-    }
-  },
+  "schema_version": 4,
   "integrations": {
     "editor": false
+  },
+  "default_document": "paper",
+  "documents": {
+    "paper": {
+      "root": "main.tex"
+    },
+    "derivation": {
+      "root": "notes/derivation.tex"
+    },
+    "notebook": {
+      "root": "notes/notebook.tex"
+    }
   }
 }

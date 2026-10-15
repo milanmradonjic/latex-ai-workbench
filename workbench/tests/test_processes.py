@@ -43,7 +43,7 @@ import documents
 import latex
 import processes
 import schema
-from test_support import ProjectCase, fixture_env, isolate_environment
+from test_support import ProjectCase, fixture_env, isolate_environment, prepare_config
 
 
 SOURCE = "\\documentclass{article}\n\\begin{document}Audit fixture.\\end{document}\n"
@@ -103,7 +103,8 @@ class Audit3Repairs(unittest.TestCase):
             self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return result
 
-    def install(self, *args, expected=0):
+    def install(self, *args, expected=0, **choices):
+        prepare_config(self.project, **choices)
         return self.run_command(sys.executable, '-B', str(bootstrap.PACKAGE / 'latex-ai-init'),
                                 *args, str(self.project), expected=expected)
 
@@ -117,12 +118,9 @@ class Audit3Repairs(unittest.TestCase):
             "(out/(root.stem+'.log')).write_text('Clean fixture log\\n')\n")
         for name in ('main.tex', 'note.tex'):
             (self.project / name).write_text(SOURCE)
-        config = {'schema_version': 3, 'modules': {'latex': {
-            'default_document': 'paper', 'defaults': {'lint': {'enabled': False}},
-            'documents': {name: {'root': root, 'build_command': [sys.executable, 'compile.py', root,
-                f'.latex-ai/artifacts/documents/{name}/build']} for name, root in [('paper','main.tex'),('note','note.tex')]}}}}
+        config = {'schema_version': 4, 'default_document': 'paper', 'defaults': {'lint': {'enabled': False}}, 'documents': {name: {'root': root, 'build_command': [sys.executable, 'compile.py', root, f'.latex-ai/artifacts/documents/{name}/build']} for name, root in [('paper', 'main.tex'), ('note', 'note.tex')]}}
         (self.project / core.CONFIG).write_text(json.dumps(config))
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         if makefile is not None:  # the project's own Make text goes after what init wrote
             with (self.project / 'Makefile').open('a') as stream:
                 stream.write('\n' + makefile)
@@ -225,7 +223,8 @@ class BlindRepairTests(unittest.TestCase):
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return result
 
-    def install(self, *args, expected=0):
+    def install(self, *args, expected=0, **choices):
+        prepare_config(self.project, **choices)
         return self.command(sys.executable, "-B", str(PACKAGE / "latex-ai-init"),
                             *args, expected=expected)
 
@@ -240,7 +239,7 @@ class BlindRepairTests(unittest.TestCase):
         if custom:
             settings["build_command"] = ["latexmk", "-pdf", "-recorder", "-interaction=nonstopmode",
                                          "-halt-on-error", "-outdir=custom/output with spaces", "tex/nested/paper.tex"]
-        config = {"schema_version": 3, "modules": {"latex": {"default_document": "paper", "documents": {"paper": settings}}}}
+        config = {'schema_version': 4, 'default_document': 'paper', 'documents': {'paper': settings}}
         (project / core.CONFIG).write_text(json.dumps(config))
         self.install("init", str(project))
         return config
@@ -273,7 +272,8 @@ class DocumentLifecycleTests(unittest.TestCase):
                 pass
         self.temp.cleanup()
 
-    def install(self, *arguments, expected=0):
+    def install(self, *arguments, expected=0, **choices):
+        prepare_config(self.project, **choices)
         result = subprocess.run([sys.executable, "-B", str(bootstrap.PACKAGE / "latex-ai-init"),
                                  *arguments, str(self.project)], capture_output=True, text=True)
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
@@ -293,12 +293,9 @@ class DocumentLifecycleTests(unittest.TestCase):
             path = self.project / root
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(SOURCE_blind_repairs)
-        config = {"schema_version": 3, "modules": {"latex": {
-            "default_document": "paper", "defaults": {"lint": {"enabled": False}}, "documents": {
-                "paper": {"root": "main.tex", "build_command": [sys.executable, "compile.py", "main.tex", ".latex-ai/artifacts/documents/paper/build"]},
-                "note": {"root": "notes/main.tex", "build_command": [sys.executable, "compile.py", "notes/main.tex", ".latex-ai/artifacts/documents/note/build"]}}}}}
+        config = {'schema_version': 4, 'default_document': 'paper', 'defaults': {'lint': {'enabled': False}}, 'documents': {'paper': {'root': 'main.tex', 'build_command': [sys.executable, 'compile.py', 'main.tex', '.latex-ai/artifacts/documents/paper/build']}, 'note': {'root': 'notes/main.tex', 'build_command': [sys.executable, 'compile.py', 'notes/main.tex', '.latex-ai/artifacts/documents/note/build']}}}
         for name, values in documents.items():
-            config["modules"]["latex"]["documents"][name].update(values)
+            config["documents"][name].update(values)
         (self.project / core.CONFIG).write_text(json.dumps(config))
         return config
 

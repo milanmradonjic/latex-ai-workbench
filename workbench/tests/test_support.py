@@ -35,6 +35,18 @@ def isolate_environment(test):
     test.addCleanup(context.stop)
 
 
+def prepare_config(project, root="main.tex", lint=True, editor=False, build_command=None, output_dir=None):
+    """Declare a synthetic project's settings explicitly; never infer configuration from its sources."""
+    path = project / core.CONFIG
+    if not path.exists():
+        if root == "main.tex" and not (project / root).exists():
+            (project / root).write_text("\\documentclass{article}\n\\begin{document}Fixture.\\end{document}\n")
+        path.write_text(json.dumps({"schema_version": 4, "default_document": "manuscript",
+                                   "documents": {"manuscript": {"root": root, "lint": {"enabled": lint},
+                                                                 "build_command": build_command, "output_dir": output_dir if output_dir is not None else ("." if build_command else None)}},
+                                   "integrations": {"editor": editor}}))
+
+
 def own_targets(project, *names, recipe="@echo mine"):
     """The project takes over these short Make names: each alias line init wrote becomes the project's own recipe."""
     makefile = project / "Makefile"
@@ -74,7 +86,8 @@ class ProjectCase(unittest.TestCase):
             self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return result
 
-    def install(self, *args, expected=0):
+    def install(self, *args, expected=0, **choices):
+        prepare_config(self.project, **choices)
         return self.run_command(sys.executable, "-B", str(PACKAGE / "latex-ai-init"), *args, str(self.project), expected=expected)
 
     def own_targets(self, *names):
@@ -88,7 +101,7 @@ class ProjectCase(unittest.TestCase):
         path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
     def add_document(self, name, root, **fields):
-        self.edit_config(lambda data: data["modules"]["latex"]["documents"].setdefault(name, {}).update(root=root, **fields))
+        self.edit_config(lambda data: data["documents"].setdefault(name, {}).update(root=root, **fields))
 
     def command(self, *args, **kwargs):
         return self.run_command(sys.executable, "-B", ".latex-ai/workbench.py", *args, **kwargs)
@@ -96,7 +109,7 @@ class ProjectCase(unittest.TestCase):
     def configure(self, documents_=None, **extra):
         settings = {"root": "main.tex", "lint": {"enabled": False}, "output_dir": "outputs",
                     "build_command": [sys.executable, "builder.py"]}
-        config = {"schema_version": 3, "modules": {"latex": {"default_document": "paper", "documents": documents_ or {"paper": settings}}},
+        config = {"schema_version": 4, "default_document": "paper", "documents": documents_ or {"paper": settings},
                   **extra}
         (self.project / core.CONFIG).write_text(json.dumps(config))
         return config

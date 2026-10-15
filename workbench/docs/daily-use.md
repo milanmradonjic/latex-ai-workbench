@@ -6,18 +6,16 @@ preview the selected checks, and validate:
 
 ```sh
 make status
-make latex-ai-plan
+make validation-plan
 make validate
 git diff --check
 git diff
 git status --short --branch
 ```
 
-Bare `make` builds the default document, `make all` builds every document one after another, and in a project with several documents `make notes` (the document's name)
-builds that one; `make build DOC=name` does the same for any document. `make check` checks
-all declared documents and enabled module checks. Projects without TeX omit the
-build step. If an existing project owns a short target name, `make latex-ai-help`
-shows the corresponding reserved command.
+Bare `make` builds the default document; `make all` builds every document one after another.
+Use `make build DOC=name` for a selected document. `make check` checks all declared
+documents. Command names are fixed; local overrides are the project's responsibility.
 
 Keep local notation, formatting, structure, and citation keys. Notes, Markdown,
 scripts, and other project files can be edited normally alongside the manuscript.
@@ -46,9 +44,9 @@ truth, freshness against Zotero, or completeness of bibliographic metadata.
 
 ## Named TeX documents
 
-`make latex-ai-documents` lists targets and current build validity.
-Use `make latex-ai-document-check DOC=NAME` to check one document and
-`make latex-ai-pdf-artifact DOC=NAME` to export its current PDF. `make check`
+`make documents` lists targets and current build validity.
+Use `make document-check DOC=NAME` to check one document and
+`make pdf-artifact DOC=NAME` to export its current PDF. `make check`
 covers all declared documents. See [TeX notes](tex-notes.md).
 
 For live or abandoned builds, status

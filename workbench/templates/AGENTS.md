@@ -1,8 +1,8 @@
 # Repository purpose
 
-Read `.latex-ai.json` for enabled modules, paths, project commands and validation
-choices. Schema 3 is the only supported project configuration. It describes optional
-modules, named TeX documents, and configurable note entry points. This file is the canonical
+Read `.latex-ai.json` for named LaTeX documents, paths, project commands and validation
+choices. Schema 4 is the only supported project configuration. Every project needs
+at least one LaTeX document; bibliography checks and editor integration are optional. This file is the canonical
 semantic policy; `CLAUDE.md` delegates here.
 
 # Editing principles
@@ -24,38 +24,37 @@ semantic policy; `CLAUDE.md` delegates here.
 
 Use the project Makefile from the repository root:
 
-    make check               # enabled modules; full manuscript checks when LaTeX is enabled
-    make latex-ai-build      # configured build with a verified receipt
-    make latex-ai-documents  # declared documents and build validity
-    make latex-ai-document-check DOC=name  # check one named document
+    make check               # full checks for every declared document
+    make build      # configured build with a verified receipt
+    make documents  # declared documents and build validity
+    make document-check DOC=name  # check one named document
     make lint                # configured static checks
-    make latex-ai-bib-check  # bibliography boundary/key/export checks
-    make latex-ai-doctor     # tools required by enabled modules
-    make latex-ai-plan       # preview checks selected by changed files
-    make latex-ai-validate   # run the selected checks
-    make latex-ai-help       # this project's commands, by the names that work here
-    make latex-ai-status     # where the project stands and what to do next
+    make bib-check  # bibliography boundary/key/export checks
+    make doctor     # tools required by declared document settings
+    make validation-plan       # preview checks selected by changed files
+    make validate   # run the selected checks
+    make help       # the fixed command interface
+    make status     # where the project stands and what to do next
 
-Every command except `check` and `lint` is named in this file by its `latex-ai-`
-form, which always reaches the workbench. The shorter everyday names (`doctor`, `validate`
-and so on) are aliases only where this project's Makefile had no target of that name;
-where it had one, its own recipe was kept. `make latex-ai-help` shows which names apply here.
+Make commands have fixed names from the generated template. `make build DOC=name`
+builds one document; bare `make` builds the default and `make all` builds every document.
+Local overrides of documented commands are the project's responsibility.
 
 Choose validation according to what changed. Ordinary documentation, notes and
 unrelated files belong in this repository and do not require a manuscript build.
-`make latex-ai-validate` checks changed files, runs workbench tests when relevant, and
+`make validate` checks changed files, runs workbench tests when relevant, and
 invokes `make check` for manuscript inputs, potential figures, build/configuration
-changes or uncertain inputs (with schema-3 named documents: the affected documents'
+changes or uncertain inputs (with schema-4 named documents: the affected documents'
 checks, or `make check` when the project's Makefile has its own check rule). Policy changes need structure checks and semantic
 review; unrelated code also needs its own relevant tests. A Markdown or code
-file consumed by LaTeX is a manuscript input. `make latex-ai-plan` explains
+file consumed by LaTeX is a manuscript input. `make validation-plan` explains
 the selection; missing comparison history conservatively selects full checks.
-Use `LATEX_AI_BASE=<revision> make latex-ai-validate` to include already committed changes.
-`make check` performs full document validation when the LaTeX module is enabled;
-schema 3 checks every declared root. Document build/export commands accept
+Use `LATEX_AI_BASE=<revision> make validate` to include already committed changes.
+`make check` performs full document validation;
+schema 4 checks every declared root. Document build/export commands accept
 `DOC=name`; without it they use the default. Included TeX fragments are inputs
 to their consuming documents, not independent build targets.
-`make latex-ai-modules` reports the enabled modules. A project's own build command may
+A project's own build command may
 still regenerate files it depends on; that is part of the build. The workbench does not
 establish scientific validity: inspect assumptions, units and tolerances yourself.
 
@@ -65,12 +64,12 @@ failures before modifying source; fix errors introduced by the task. Do not
 silence failures by disabling checks without an explicit design decision.
 A document's configured lint baseline lists the style warnings the owner accepted;
 the check fails only on new ones, and a line you edit counts as new. Creating or
-refreshing that baseline (`make latex-ai-lint-baseline`) is the owner's decision,
+refreshing that baseline (`make lint-baseline`) is the owner's decision,
 like changing the lint settings: ask first, and never do it to get a passing check.
 The compiler and BibTeX are authoritative for TeX expansion and
 bibliography semantics. Static inspection is not a replacement for them.
 
-Clean build files (`make latex-ai-clean`, where the workbench provides it) only when
+Clean build files (`make clean`, where the workbench provides it) only when
 stale build state is suspected or explicitly asked for. It is not a routine validation step. Editor integrations and any hosted checks must call
 the same Make commands, and build exclusively from repository contents.
 
@@ -104,7 +103,7 @@ The workbench is shared infrastructure. Its failures are not yours to hide, nor 
   non-deterministic results; behaviour that contradicts the documentation.
 - Then do not rely on that verdict for the current task. Do not edit `.latex-ai/`, weaken or
   disable a check, or treat a failing check as passed. Use only a documented workaround.
-  Capture evidence with `make latex-ai-issue ISSUE_NOTE="observed ... expected ..."` (a local report;
+  Capture evidence with `make issue ISSUE_NOTE="observed ... expected ..."` (a local report;
   nothing is sent anywhere), and tell the user what happened, what it affects and what you
   verified independently.
 - Repairs belong in the workbench distribution, with a regression test that fails first and
