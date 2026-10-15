@@ -566,6 +566,7 @@ def main():
     parser.add_argument("--document", help="Named LaTeX document; omitted uses the default for document operations")
     parser.add_argument("--all", action="store_true", help="build: every declared document, one after another")
     parser.add_argument("--note", default="", help="issue: what you observed and what you expected; snapshot: its label")
+    parser.add_argument("--template", default=os.environ.get("LATEX_AI_TEMPLATE"), help="doctor: the folder of a release (default $LATEX_AI_TEMPLATE) to compare the project with")
     parser.add_argument("--tier", choices=snapshot.TIERS, help="snapshot: which store it goes to (default manual; a timer uses frequent or weekly)")
     parser.add_argument("--command", dest="failed_command", default="", help="issue: the command that misbehaved")
     parser.add_argument("--project", type=Path, default=Path.cwd(), help="Project root (default: current directory); an installed runtime belongs to its own project")
@@ -758,6 +759,9 @@ def do_doctor(project, config, persisted, args):
             missing.append(name)
     if not missing:
         print("All required tools found")
+    print("\n".join(diagnostics.version_report(project)))
+    print("\n".join(diagnostics.template_report(project, args.template) if args.template else [
+        f"template: not given; to compare with a release, make {guide.command_name(project, 'doctor') or 'latex-ai-doctor'} LATEX_AI_TEMPLATE=/path/to/workbench"]))
     if missing:
         tex = [name for name in missing if name in {"latexmk", "pdflatex", "chktex", "bibtex"}]
         others = [name for name in missing if name not in tex]

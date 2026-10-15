@@ -286,7 +286,8 @@ class NothingDescribesWhatIsGone(unittest.TestCase):
                 self.assertIsNone(found, found and found.group(0))
 
     def test_the_update_recipe_is_written_down_for_an_agent_to_follow(self):
-        text = (PACKAGE / "docs/upgrading.md").read_text(encoding="utf-8")
+        # 4.9.0 moved the recipe into the skill file; docs/upgrading.md is the short guide that points to it
+        text = (PACKAGE / "skills/latex-ai-workbench/references/installation.md").read_text(encoding="utf-8").split("## Update")[1].split("\n## ")[0]
         for step in ("diff", "runtime", "releases.md", "make check", "snapshot"):
             self.assertIn(step, text)
         self.assertLessEqual(len(text.splitlines()), 60, "a recipe an agent follows, not a manual")

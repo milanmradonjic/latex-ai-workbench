@@ -66,7 +66,7 @@ ACTIONS = (
     Action("status", standalone=True, targets=(
         Target("status", "latex-ai-status", "Everyday", "Where the project stands and what to do next"),)),
     Action("doctor", targets=(
-        Target("doctor", "latex-ai-doctor", "Everyday", "Check that the required tools are installed"),)),
+        Target("doctor", "latex-ai-doctor", "Everyday", "Check the required tools and the version stamp; LATEX_AI_TEMPLATE=/path/to/workbench compares it with a release"),)),
     Action("help", standalone=True, targets=(
         Target("help", "latex-ai-help", "Everyday", "This list"),)),
     Action("guide", standalone=True, targets=(

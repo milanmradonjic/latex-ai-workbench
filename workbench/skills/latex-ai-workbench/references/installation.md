@@ -69,12 +69,32 @@ observed files and command results.
 
 ## Update
 
-Follow [the update recipe](../../../docs/upgrading.md): be able to undo, read the release notes,
-`diff`, `runtime`, then read and edit the project's own files by hand, then `make doctor`
-and `make check`. `latex-ai-init runtime` refuses a runtime file that was edited unless
-`--force` is given; that is the owner's call, not a way past a refusal. Never delete the
-installation record to bypass a check. Backups are recovery evidence, not permission to
-discard newer work; recovery that replaces user changes needs approval and a specific
+A project is updated by following this recipe, and an update never ends without a diff and a check for the owner to read. The installer does not merge, audit or recover: it creates a project
+(`init`), shows how a project differs from a release (`diff`) and refreshes the runtime files it vendored (`runtime`). Everything else is text you read and edit, with a diff to check it.
+Only schema-3 projects are supported; an older schema is refused with a hint, and nothing is converted. Locate the new release's folder (the one with `latex-ai-init`, the templates and the runtime
+together) first; it is called `/path/to/new-workbench` below.
+
+1. **Be able to undo.** `make snapshot SNAPSHOT_NOTE="before updating to X"` keeps a copy of every file outside the project, with or without Git ([snapshots](../../../docs/snapshots.md)
+   says how to restore from it). If `make snapshot` says there is no rule for it (a project from before 4.7), the new release snapshots it:
+   `python3 /path/to/new-workbench/runtime.py snapshot --project /path/to/project --note "before updating"`. A clean `git status`, or the work committed on a branch, is a second way back.
+2. **Read what changed.** The project's stamp is the version in `.latex-ai/installation.json`: `make status` shows it against the vendored runtime's, and from 4.9 on `make doctor` prints it, with the runtime
+   files edited or missing. Read the [release notes](../../../docs/maintainers/releases.md) for every release after that version, up to the new one: they name the generated files that changed and the settings
+   that were removed. A removed setting is refused by name, with a hint.
+3. **See the difference.** From the new release's folder, `python3 /path/to/new-workbench/latex-ai-init diff /path/to/project --diff` lists the runtime files that differ (`RUNTIME differs` or
+   `missing`) and the other files (policy, Makefile, editor settings) that differ from what a new project would get. It writes nothing; it exits 1 when a runtime file differs. In its unified diffs a `-` line is the project's and a `+` line is what the release would write, so the project's own
+   content shows as a deletion: take over only the additions you want. (A project from 4.9
+   on can ask for the same from inside: `make doctor LATEX_AI_TEMPLATE=/path/to/new-workbench`.) If the release notes list a setting that the new release refuses, `diff` and `runtime` stop at it,
+   because they read `.latex-ai.json`: make the edit of step 6 first.
+4. **Refresh the runtime.** `python3 /path/to/new-workbench/latex-ai-init runtime /path/to/project --dry-run`, then without `--dry-run`. It replaces `.latex-ai/*.py` (a file the release adds, `snapshot.py` for one, is new and untracked until the owner commits it), backs the old files up under
+   `.latex-ai/backups/`, and rewrites the record. A runtime file that was edited, or that the record does not know, is refused; restore it from version control. `--force` replaces it, and that is the
+   owner's call, not a way past a refusal (the runtime is not meant to be edited: report a defect with `make issue` instead).
+5. **Read, then edit, the files that are yours.** `AGENTS.md`, `CLAUDE.md`, the Makefile, `.gitignore`, `.vscode/` and the guardrails (`.claude/`, `.codex/`) belong to the project. Take over what
+   the release notes name and the diff shows as new (a new command's lines in the Makefile, a line of policy); never weaken a permission or a Git guardrail, keep the stricter rule when two differ, and do not paste over local content.
+6. **Edit `.latex-ai.json` by hand** where the release notes say a setting changed. To turn a module on, add it to `"modules"`; to turn it off, remove it (its files stay).
+7. **Check.** `make doctor LATEX_AI_TEMPLATE=/path/to/new-workbench`: the stamp now matches the template and no runtime file differs, and whatever generated file still differs is the project's own
+   and was kept on purpose. Then `make check`, then `git diff`. Report what changed, what was kept and why, and what did not run. Commits and pushes are the owner's separate step.
+
+Never delete the installation record to bypass a check. Backups are recovery evidence, not permission to discard newer work; recovery that replaces user changes needs approval and a specific
 file/version choice.
 
 Updating the package itself requires versioning its release and regression
