@@ -4,7 +4,7 @@ This records step 3.7 of [the plan after 4.4.0](plan-after-4.4.0.md): `make doct
 agent follows is in the skill file (`skills/latex-ai-workbench/references/installation.md`, "Update"), with `docs/upgrading.md` as the short guide that points to it. The design question, whether the doctor should know the
 template at all, was put to the owner, who chose the version where it does (`LATEX_AI_TEMPLATE`, run through the release's own installer).
 Built on 4.8.1 (`73f6538`). Tested on 2026-10-15 on Linux (x86_64, GNU Make 4.3, Git 2.43.0, Python 3.13.16, 3.12.13 and 3.11.17) with TeX Live 2023 from Debian.
-The hosted results are not yet in this record; they are added by the record of the next release.
+The hosted results are at the end of this record (added by the record that follows it).
 
 | Check | Result |
 |---|---|
@@ -46,6 +46,10 @@ Not claimed: that a cold reader opens `releases.md` unprompted. The agent read i
 - **No Makefile line changed.** The variable is named like `LATEX_AI_BASE`, and Make passes a variable given on its command line to the recipe, so `make doctor LATEX_AI_TEMPLATE=/path` reaches the program as an environment variable. Nothing in the generated Makefile, and so nothing in the guard, moved.
 - **A project from before 4.9 cannot print its own stamp,** because its `make doctor` is the old one. The recipe reads the record by hand for it, or asks `make status`; the new doctor is what the template's folder gives it after step 4.
 - **The doctor leaves the template as it found it.** Python writes `__pycache__` beside the program it runs unless told not to; the installer sets `sys.dont_write_bytecode` itself, and a test copies the package and asserts that no file appears in it.
+
+## Hosted verification
+
+All six required checks passed on the pull request ([#14](https://github.com/milanmradonjic/latex-ai-workbench/pull/14): [`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38698397762) in 2m37s with TeX Live 2026; the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38698397607), 1m58s to 2m18s each), and again on the merge commit `ff41ee8` on `main` ([`validate`](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38700041807); the [five Python versions](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38700041836)).
 
 ## Not verified
 
