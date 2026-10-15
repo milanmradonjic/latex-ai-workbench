@@ -170,7 +170,7 @@ tooling. A session is one of two kinds, and only the owner chooses which.
 its topic branches, commit, push those branches and open their pull requests, without asking each
 time; this is the explicit approval "Git safety" asks for, and the pull request is where the changes
 are presented for review. Report each of these afterwards: what it did, why, and how to undo it. Still
-the owner's, every time: merging, with one exception below, updating the owner's clone (`git switch main`,
+the owner's, every time: merging, updating the owner's clone (`git switch main`,
 `git pull`), any push to `main`, anything that rewrites or discards work (reset, restore, clean,
 stash, rebase, amending a pushed commit, deleting local branches, history rewriting), writing Git
 configuration, changing the agents' permission rules, and anything outside the session's task. In a
@@ -182,17 +182,6 @@ holds in both kinds of session: it follows a push that was already approved (in 
 each time). If a pull request for the branch exists, push to it; never open a second one for the same change. Merging stays the
 owner's, as above: give the owner the command, `gh pr merge NUMBER --auto --merge --delete-branch` while the required checks are still running (it
 merges once they pass, and a red one holds it), or the same without `--auto` once they have passed.
-
-**The one merge delegated to an agent.** A *record pull request* is one whose every changed file is
-`workbench/docs/maintainers/plan-after-3.0.2.md` or a `verification*.md` in that folder: records of what
-landed and was verified, not changes. In a workbench session the agent may squash-merge such a pull
-request, and delete its branch on GitHub, only by running `python3 .github/scripts/merge_record_pr.py
-NUMBER`. The script refuses unless the pull request is open, not a draft, aimed at `main`, clean and
-mergeable, has no pending or failing check, and changes nothing but records; it merges against the exact
-commit it inspected. This is the owner's exception to "only the owner merges" in "Git safety" and to the
-agents' refusal of a raw `gh pr merge`, which stays. Any other pull request, among them one that
-changes code, policy, permission rules, workflows, the release notes, the maintainers' rules or the
-script itself, is the owner's to merge. Report each merge afterwards.
 
 The kind never changes by itself. A manuscript session that finds a workbench defect stays a
 manuscript session: report it and ask. A workbench session that finds a problem in the manuscript

@@ -87,21 +87,8 @@ wrong, which test, how large.
 **What does not loosen.** A failing-first test; the guard; no hand edit of `.latex-ai/`; changes reach `main` only
 through a pull request that only the owner merges.
 
-**Git in a workbench session.** Starting one pre-approves creating its topic branches, commits, pushes of those
-branches and opening their pull requests; they are reported afterwards, with how to undo each. Every time, the
-owner's: merging (with the one exception below), updating their clone, any push to `main`, anything that rewrites or
-discards work, Git configuration and the agents' permission rules. The wording is in the project's `AGENTS.md`
-("Two kinds of session"). The agents' own permission prompts are separate: they stay as the installed rule files set them.
-
-**Merging a record pull request.** The owner delegates one merge: a pull request that changes only
-`plan-after-3.0.2.md` or `verification*.md` here, the records of what landed. `.github/scripts/merge_record_pr.py NUMBER`
-squash-merges it and deletes its branch on GitHub, after checking that it is open, not a draft, aimed at `main`, clean and
-mergeable, that no check is pending or failing, and that every changed file is a record; `--dry-run` only reports. It merges
-against the exact commit it inspected, never switches the owner's local branch, and refuses everything else, among it this
-README, `releases.md`, code, policy, permission rules, workflows and itself. `tests/test_record_merge.py` pins each refusal.
-The agents' rule files still deny a raw `gh pr merge`, so the script is the only way in. To run it without a prompt each
-time, the owner may add `{"permissions": {"allow": ["Bash(python3 .github/scripts/merge_record_pr.py:*)"]}}` to the
-untracked `.claude/settings.local.json`; the installed `.claude/settings.json` is left as it is.
+**Git in a workbench session.** The rules, including what stays the owner's every time (merging first among them), are in the project's `AGENTS.md` ("Two kinds of session").
+The agents' own permission prompts are separate: they stay as the installed rule files set them.
 
 ## Running the package's own checks
 
