@@ -501,7 +501,7 @@ def stale_reasons(project, config, receipt):
         reasons.append("build settings changed: " + ", ".join(settings))
     changed = differing(receipt.get("inputs") if isinstance(receipt.get("inputs"), dict) else {}, build_inputs(project, config))
     if changed:
-        reasons.append("changed since the verified build: " + summary(changed))
+        reasons.append("changed since the build: " + summary(changed))
     _, _, stem = output_paths(project, config)
     now, was = build_outputs(project, config), receipt.get("outputs") if isinstance(receipt.get("outputs"), dict) else {}
     for suffix in sorted(now.keys() | was.keys()):

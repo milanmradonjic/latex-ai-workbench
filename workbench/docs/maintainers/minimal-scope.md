@@ -89,6 +89,7 @@ the per-document targets. The full version stays available as the first commit o
 - **4.8.0** replaced those tiers by three stores with counted retention, at the owner's request ([verification](verification-4.8.0.md)).
 - **4.8.1** repaired the findings of the owner's audit: output safety, graphics freshness, validation and TeX discovery ([verification](verification-4.8.1.md)).
 - **4.9.0** (step 3.7) made `make doctor` report the version stamp, and the update recipe moved into the skill file ([verification](verification-4.9.0.md)).
+- **4.9.1** (gate G3) corrected the manual after two agents worked from it alone, and the states no longer say "verified" ([verification](verification-4.9.1.md)).
 
 - **Still to do**, in this order ([the plan after 4.4.0](plan-after-4.4.0.md)): the tests regrouped by component (step 3.8).
 

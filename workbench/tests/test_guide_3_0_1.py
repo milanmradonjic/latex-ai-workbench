@@ -38,7 +38,7 @@ class Orientation(ProjectCase):
         self.paper()
         text = self.command("guide").stdout
         self.assertIn("manual for", text)
-        self.assertRegex(text, r"Documents: paper \(default\) is missing")
+        self.assertRegex(text, r"Documents: paper = main.tex \(default\): not built yet")
         for command in ("make status", "make validation-plan", "make validate", "make check", "make build DOC=NAME", "make lint-baseline DOC=NAME"):
             self.assertIn(command, text)
         for state in ("current", "stale", "failed", "running", "missing"):
@@ -123,8 +123,8 @@ class Orientation(ProjectCase):
         self.built()
         (self.project / "main.tex").write_text(SOURCE + "% edited\n")
         text = self.command("status").stdout
-        self.assertRegex(text, r"paper: stale .*\n\s+changed since the verified build: main\.tex")
-        self.assertEqual(self.reasons(), ["changed since the verified build: main.tex"])
+        self.assertRegex(text, r"paper: stale .*\n\s+changed since the build: main\.tex")
+        self.assertEqual(self.reasons(), ["changed since the build: main.tex"])
 
     def test_status_names_the_settings_that_changed(self):
         self.built()

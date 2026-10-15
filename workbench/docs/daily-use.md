@@ -48,7 +48,7 @@ truth, freshness against Zotero, or completeness of bibliographic metadata.
 
 `make latex-ai-documents` lists targets and current build validity.
 Use `make latex-ai-document-check DOC=NAME` to check one document and
-`make latex-ai-pdf-artifact DOC=NAME` to export its verified PDF. `make check`
+`make latex-ai-pdf-artifact DOC=NAME` to export its current PDF. `make check`
 covers all declared documents. See [TeX notes](tex-notes.md).
 
 For live or abandoned builds, status
