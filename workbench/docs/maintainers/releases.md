@@ -3,6 +3,18 @@
 Workbench 4 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 4.10.2 — code audit repairs
+
+The [audit record](verification-4.10.2.md) gives the reproductions, failing-first
+tests, validation and completed independent review.
+
+- PDF export refuses linked destinations and redirected parents, and replaces a previous export only after a complete copy still matches the verified receipt.
+- The doctor checks a configured custom builder instead of requiring the native compiler tools for it.
+- Malformed module settings produce an input error regardless of module order.
+- The guide recognizes generated document recipes before offering a same-named target as a build command.
+- Input hashing uses bounded memory; PDF-header inspection reads five bytes. Regression fixtures isolate homes and TeX caches and use a capable Make for the recipe-prefix fixture.
+- Configuration/receipt schemas and generated Makefile/editor files stay unchanged. Refresh installed runtimes by the [update recipe](../upgrading.md).
+
 ## 4.10.1 — three messages the manual's readers found wanting
 
 Three of the findings the two readers of the manual left outside its wording, listed in [the 4.9.1 record](verification-4.9.1.md), were fixed on the owner's word; the others stay. [The record](verification-4.10.1.md) has the checks. No command, option, file or receipt changed.

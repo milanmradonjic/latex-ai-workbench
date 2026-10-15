@@ -126,15 +126,18 @@ def module_disabled(config, name):
 
 def document_targets(project, config):
     """What to type to build one document: its own Make target where the Makefile has one, else the long way."""
-    targets = make_targets(makefile_text(project))
+    text = makefile_text(project)
     documents = specifications(config)
-    own = [document.name for document in documents if document.name in targets]
-    other = [document.name for document in documents if document.name not in targets]
+    # A matching name alone may be cleanup, another workbench command, or a project-owned recipe.
+    own = [document.name for document in documents if re.search(
+        rf"^{re.escape(document.name)}:\n\t@\$\(PYTHON\) \.latex-ai/workbench\.py build --document {re.escape(document.name)}\s*$", text, re.M)]
+    other = [document.name for document in documents if document.name not in own]
+    build = command_name(project, "build") or "latex-ai-build"
     sentences = []
     if own:
         sentences.append(", ".join(f"make {name}" for name in own) + ": each builds that document.")
     if own or len(documents) > 1:
-        sentences += [f"{name} has no target of its own: make build DOC={name}" for name in other]
+        sentences += [f"{name} has no target of its own: make {build} DOC={name}" for name in other]
     return sentences
 
 

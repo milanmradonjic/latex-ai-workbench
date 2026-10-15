@@ -73,6 +73,9 @@ or command-option layouts, in `inputs`. This checks known paths;
 it does not sandbox arbitrary TeX or custom-command writes.
 
 Custom commands run from the project root unless their own script changes it.
+The doctor checks their first executable instead of requiring the native
+pdfLaTeX toolchain. Tools launched inside a custom script remain that script's
+responsibility; the doctor does not infer them from its contents or arguments.
 Recorder `INPUT` paths resolve from the recorder's `PWD`, not from the TeX root.
 New recorder inputs discovered during any build trigger one forced rebuild
 with the complete observed input set hashed before and after. This avoids
@@ -135,8 +138,9 @@ their results are scientifically correct.
 ([migrating](migrating.md)). The generated Makefile asks nothing of the GNU Make version.
 
 Editor setup creates named Make tasks/recipes, disables automatic builds on
-save, and prevents magic comments from bypassing Make. `init` merges into existing JSON settings by key;
-JSONC requires `--skip-editor` and deliberate manual integration.
+save, and prevents magic comments from bypassing Make. `init` creates editor
+files only when absent or already identical. Existing settings, including JSONC,
+require `--skip-editor` and deliberate manual integration.
 
 LaTeX Workshop finds a document's PDF through `latex-workshop.latex.outDir`: one setting whose placeholders expand
 per root file. Setup sets it to the first value that gives every document its real output directory:

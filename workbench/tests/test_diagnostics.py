@@ -321,6 +321,43 @@ class Repairs(ProjectCase):
             self.assertIn(str(os.getuid()), str(diagnostics.fault_dir(self.project)))
 
 
+class ConfigurationAudit(ProjectCase):
+    def setUp(self):
+        super().setUp()
+        (self.project / 'main.tex').write_text(SOURCE)
+        self.configure()
+        self.builder()
+        self.install('init', '--skip-editor')
+
+    def test_malformed_bibliography_is_an_input_error_in_either_module_order(self):
+        config = json.loads((self.project / core.CONFIG).read_text())
+        for value in (None, False, 0, '', [], [{}]):
+            for first in ('latex', 'bibliography'):
+                with self.subTest(value=value, first=first):
+                    modules = {'latex': config['modules']['latex'], 'bibliography': value}
+                    candidate = {**config, 'modules': {first: modules[first], **modules}}
+                    (self.project / core.CONFIG).write_text(json.dumps(candidate))
+                    result = self.command('check', expected=1)
+                    self.assertIn('bibliography module configuration must be an object', result.stderr)
+                    self.assertNotIn('INTERNAL ERROR', result.stderr)
+
+    def test_doctor_names_a_missing_custom_builder(self):
+        self.edit_config(lambda config: config['modules']['latex']['documents']['paper'].update(build_command=['./missing-builder']))
+        result = self.command('doctor', expected=1)
+        self.assertIn('./missing-builder: MISSING', result.stdout)
+        self.assertIn('Missing required tools: ./missing-builder', result.stderr)
+
+    def test_doctor_does_not_require_the_native_toolchain_for_a_custom_builder(self):
+        tools = self.root / 'tools'
+        tools.mkdir()
+        make = tools / 'make'
+        make.symlink_to(shutil.which('make'))
+        result = self.command('doctor', env={**self.env, 'PATH': str(tools)})
+        self.assertIn('All required tools found', result.stdout)
+        self.assertNotIn('latexmk:', result.stdout)
+        self.assertNotIn('pdflatex:', result.stdout)
+
+
 class Doctor(ProjectCase):
     """Origin: tests/test_scope_4_9_0.py, workbench 4.9.0."""
 

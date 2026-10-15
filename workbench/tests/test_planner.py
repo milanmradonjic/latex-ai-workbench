@@ -643,6 +643,16 @@ class AuditRepairs(ProjectCase):
         return schema.document_settings(schema.load_config(self.project))
 
     def test_f4_recipeprefix_selects_the_projects_own_check(self):
+        # This fixture uses a GNU Make 3.82 feature; macOS ships 3.81. Prefer gmake when installed.
+        make = shutil.which('gmake') or shutil.which('make')
+        probe = subprocess.run([make, '-f', '-', 'probe'], input='.RECIPEPREFIX := >\nprobe:\n> @:\n',
+                               env=self.env, capture_output=True, text=True)
+        if probe.returncode:
+            self.skipTest('GNU Make with .RECIPEPREFIX support required (3.82+)')
+        tools = self.root / 'tools'
+        tools.mkdir()
+        (tools / 'make').symlink_to(make)
+        self.env['PATH'] = str(tools) + os.pathsep + self.env.get('PATH', '')
         self.native()
         makefile = self.project / 'Makefile'
         makefile.write_text(makefile.read_text().replace('check:\n\t@$(PYTHON) .latex-ai/workbench.py check\n',
