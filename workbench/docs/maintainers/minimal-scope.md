@@ -89,10 +89,11 @@ the per-document targets. The full version stays available as the first commit o
 - **4.8.0** replaced those tiers by three stores with counted retention, at the owner's request ([verification](verification-4.8.0.md)).
 - **4.8.1** repaired the findings of the owner's audit: output safety, graphics freshness, validation and TeX discovery ([verification](verification-4.8.1.md)).
 - **4.9.0** (step 3.7) made `make doctor` report the version stamp, and the update recipe moved into the skill file ([verification](verification-4.9.0.md)).
+- **Step 3.8** (no release) regrouped the tests by component, into twelve modules, without changing a test ([verification](verification-3.8.md), [where the tests are](tests-map.md)).
 - **4.10.0** (gate G1) changed the Git guardrails: `git add` and `git fetch` no longer prompt, and every spelling of a push to the default branch is refused by Claude's rules ([verification](verification-4.10.0.md)).
 - **4.9.1** (gate G3) corrected the manual after two agents worked from it alone, and the states no longer say "verified" ([verification](verification-4.9.1.md)).
 
-- **Still to do**, in this order ([the plan after 4.4.0](plan-after-4.4.0.md)): the tests regrouped by component (step 3.8).
+- **Still to do:** the steps of [the plan after 4.4.0](plan-after-4.4.0.md) are done. What is open is the owner's: gate G3 (his own reading of the manual, and how project notes grow) and setting up the two launchd agents.
 
 ## Decided since
 

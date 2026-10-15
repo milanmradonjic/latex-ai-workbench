@@ -66,7 +66,7 @@ had a cost: the 3.12 job failed on the pushes to `main` for 4.3.0 and 4.4.0, a v
 
 Each is settled before the step that depends on it.
 
-- **G1, Git guardrails, decided on 15 October 2026.** The rule files hold 148 deny and 121 ask entries for Claude Code and 43 rules for Codex, pinned to the policy by `test_workbench.py`. The
+- **G1, Git guardrails, decided on 15 October 2026.** The rule files hold 148 deny and 121 ask entries for Claude Code and 43 rules for Codex, pinned to the policy by `test_workbench.py` (its tests are now in `tests/test_planner.py`, `tests/test_installer.py`, `tests/test_bibliography.py` and others (see [where the tests are](tests-map.md))). The
   scope asked for less: ask before commit or push, no push to `main`, no merge. The owner chose the second option, with one addition about sessions:
   - **Kept:** the generated deny set (push to `main` or `master` in every spelling, merges).
   - **Shrunk:** the prompts, from every Git command that has an entry today to the commands that write history, branches or the working tree (commit, rebase, reset, cherry-pick, revert, branch, switch,
@@ -143,6 +143,8 @@ Each step is one release and one pull request.
   (`LATEX_AI_TEMPLATE`), runs that release's own `diff` (the owner chose this over a project-side-only report); the recipe is the "Update" section of the skill file.
 - **3.8 Tests regrouped by component.** Receipts, planner, installer and guide, with each test's origin kept in its docstring and the test names cited in the records
   updated. This is the old Phase 7, and it comes last because it renames files the records cite.
+  **Done — 15 October 2026**, [pull request #20](https://github.com/milanmradonjic/latex-ai-workbench/pull/20), no release (nothing the installer vendors or generates changed): the 541 tests are in twelve modules, one for each component, each class naming the file and
+  release it came from; [where the tests are](tests-map.md) lists them; [the record](verification-3.8.md) shows every method unchanged.
 
 After each release, update the scope's progress and this plan, and record the measured line count. Do not promise savings that were not measured.
 

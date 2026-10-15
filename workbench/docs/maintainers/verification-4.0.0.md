@@ -6,7 +6,7 @@ latexmk 4.88 and Biber 2.21). No hosted run of this repository exists yet: the w
 
 | Check | Result |
 |---|---|
-| `tests/test_scope_4_0_0.py` against 3.7.0 | Fails in every part: 55 failures and one error across its eight tests (the modules, profiles, actions, files, plan keys, generated text and documents it pins are all still there) |
+| `tests/test_scope_4_0_0.py` (now in `tests/test_scope.py`) against 3.7.0 | Fails in every part: 55 failures and one error across its eight tests (the modules, profiles, actions, files, plan keys, generated text and documents it pins are all still there) |
 | The same after the change | All 8 pass. A mutation check puts back a module, an action and a policy sentence naming a removed command, and each is caught; an unused string in the code does not fail it, as intended |
 | `make -C workbench test` | 379 tests, 1 skipped (`test_a10_zombie_owner_is_not_running` needs `/proc`, which macOS lacks). 448 tests became 371 after removing the tests of what is gone and rewriting the ones that used a removed profile only to get a project without TeX, and 8 new ones make 379 |
 | `make -C workbench portability` | 74 of 74. It was 87: the 13 checks of the numerical project went with the module, and the TeX notebook loop now builds named documents under the `writing` profile, for each of the three engines |

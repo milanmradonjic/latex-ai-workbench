@@ -6,7 +6,7 @@ with latexmk 4.88). The hosted results follow the local ones.
 
 | Check | Result |
 |---|---|
-| `tests/test_validation_ignore.py` against 3.5.0 | Failed first: the key was refused as `Unknown validation field: ignore`, and the message of a bad pattern named no key |
+| `tests/test_validation_ignore.py` (now in `tests/test_planner.py`) against 3.5.0 | Failed first: the key was refused as `Unknown validation field: ignore`, and the message of a bad pattern named no key |
 | The same after the change | All 11 pass: ignored figure, data and unclassified paths are not routed to the manuscript build and say why; other paths keep their routing; a path the build reads, a declared `manuscript_inputs` path, build and configuration files and policy files are never ignored; `./docs/*` matches like `docs/*`; a pattern that matches nothing changes nothing; bad patterns (a string, `..`, absolute, a newline, empty, a number, `null`) are refused naming `validation.ignore`; other unknown keys are still refused |
 | Mutation check of the routing | Dropping the ignored branch fails 6 tests; dropping the `not ignored` guard on the figure and data suffixes fails 5. |
 | The generated-files guard | Passes; no stored copy changed (the setting changes routing, not generated files) |

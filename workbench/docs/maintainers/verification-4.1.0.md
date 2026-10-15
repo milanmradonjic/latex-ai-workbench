@@ -6,7 +6,7 @@ Biber 2.21). The hosted results of the pull request follow once it has run.
 
 | Check | Result |
 |---|---|
-| `tests/test_scope_4_1_0.py` against 4.0.0 | 15 failures across its five tests (the generator, its options, the configuration, the install and the document views are all still there) |
+| `tests/test_scope_4_1_0.py` (now in `tests/test_scope.py`) against 4.0.0 | 15 failures across its five tests (the generator, its options, the configuration, the install and the document views are all still there) |
 | The same after the change | All 6 pass (a test of the upgrade was added). Four mutations (a generator function back, the `--no-ci` option back, `integrations.ci` accepted, the upgrade no longer dropping it) are each caught |
 | `make -C workbench test` | 371 tests, 1 skipped (`test_a10_zombie_owner_is_not_running` needs `/proc`, which macOS lacks). 379 became 365 after removing the 14 tests of the generator, the pinned-action tests of the generator and the acceptance workflow's check, and 6 new tests make 371 |
 | `make -C workbench portability` | 74 of 74, as in 4.0.0 |

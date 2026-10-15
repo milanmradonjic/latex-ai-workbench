@@ -13,7 +13,7 @@ The pull request has four commits, one concern each: the move into `schema.py`, 
 | Static import graph of the runtime modules, function-local imports included, before and after the move | Before: one cyclic group of seven modules (`commands`, `core`, `documents`, `guide`, `latex`, `make_graph`, `output_transaction`), kept apart only by function-local imports. After: no cycle; `core` imports only `processes`, `schema` only `core` and `make_graph` |
 | The three layering tests against the code before the move (`16f4004`) | 2 of 3 fail: the import cycle, and `core` importing `documents`. The third (each module imports on its own) passes on both, which is why the graph is read from the source |
 | The same tests after the move | All 3 pass |
-| `tests/test_repairs_3_2_0.py` against the code before the move | Fails: `check --document` and `bib-check --document` in a core project stop with exit 70 (`INTERNAL ERROR: No module named 'documents'`), and the disabled-LaTeX case gives no hint |
+| `tests/test_repairs_3_2_0.py` (now in `tests/test_documents.py`) against the code before the move | Fails: `check --document` and `bib-check --document` in a core project stop with exit 70 (`INTERNAL ERROR: No module named 'documents'`), and the disabled-LaTeX case gives no hint |
 | The same tests after the move, before the `--document` commit | 4 checks fail: no hint on `check` and `bib-check`, in a project created without LaTeX and in one that disabled it. The move alone had already ended the internal error, because `schema.py` is installed in every project |
 | The same tests after the `--document` commit | Pass |
 | The generated-files guard after each commit | Passes; no stored copy was regenerated or edited |

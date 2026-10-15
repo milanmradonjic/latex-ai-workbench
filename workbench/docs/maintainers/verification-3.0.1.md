@@ -21,7 +21,7 @@ Each was reproduced, with a test that failed first, before it was repaired. The
 generated-input and link defects were also reproduced on 2.7.3, and 2.7.3 has no
 `\bibliographystyle` handling either, so none was introduced by 3.0.
 
-| Defect | Repair | Regression (`tests/test_repairs_3_0_1.py`) |
+| Defect | Repair | Regression (`tests/test_repairs_3_0_1.py` (its tests are now in `tests/test_receipts.py`, `tests/test_installer.py`, `tests/test_planner.py` and others (see [where the tests are](tests-map.md)))) |
 |---|---|---|
 | A Make rule that generates a table or figure the document includes failed the first build and every build after a data change ("Build inputs changed during execution"), then passed on a rerun | A changed input selects the protected compilation; an input that still differs is named | `test_generated_input_is_certified_…`, `test_generator_that_cannot_settle_…`, `test_adopted_make_with_generated_table_and_figure_builds_once` |
 | A link inside the project to a file outside it was untracked: the document stayed `current` and the export stale after the target changed | Tracked under the link's own name; planner, file checks and research routing accept it | `test_link_leaving_the_project_is_a_tracked_input` and three more |
@@ -46,7 +46,7 @@ the function they exercise. No configuration, receipt or installation format cha
 
 The release also adds `make guide` and `make guide-html` for people who cannot place the parts of
 the workbench without help (see the release notes). It adds one runtime file, `handbook.py`, and
-changes no check, build or receipt. Its tests are in `tests/test_guide_3_0_1.py`; each of the
+changes no check, build or receipt. Its tests are in `tests/test_guide_3_0_1.py` (now in `tests/test_guide.py`); each of the
 behaviour tests failed before the code existed.
 
 | Property | Test |

@@ -294,7 +294,7 @@ what a project had that is now gone is refused by name, with a hint, or, where i
   in one TeX Live container, the portability tests and the reference manuscript's check, on pull requests and on pushes to `main`
   (its job is still called `validate`, the check the ruleset requires). The acceptance workflow for the several-document example and its
   generator are gone: the portability tests cover that example. The Python workflow is unchanged.
-- **Tests:** the 14 tests of the generator went (379 to 365) and 6 new ones make 371; `tests/test_scope_4_1_0.py` pins what is gone and fails against
+- **Tests:** the 14 tests of the generator went (379 to 365) and 6 new ones make 371; `tests/test_scope_4_1_0.py` (now in `tests/test_scope.py`) pins what is gone and fails against
   4.0.0 in every part.
 
 See [the verification record](verification-4.1.0.md).
@@ -319,7 +319,7 @@ keep in mind. This is a breaking release. Nothing of a project's own files is to
   `freshness` and `freshness_error`; `check --json` no longer carries `expensive_checks_executed`; `modules` lists two modules. The GitHub
   outputs `research`, `markdown`, `check_research` and `check_markdown` are gone.
 - **Tests:** about a quarter of the suite described what is gone and went with it (448 to 379 tests); the rest were rewritten
-  where they used a removed profile only to get a project without TeX. `tests/test_scope_4_0_0.py` pins what is gone, and fails
+  where they used a removed profile only to get a project without TeX. `tests/test_scope_4_0_0.py` (now in `tests/test_scope.py`) pins what is gone, and fails
   against 3.7.0 in every part.
 
 See [the verification record](verification-4.0.0.md).
@@ -350,7 +350,7 @@ and nothing else.
 - **The Make names of the template.** The installer no longer lists `build`, `lint` and `check` itself: it reads the targets
   of the template it is about to extend, so a target added to the template is never given a second alias.
 
-Regressions: `tests/test_one_table_each.py` (it also fails if a list of those folders appears again outside `core`). See [the
+Regressions: `tests/test_one_table_each.py` (its tests are now in `tests/test_planner.py`, `tests/test_receipts.py` and `tests/test_installer.py`) (it also fails if a list of those folders appears again outside `core`). See [the
 verification record](verification-3.7.0.md).
 
 ## 3.6.0 — `validation.ignore`: paths the owner declares are never routed to the manuscript build
@@ -371,7 +371,7 @@ full manuscript build with no way to say otherwise.
 - **Installed projects.** An upgrade replaces the runtime files and touches nothing generated: the Makefile block, the
   workflow and the editor files are byte-identical to 3.5.0's.
 
-Regressions: `tests/test_validation_ignore.py`, failing before. See [the verification record](verification-3.6.0.md).
+Regressions: `tests/test_validation_ignore.py` (now in `tests/test_planner.py`), failing before. See [the verification record](verification-3.6.0.md).
 
 ## 3.5.0 — workflow actions are pinned to commits
 
@@ -393,7 +393,7 @@ token in reach. A commit cannot move.
   `.github/dependabot.yml` has Dependabot propose monthly, grouped updates of the pins, reading the tag in the comment.
   Generated workflows do not get a Dependabot file.
 
-Regressions: `tests/test_repairs_3_5_0.py`, failing before. See [the verification record](verification-3.5.0.md).
+Regressions: `tests/test_repairs_3_5_0.py` (now in `tests/test_architecture.py`), failing before. See [the verification record](verification-3.5.0.md).
 
 ## 3.4.1 — LaTeX Workshop's View PDF finds where each document is built
 
@@ -418,7 +418,7 @@ dropped when named documents arrived in 2.7, because one string has to serve sev
 - **Installed projects** with a single document on the default layout, or documents sharing an output folder, gain
   one line in `.vscode/settings.json` on upgrade. The Makefile block and the CI workflow are unchanged.
 
-Regressions: `tests/test_repairs_3_4_1.py`, failing before. See [the verification record](verification-3.4.1.md).
+Regressions: `tests/test_repairs_3_4_1.py` (now in `tests/test_installer.py`), failing before. See [the verification record](verification-3.4.1.md).
 
 ## 3.4.0 — the backends take resolved views and never resolve them (internal)
 
@@ -437,12 +437,12 @@ a parameter called `config` no longer holds either a project configuration or a 
   JSON of the in-progress build, whose shape is unchanged (pinned since 3.3.0).
 - **Function-local imports.** `guide`, `diagnostics`, `handbook`, `make_graph` and `core` are imported at module level
   where they were imported inside functions; only optional modules (`latex`, `research`, `markdown`, `documents`,
-  `output_transaction`) stay lazy. A test in `tests/test_architecture.py` says so.
+  `output_transaction`) stay lazy. A test in `tests/test_architecture.py` (now in `tests/test_architecture.py`) says so.
 - **No change for installed projects.** The generated Makefile block, editor files and CI workflow are byte-identical
   to 3.3.0's. An upgrade updates `.latex-ai/guide.py`, `handbook.py`, `latex.py`, `make_graph.py`, `schema.py` and
   `workbench.py`, and the version.
 
-Tests: three new ones (`tests/test_document_views.py`, `tests/test_architecture.py`); about 30 test lines that passed a
+Tests: three new ones (`tests/test_document_views.py` (now in `tests/test_documents.py`), `tests/test_architecture.py`); about 30 test lines that passed a
 project configuration to a backend function now resolve it first. This closes Phase 2. See
 [the verification record](verification-3.4.0.md).
 
@@ -466,7 +466,7 @@ caller changing a view. This release gives the resolved things a type; the next 
 - **No other change for installed projects.** The generated Makefile block, editor files and CI workflow are
   byte-identical to 3.2.0's. An upgrade updates `.latex-ai/schema.py` and the version.
 
-Tests: `tests/test_document_views.py`. See [the verification record](verification-3.3.0.md).
+Tests: `tests/test_document_views.py` (now in `tests/test_documents.py`). See [the verification record](verification-3.3.0.md).
 
 ## 3.2.0 — the configuration and the documents sit below the runtime (internal)
 
@@ -482,14 +482,14 @@ that only function-local imports kept from failing.
   `documents.py` keeps what needs the LaTeX backend: dependency routing, build states and failed builds. The
   Makefile readers (`MAKEFILES`, `active_makefile`, `makefile_text`) moved from `guide` to `make_graph`;
   `guide` re-exports them.
-- **The layering is tested.** Three tests in `tests/test_architecture.py`: each runtime module imports on its
+- **The layering is tested.** Three tests in `tests/test_architecture.py` (now in `tests/test_architecture.py`): each runtime module imports on its
   own; the static import graph, function-local imports included, has no cycle; `core`, `schema` and
   `make_graph` import only what is below them.
 - **`--document` without LaTeX.** `check --document X` and `bib-check --document X` in a project created without
   LaTeX used to stop with an internal error (`No module named 'documents'`). Moving the configuration into
   `schema.py`, which every project has, already ended that. They now also say how to turn LaTeX on, as
   `build --document X` does, in a project that never had LaTeX and in one that disabled it. Regressions:
-  `tests/test_repairs_3_2_0.py`, failing before.
+  `tests/test_repairs_3_2_0.py` (now in `tests/test_documents.py`), failing before.
 - **No other change for installed projects.** The generated Makefile block, editor files and CI workflow are
   byte-identical to 3.1.0's (the generated-files guard). An upgrade adds `.latex-ai/schema.py` and updates
   `workbench.py`, `core.py`, `guide.py`, `make_graph.py`, `latex.py` and `documents.py`.
@@ -513,7 +513,7 @@ places. It is now written once, in `commands.py`.
   and calls it. The `if/elif` chain is gone, and so is the `globals()` injection of the LaTeX backend
   functions, which are now nine explicit functions of the same names.
 - **No change for installed projects.** The generated Makefile block, editor files and CI workflow
-  are byte-identical to 3.0.4's, which `tests/test_generated_files_guard.py` (added before this
+  are byte-identical to 3.0.4's, which `tests/test_generated_files_guard.py` (now in `tests/test_installer.py`) (added before this
   change, in its own pull request) checks for 13 configurations. Commands, options, output and exit
   statuses are unchanged. An upgrade adds `.latex-ai/commands.py` and updates `workbench.py`,
   `core.py` and `guide.py`.
@@ -523,7 +523,7 @@ places. It is now written once, in `commands.py`.
   in an internal error (`No module named 'documents'`), as it did in 3.0.4; it is recorded as an
   open defect for its own repair.
 
-Tests: `tests/test_commands_registry.py`. See [the verification record](verification-3.1.0.md).
+Tests: `tests/test_commands_registry.py` (now in `tests/test_architecture.py`). See [the verification record](verification-3.1.0.md).
 
 ## 3.0.4 — changes reach the default branch through pull requests
 
@@ -545,7 +545,7 @@ Tests: `tests/test_commands_registry.py`. See [the verification record](verifica
 - Installed projects receive the new policy text and rule files on upgrade. A project whose
   rule files differ from the installed ones gets the usual conflict and keeps its files.
 
-Regressions: `tests/test_repairs_3_0_4.py`, each failing before the change.
+Regressions: `tests/test_repairs_3_0_4.py` (now in `tests/test_agent_rules.py`), each failing before the change.
 
 ## 3.0.3 — actual GNU Make 3.81 parsing of adopted builds
 
@@ -558,7 +558,7 @@ The two `private override` assignments are now guarded by the phased build's
 required `extra-prereqs` feature. The project's `pdf` target and workbench `help`
 and `status` work on 3.81; workbench build/check goals still refuse with the
 GNU Make 4.3 requirement, and `doctor` still reports the missing feature.
-The regression in `tests/test_repairs_3_0_3.py` failed on the actual 3.81 parser
+The regression in `tests/test_repairs_3_0_3.py` (now in `tests/test_installer.py`) failed on the actual 3.81 parser
 before the fix and passes afterwards.
 
 Upgrades change the managed Makefile block for adopted phased builds to add this
@@ -568,7 +568,7 @@ are unchanged. See [the verification record](verification-3.0.3.md).
 ## 3.0.2 — repairs and optimizations from the architecture audit of 3.0.1
 
 Every change answers a finding of [the architecture audit](architecture-audit-3.0.1.md). Each was
-reproduced first, and each has a regression in `tests/test_repairs_3_0_2.py` that failed before the
+reproduced first, and each has a regression in `tests/test_repairs_3_0_2.py` (its tests are now in `tests/test_processes.py`, `tests/test_receipts.py`, `tests/test_diagnostics.py` and others (see [where the tests are](tests-map.md))) that failed before the
 change; see [the verification record](verification-3.0.2.md).
 
 - **Locks are shared by everyone who works in the project.** 3.0.1 moved operation locks to a
@@ -611,7 +611,7 @@ change; see [the verification record](verification-3.0.2.md).
 ## 3.0.1 — repairs from the independent 3.0.0 audit, and a guide
 
 Every defect below was reproduced before it was repaired; each has a regression in
-`tests/test_repairs_3_0_1.py`, and see [the verification record](verification-3.0.1.md). The
+`tests/test_repairs_3_0_1.py` (its tests are now in `tests/test_receipts.py`, `tests/test_installer.py`, `tests/test_planner.py` and others (see [where the tests are](tests-map.md))), and see [the verification record](verification-3.0.1.md). The
 release also adds a guide for people who cannot place the parts of the workbench (the last
 three bullets); it is in this release rather than a later one because it changes no behaviour of
 any check, build or receipt.
@@ -823,7 +823,7 @@ compatibility requirements.
 
 The guide (`make guide`, `make guide-html`) is written once, in `handbook.py`. After changing its
 text or the commands it names, run `make -C workbench handbook` to regenerate `docs/handbook.md` and
-`docs/handbook.html`; `tests/test_guide_3_0_1.py` fails while they differ, and also fails when the
+`docs/handbook.html`; `tests/test_guide_3_0_1.py` (now in `tests/test_guide.py`) fails while they differ, and also fails when the
 guide names a command that no longer exists.
 
 Existing remote CI action versions are preserved in the reference. Release

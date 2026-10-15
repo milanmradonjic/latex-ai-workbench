@@ -3,7 +3,7 @@
 Release 2.7.1 repairs defects found by an independent review of 2.7.0 (commit
 `486e3ed`). Each was reproduced first in a fresh synthetic project with real
 tools, then covered by a regression that failed on 2.7.0
-(`tests/test_document_lifecycle.py`, 14 cases).
+(`tests/test_document_lifecycle.py` (its tests are now in `tests/test_receipts.py`, `tests/test_planner.py`, `tests/test_processes.py` and others (see [where the tests are](tests-map.md))), 14 cases).
 
 ## Hosted evidence for 2.7.0
 

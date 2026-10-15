@@ -5,7 +5,7 @@ This records the command-registry release (Phase 1 of [the plan after 3.0.2](pla
 TeX Live with latexmk 4.88). The hosted results for the pull request head follow the local ones.
 
 This is a refactor, not a repair, so the safety net is the generated-files guard
-(`tests/test_generated_files_guard.py`), which was merged on its own before this change: 13 configurations, 46
+(`tests/test_generated_files_guard.py` (now in `tests/test_installer.py`)), which was merged on its own before this change: 13 configurations, 46
 stored copies of the Makefile block, editor files and CI workflow.
 
 | Check | Result |
@@ -13,7 +13,7 @@ stored copies of the Makefile block, editor files and CI workflow.
 | The guard, after each step (`guide`, then `adapters`, then `runtime`, then the version bump) | Passes; no stored copy was regenerated or edited |
 | Old `guide.COMMANDS` (read from `HEAD`) against the commands derived from the registry, by a one-off script | 28 rows identical in every field and in order; the `--document` actions, module requirements, document-view actions, native-JSON actions, standalone actions, recipe `--document` set and help hint sets all equal the six tables they replace |
 | Old runtime (`HEAD`) against the new one, installed into identical projects, every action but `build-shell` in 5 argument variants (none, `--json`, `--document paper`, `manuscript`, `nope`) on 5 projects (core, writing, research-paper, markdown, no configuration), comparing exit status, stdout and stderr | 725 invocations: 698 identical. The 27 differences: 12 are `check` / `bib-check --document X` in projects without LaTeX, an internal error in both runtimes that differs only in the path of the kept traceback; 10 are timestamps in `issue` report names; 5 are `status --json` listing the new `.latex-ai/commands.py` as unmodified |
-| `tests/test_commands_registry.py` | 7 tests pass: one handler per action and none left over, `dispatch` has no `elif` and never compares `args.action`, the parser offers exactly the registered actions, the flags of each action agree, JSON-native set, every runtime carries `commands.py`. Not run against 3.0.4, where `commands.py` did not exist |
+| `tests/test_commands_registry.py` (now in `tests/test_architecture.py`) | 7 tests pass: one handler per action and none left over, `dispatch` has no `elif` and never compares `args.action`, the parser offers exactly the registered actions, the flags of each action agree, JSON-native set, every runtime carries `commands.py`. Not run against 3.0.4, where `commands.py` did not exist |
 | `make -C workbench test` | 378 passed, 1 skipped (`test_a10_zombie_owner_is_not_running` needs `/proc`, which macOS lacks). The compiler tests and the real-GNU-Make-3.81 test ran. No existing test was edited |
 | `make -C workbench portability` | 87 of 87 |
 | `latex-ai-init upgrade ..` in the reference | `.latex-ai/workbench.py`, `core.py` and `guide.py` updated, `commands.py` created, `installation.json` refreshed; `audit` reports it current |

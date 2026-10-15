@@ -5,7 +5,7 @@ Tested on 2026-10-14 on Linux (x86_64, GNU Make 4.3, Python 3.13.16 and 3.12.13;
 
 | Check | Result |
 |---|---|
-| `tests/test_scope_4_4_1.py` against 4.4.0 | 4 of its 5 tests fail: `runtime_files` does not exist (three sub-failures, one per configuration); `diff` renders twice (`2 != 1`); `runtime` reaches into the template rendering (internal error 70 where 0 is expected); the schema says "Workbench 3". The fifth pins what must not change (a missing and a changed runtime file are each reported once, with the count) and passes on both |
+| `tests/test_scope_4_4_1.py` (now in `tests/test_installer.py`) against 4.4.0 | 4 of its 5 tests fail: `runtime_files` does not exist (three sub-failures, one per configuration); `diff` renders twice (`2 != 1`); `runtime` reaches into the template rendering (internal error 70 where 0 is expected); the schema says "Workbench 3". The fifth pins what must not change (a missing and a changed runtime file are each reported once, with the count) and passes on both |
 | The same after the change | All 5 pass, on 3.13.16 and 3.12.13 |
 | Five mutations | Each is caught by the test named for it: `runtime_files` dropping its last file; `diff` rendering a second time; `runtime` rendering every project file again; `diff` no longer reporting a missing runtime file; the schema saying Workbench 3 again. The first run missed the first one (see below) |
 | `make -C workbench test` | 356 tests (351 before, 5 new), 16 skipped (they need TeX), OK on 3.13.16 and on 3.12.13 |

@@ -154,7 +154,7 @@ or fold it into the next release.
 **Step 1 done — 2026-10-12, workbench 3.2.0, landing commit `49942a4` (PR #7).**
 The configuration schema, its validation and the declared documents moved into `schema.py`, directly above `core`
 (named `schema`, not `config`, because `config` is a parameter name in nearly every function). The static import graph,
-function-local imports included, has no cycle, three tests in `test_architecture.py` keep it so, and `core` imports only
+function-local imports included, has no cycle, three tests in `test_architecture.py` (now in `tests/test_architecture.py`) keep it so, and `core` imports only
 `processes`. The same pull request carried the `--document` message for a project without LaTeX (the first open item
 under Phase 1). See [verification-3.2.0.md](verification-3.2.0.md#hosted-verification) for the hosted CI results.
 **Step 2 done — 2026-10-12**, in two pull requests. Workbench 3.3.0, landing commit `6c36ff8` (PR #10):
