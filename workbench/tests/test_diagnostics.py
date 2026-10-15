@@ -280,7 +280,7 @@ class ModuleTests(unittest.TestCase):
                 self.assertEqual(json.loads((self.project / boot.STATE).read_text())["version"], core.VERSION)
 
     def test_doctor_reports_the_interpreter_that_runs_it(self):
-        self.assertEqual(self.cli('init'), 0)
+        self.assertEqual(self.cli('init', lint=False, build_command=[sys.executable, '-c', 'pass']), 0)
         report = self.command("doctor").stdout
         self.assertIn(f"python: {sys.executable}", report)
         self.assertNotIn("python3:", report)  # the PATH lookup could name a different interpreter
@@ -338,7 +338,7 @@ class Doctor(ProjectCase):
 
     def setUp(self):
         super().setUp()
-        self.install('init', editor=False)
+        self.install('init', editor=False, lint=False, build_command=[sys.executable, '-c', 'pass'])
 
     def doctor(self, *args, template=None, expected=0):
         env = {**self.env, **({"LATEX_AI_TEMPLATE": str(template)} if template else {})}
@@ -349,6 +349,14 @@ class Doctor(ProjectCase):
         record = json.loads(path.read_text())
         change(record)
         path.write_text(json.dumps(record))
+
+    def test_metadata_diagnostics_need_only_the_declared_tools(self):
+        tools = self.root / "metadata-tools"
+        tools.mkdir()
+        (tools / "make").symlink_to(shutil.which("make"))
+        result = self.command("doctor", env={**self.env, "PATH": str(tools)})
+        self.assertIn("All required tools found", result.stdout)
+        self.assertNotIn("pdflatex:", result.stdout)
 
     def test_the_stamp_of_a_project_that_matches_is_reported(self):
         out = self.doctor().stdout
@@ -398,7 +406,7 @@ class Template(ProjectCase):
 
     def setUp(self):
         super().setUp()
-        self.install('init', editor=False)
+        self.install('init', editor=False, lint=False, build_command=[sys.executable, '-c', 'pass'])
 
     def doctor(self, *args, template=None, expected=0):
         env = {**self.env, **({"LATEX_AI_TEMPLATE": str(template)} if template else {})}

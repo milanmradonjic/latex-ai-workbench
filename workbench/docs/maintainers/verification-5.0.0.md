@@ -77,6 +77,30 @@ From `workbench/`: 8 explicit-configuration, 3 multi-document/interface, and 5
 export-safety tests; all 16 passed. It did not repeat the root agent's full suite,
 real-TeX portability, or hosted CI. No further production repair was needed.
 
+## Hosted follow-up: metadata fixtures
+
+The first hosted Python 3.12 run reported 11 failures in metadata-only doctor tests
+([job log](https://github.com/milanmradonjic/latex-ai-workbench/actions/runs/38754684150/job/116490233450)).
+After core-only mode was removed, those fixtures unintentionally selected the
+native TeX toolchain. The hosted runner had no TeX, and doctor correctly reported
+missing tools while still printing the version stamp.
+
+Three fixture declarations now explicitly choose a minimal Python custom builder
+and disable lint. The production runtime and the missing-native-tool checks are
+unchanged. A new regression invokes metadata diagnostics with only Make on PATH;
+it failed before the fixture repair and passed afterward. Local evidence:
+
+- All 27 diagnostics tests passed normally (`/private/tmp/workbench-ci-fixture-after.log`).
+- All 27 passed with only Make/Git/ps/Python on PATH and no TeX
+  (`/private/tmp/workbench-ci-fixture-hermetic.log`).
+- Failing-first evidence: `/private/tmp/workbench-ci-fixture-before.log`.
+- The same single Sol reviewer independently checked the test-only follow-up,
+  found no weakening or actionable issue, and passed the new focused regression.
+  Its command was `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s workbench/tests -p test_diagnostics.py -k metadata_diagnostics`.
+
+The final suite contains 504 tests. Hosted completion remains linked above, so
+recording this follow-up does not falsely claim a pass before the new head runs.
+
 ## Coverage changes
 
 Removed tests covered unsupported operating modes, inference, aliases, old adapter
