@@ -48,7 +48,7 @@ import core
 import diagnostics
 import runtime as rt
 import schema
-from test_support import ProjectCase, fixture_env, isolate_environment, own_targets
+from test_support import ProjectCase, fixture_env, isolate_environment, own_targets, prepare_config
 
 
 SOURCE = "\\documentclass{article}\n\\begin{document}A note.\\end{document}\n"
@@ -75,7 +75,8 @@ class BlindRepairTests(unittest.TestCase):
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return result
 
-    def install(self, *args, expected=0):
+    def install(self, *args, expected=0, **choices):
+        prepare_config(self.project, **choices)
         return self.command(sys.executable, "-B", str(PACKAGE / "latex-ai-init"),
                             *args, expected=expected)
 
@@ -90,7 +91,7 @@ class BlindRepairTests(unittest.TestCase):
         if custom:
             settings["build_command"] = ["latexmk", "-pdf", "-recorder", "-interaction=nonstopmode",
                                          "-halt-on-error", "-outdir=custom/output with spaces", "tex/nested/paper.tex"]
-        config = {"schema_version": 3, "modules": {"latex": {"default_document": "paper", "documents": {"paper": settings}}}}
+        config = {'schema_version': 4, 'default_document': 'paper', 'documents': {'paper': settings}}
         (project / core.CONFIG).write_text(json.dumps(config))
         self.install("init", str(project))
         return config
@@ -98,7 +99,8 @@ class BlindRepairTests(unittest.TestCase):
     def test_foreign_installed_runtime_reports_project_context_not_internal_fault(self):
         notebook = self.project / "notebook"
         notebook.mkdir()
-        self.install("init", str(notebook), "--modules", "")
+        prepare_config(notebook)
+        self.install('init', str(notebook))
         self.fixture()
         script = notebook / ".latex-ai/workbench.py"
         result = self.command(sys.executable, str(script), "status", "--json", expected=1)
@@ -121,7 +123,8 @@ class ModuleTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def cli(self, *args):
+    def cli(self, *args, **choices):
+        prepare_config(self.project, **choices)
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             return boot.main([*args, str(self.project)])
 
@@ -137,7 +140,7 @@ class ModuleTests(unittest.TestCase):
     def example(self):
         """A small LaTeX project with the workbench installed."""
         (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\nExample.\n\\end{document}\n")
-        self.assertEqual(self.cli("init", "--no-lint", "--skip-editor"), 0)
+        self.assertEqual(self.cli('init', lint=False, editor=False), 0)
         return schema.load_config(self.project)
 
     def run_main(self, *arguments):
@@ -146,14 +149,14 @@ class ModuleTests(unittest.TestCase):
             return rt.main(), errors.getvalue()
 
     def test_internal_faults_are_labelled_apart_from_ordinary_errors_and_never_written_into_the_project(self):
-        self.assertEqual(self.cli("init", "--modules", ""), 0)
+        self.assertEqual(self.cli('init'), 0)
         self.addCleanup(shutil.rmtree, diagnostics.fault_dir(self.project), True)
         before = self.snapshot()
         with patch.object(rt, "full_check", side_effect=AttributeError("boom")):
             status, errors = self.run_main("check")
         self.assertEqual(status, 70)
         self.assertIn("INTERNAL ERROR: AttributeError: boom", errors)
-        self.assertIn("make latex-ai-issue", errors)
+        self.assertIn("make issue", errors)
         self.assertEqual(before, self.snapshot())  # the traceback lives in the OS temp directory
         self.assertEqual(diagnostics.recent_faults(self.project)[-1]["error_type"], "AttributeError")
         for expected in (rt.WorkbenchError("bad input"), OSError("disk"), ValueError("json"), SyntaxError("python")):
@@ -186,7 +189,7 @@ class ModuleTests(unittest.TestCase):
         self.assertTrue(all(status in ("unmodified", "managed block", "project-owned") for status in report["installation"]["files"].values()), report["installation"]["files"])
         self.assertEqual(report["installation"]["differing"], [])
         self.assertIn("python", report["tools"])
-        self.assertEqual(report["configuration"]["schema_version"], 3)
+        self.assertEqual(report["configuration"]["schema_version"], 4)
         # A locally edited managed file is exactly what explains an upgrade conflict, so the report names it.
         with (self.project / ".latex-ai/guide.py").open("a") as stream:
             stream.write("\n# local tweak\n")
@@ -216,7 +219,7 @@ class ModuleTests(unittest.TestCase):
         report = self.latest_report()
         self.assertIn("KeyError", report["plan"]["unavailable"])
         self.assertEqual(report["observed_and_expected"], "plan crashed")
-        self.assertEqual(report["configuration"]["schema_version"], 3)  # the rest of the evidence is intact
+        self.assertEqual(report["configuration"]["schema_version"], 4)  # the rest of the evidence is intact
         self.assertEqual(len(report["recent_internal_faults"]), 1)  # and names the fault just seen
 
     def test_issue_report_survives_any_one_section_failing(self):
@@ -229,14 +232,14 @@ class ModuleTests(unittest.TestCase):
                     contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(rt.issue(self.project, args), 0)
             self.assertIn("RuntimeError: boom", json.dumps(self.latest_report()[key]))
-            self.assertEqual(self.latest_report()["configuration"]["schema_version"], 3)
+            self.assertEqual(self.latest_report()["configuration"]["schema_version"], 4)
         with self.subTest(section="configuration"), patch.object(rt, "load_config", side_effect=TypeError("odd")), \
                 contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(rt.issue(self.project, args), 0)
         self.assertEqual(self.latest_report()["configuration_error"], "TypeError: odd")
 
     def test_issue_make_target_takes_free_text_through_the_environment(self):
-        self.assertEqual(self.cli("init", "--modules", ""), 0)
+        self.assertEqual(self.cli('init'), 0)
         hostile = 'observed "quoted"; touch INJECTED; echo "'
         done = subprocess.run(["make", "issue", f"ISSUE_NOTE={hostile}", "ISSUE_COMMAND=make check"], cwd=self.project, capture_output=True, text=True)
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
@@ -244,33 +247,6 @@ class ModuleTests(unittest.TestCase):
         report = json.loads(next((self.project / ".latex-ai/artifacts/issues").glob("report-*.json")).read_text())
         self.assertEqual((report["observed_and_expected"], report["command"]), (hostile, "make check"))
 
-    def test_advertised_report_command_works_where_the_project_has_its_own_issue_target(self):
-        # A project may take over the short `issue` and keep only `latex-ai-issue` for the workbench, so
-        # whatever the guidance tells an agent to run must be the name that always reaches the report.
-        self.assertEqual(self.cli("init", "--modules", ""), 0)
-        own_targets(self.project, "issue", recipe="@touch PROJECT_ISSUE_RAN")
-        template = (boot.PACKAGE / "templates/AGENTS.md").read_text()
-        advertised = re.search(r"`make ([\w-]+) ISSUE_NOTE=", template).group(1)
-        done = subprocess.run(["make", advertised, "ISSUE_NOTE=observed X; expected Y"], cwd=self.project, capture_output=True, text=True)
-        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
-        self.assertFalse((self.project / "PROJECT_ISSUE_RAN").exists(), "the advertised command ran the project's own recipe")
-        reports = list((self.project / ".latex-ai/artifacts/issues").glob("report-*.json"))
-        self.assertEqual(len(reports), 1)
-        self.assertEqual(json.loads(reports[0].read_text())["observed_and_expected"], "observed X; expected Y")
-        subprocess.run(["make", "issue"], cwd=self.project, capture_output=True, text=True, check=True)
-        self.assertTrue((self.project / "PROJECT_ISSUE_RAN").exists())  # and the project's target is still its own
-        # Every place that tells a reader what to run names that same command, never the bare short alias.
-        self.addCleanup(shutil.rmtree, diagnostics.fault_dir(self.project), True)
-        with patch.object(rt, "full_check", side_effect=AttributeError("boom")):
-            status, errors = self.run_main("check")
-        self.assertEqual(status, 70)
-        guidance = {"runtime message": errors, "full policy": template,
-                    "skill": (boot.PACKAGE / "skills/latex-ai-workbench/SKILL.md").read_text()}
-        for name, text in guidance.items():
-            with self.subTest(guidance=name):
-                self.assertIn(f"make {advertised}", text)
-                self.assertNotRegex(text, r"make issue\b")
-        self.assertIn(f"make {advertised}", (boot.PACKAGE / "docs/agents.md").read_text())
 
     def make_result(self, *arguments):
         # Run as the user would in a fresh shell: not as a child of the package's own `make test` (which sets
@@ -286,7 +262,7 @@ class ModuleTests(unittest.TestCase):
         return status, out.getvalue(), errors.getvalue()
 
     def test_a_damaged_installation_record_gets_a_diagnosis_not_the_defect_label(self):
-        self.assertEqual(self.cli("init", "--modules", ""), 0)
+        self.assertEqual(self.cli('init'), 0)
         self.addCleanup(shutil.rmtree, diagnostics.fault_dir(self.project), True)
         for damaged in ("[]", '{"schema_version": 1, "version": "2.0.0", "files": []}',
                         '{"schema_version": 1, "version": 2, "files": {}}', '{"schema_version": 1, "version": "2.0.0", "files": {"Makefile": 5}}'):
@@ -304,7 +280,7 @@ class ModuleTests(unittest.TestCase):
                 self.assertEqual(json.loads((self.project / boot.STATE).read_text())["version"], core.VERSION)
 
     def test_doctor_reports_the_interpreter_that_runs_it(self):
-        self.assertEqual(self.cli("init", "--modules", ""), 0)
+        self.assertEqual(self.cli('init'), 0)
         report = self.command("doctor").stdout
         self.assertIn(f"python: {sys.executable}", report)
         self.assertNotIn("python3:", report)  # the PATH lookup could name a different interpreter
@@ -327,22 +303,21 @@ class ConfigurationAudit(ProjectCase):
         (self.project / 'main.tex').write_text(SOURCE)
         self.configure()
         self.builder()
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
 
-    def test_malformed_bibliography_is_an_input_error_in_either_module_order(self):
+    def test_malformed_bibliography_is_an_input_error_in_either_field_order(self):
         config = json.loads((self.project / core.CONFIG).read_text())
         for value in (None, False, 0, '', [], [{}]):
-            for first in ('latex', 'bibliography'):
-                with self.subTest(value=value, first=first):
-                    modules = {'latex': config['modules']['latex'], 'bibliography': value}
-                    candidate = {**config, 'modules': {first: modules[first], **modules}}
+            for first in (True, False):
+                with self.subTest(value=value, bibliography_first=first):
+                    candidate = {"bibliography": value, **config} if first else {**config, "bibliography": value}
                     (self.project / core.CONFIG).write_text(json.dumps(candidate))
                     result = self.command('check', expected=1)
-                    self.assertIn('bibliography module configuration must be an object', result.stderr)
+                    self.assertIn('bibliography must be an object', result.stderr)
                     self.assertNotIn('INTERNAL ERROR', result.stderr)
 
     def test_doctor_names_a_missing_custom_builder(self):
-        self.edit_config(lambda config: config['modules']['latex']['documents']['paper'].update(build_command=['./missing-builder']))
+        self.edit_config(lambda config: config['documents']['paper'].update(build_command=['./missing-builder']))
         result = self.command('doctor', expected=1)
         self.assertIn('./missing-builder: MISSING', result.stdout)
         self.assertIn('Missing required tools: ./missing-builder', result.stderr)
@@ -363,7 +338,7 @@ class Doctor(ProjectCase):
 
     def setUp(self):
         super().setUp()
-        self.install("init", "--skip-editor", "--modules", "")
+        self.install('init', editor=False)
 
     def doctor(self, *args, template=None, expected=0):
         env = {**self.env, **({"LATEX_AI_TEMPLATE": str(template)} if template else {})}
@@ -411,7 +386,7 @@ class MissingTool(ProjectCase):
 
     def test_the_stamp_is_printed_before_a_missing_tool_stops_the_doctor(self):
         (self.project / "main.tex").write_text("\\documentclass{article}\\begin{document}x\\end{document}\n")
-        self.install("init", "--skip-editor", "--no-lint")
+        self.install('init', editor=False, lint=False)
         result = self.command("doctor", env={**self.env, "PATH": str(self.root / "nothing")}, expected=1)  # no latexmk, no make
         self.assertIn("stamp:", result.stdout)
         self.assertIn("latexmk: MISSING", result.stdout)
@@ -423,7 +398,7 @@ class Template(ProjectCase):
 
     def setUp(self):
         super().setUp()
-        self.install("init", "--skip-editor", "--modules", "")
+        self.install('init', editor=False)
 
     def doctor(self, *args, template=None, expected=0):
         env = {**self.env, **({"LATEX_AI_TEMPLATE": str(template)} if template else {})}
@@ -490,18 +465,19 @@ class WorkbenchTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix="latex-ai-unit-")
         self.project = Path(self.temp.name).resolve()
         (self.project / "paper.tex").write_text(TEX)
+        prepare_config(self.project, root="paper.tex", output_dir=".")
 
     def tearDown(self):
         self.temp.cleanup()
 
     def test_installer_separates_internal_defects_from_ordinary_errors(self):
         errors = io.StringIO()
-        with patch.object(boot, "detect_config", side_effect=KeyError("missing")), contextlib.redirect_stderr(errors), contextlib.redirect_stdout(io.StringIO()):
+        with patch.object(boot, "initial_config", side_effect=KeyError("missing")), contextlib.redirect_stderr(errors), contextlib.redirect_stdout(io.StringIO()):
             status = boot.main(["init", str(self.project)])
         self.assertEqual(status, 70)
         self.assertIn("INTERNAL ERROR: KeyError", errors.getvalue())
         for ordinary in (rt.WorkbenchError("conflict"), OSError("disk"), ValueError("json")):
-            with self.subTest(ordinary=type(ordinary).__name__), patch.object(boot, "detect_config", side_effect=ordinary), \
+            with self.subTest(ordinary=type(ordinary).__name__), patch.object(boot, "initial_config", side_effect=ordinary), \
                     contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(boot.main(["init", str(self.project)]), 2)
 

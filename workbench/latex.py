@@ -12,7 +12,7 @@ import tempfile
 import time
 import processes
 import guide
-from core import BACKENDS, CONFIG, EXPORT_FORMATS, MAKEFILES, OUTPUT_SUFFIXES, WorkbenchError, damaged_text, read_tex, local_path, read_json, run, has_module, atomic_write, path_name, operation_lock, document_paths, input_name, tracked_name, file_identity, input_identity
+from core import BACKENDS, CONFIG, EXPORT_FORMATS, MAKEFILES, OUTPUT_SUFFIXES, WorkbenchError, damaged_text, read_tex, local_path, read_json, run, atomic_write, path_name, operation_lock, document_paths, input_name, tracked_name, file_identity, input_identity
 
 SEPARATOR = "\x1f"
 
@@ -153,7 +153,7 @@ def chktex_warnings(project, config):
     """ChkTeX's findings as records, read from a machine format so that they can be compared with a baseline."""
     root = local_path(project, config["root"])
     if not shutil.which("chktex"):
-        raise WorkbenchError("Required tool not found: chktex", hint="the doctor command (make doctor, or make latex-ai-doctor) lists every tool this project needs")
+        raise WorkbenchError("Required tool not found: chktex", hint="make doctor lists every tool this project needs")
     arguments = [*config.get("lint", {}).get("args", []), root.name]
     print("+ chktex -q " + " ".join(arguments), flush=True)
     fields = SEPARATOR.join(("%f", "%l", "%n", "%m", "%r%s%t")) + "\n"  # file, line, warning number, message, the source line
@@ -197,7 +197,7 @@ def load_baseline(project, config):
 
 def document_command(project, config, action):
     """The Make command that performs an action for this document, spelled as this project names it."""
-    return f"make {guide.command_name(project, action) or 'latex-ai-' + action} DOC={config.name}"
+    return f"make {guide.command_name(project, action) or action} DOC={config.name}"
 
 
 def baseline_command(project, config):
@@ -750,7 +750,7 @@ def perform_build(project, config):
 
 def execute_build(project, config):
     if os.environ.get("LATEX_AI_BUILD_ACTIVE"):
-        raise WorkbenchError("Recursive build_command: do not delegate to make build/check/latex-ai-build")
+        raise WorkbenchError("Recursive build_command: do not delegate to make build, all, check, validate or document-check")
     state = prepare_build(project, config, os.getpid())
     compile_document(project, config, force=not state["reusable"])
     finish_build(project, config, os.getpid())

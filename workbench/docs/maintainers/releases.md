@@ -1,7 +1,27 @@
 # Maintaining a release, and what each release changed
 
-Workbench 4 is the supported development line. Entries for earlier releases are
+Workbench 5 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
+
+## 5.0.0 — explicit LaTeX projects and fixed commands
+
+The [implementation plan](plan-after-4.10.2.md) defines the three reductions;
+[verification](verification-5.0.0.md) records the checks and independent review.
+
+- Schema 4 requires named LaTeX documents and an explicit default. Bibliography
+  checks remain optional within a project; multiple documents and shared output
+  folders remain supported. The module registry and non-LaTeX modes are removed.
+- Installation requires a prepared `.latex-ai.json`. Root, bibliography, and
+  toolchain inference and their selection flags are removed. Preview, conflict
+  refusal, runtime refresh, and optional editor integration remain.
+- Public Make commands have one fixed name. `make build DOC=name` selects a
+  document; bare `make` builds the default; `make all` builds every document.
+  Reserved aliases, generated document-name targets, `document-lint`, and the
+  `modules` command are removed. Help and guidance use this fixed interface.
+- Validation selection, receipts, build/process locks, safe export, lint baselines,
+  and snapshot retention are retained. Snapshots read the new configuration path.
+- No earlier project configuration or command interface is supported. There are
+  no deployed projects to migrate, so no conversion or compatibility layer is included.
 
 ## 4.10.2 — code audit repairs
 
@@ -1100,4 +1120,4 @@ modules explicitly and supports projects without TeX. Schema 1 remains readable;
 choices only; `configure --enable/--disable` changes installed module selection.
 Research files are editable initial seeds retained on upgrade/disable. Optional
 commands, editor and CI adapters follow enabled modules. Read
-[modules and migration](../modules.md) and research commands.
+[modules and migration](https://github.com/milanmradonjic/latex-ai-workbench/blob/9734f587095ba691c00020a4105aadd827294410/workbench/docs/modules.md) and research commands.

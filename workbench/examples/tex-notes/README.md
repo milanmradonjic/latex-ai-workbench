@@ -9,13 +9,13 @@ Copy this directory into a fresh project, then run:
 python3 /path/to/workbench/latex-ai-init init /path/to/project --dry-run --diff
 python3 /path/to/workbench/latex-ai-init init /path/to/project
 cd /path/to/project
-make latex-ai-doctor
+make doctor
 make check
-make latex-ai-document-check DOC=derivation
-make latex-ai-pdf-artifact DOC=derivation
+make document-check DOC=derivation
+make pdf-artifact DOC=derivation
 ```
 
-Setup preserves the included schema-3 configuration. It enables local PDF
+Setup preserves the included schema-4 configuration. It enables local PDF
 export while leaving the editor integration disabled. ChkTeX is required
 by the example's default lint policy.
 

@@ -51,7 +51,7 @@ import latex
 import runtime
 import runtime as rt
 import schema
-from test_support import isolate_environment
+from test_support import isolate_environment, prepare_config
 
 
 REPOSITORY = Path(__file__).resolve().parents[2]
@@ -83,7 +83,7 @@ class ArchitectureTests(unittest.TestCase):
         (p / "main.tex").write_text("\\undefinedcommand")
         (p / "main.pdf").write_bytes(b"%PDF-old")
         (p / "main.log").write_text("old successful log")
-        config = {'schema_version': 3, 'modules': {'latex': {'default_document': 'manuscript', 'documents': {'manuscript': {'root': 'main.tex', 'build_command': [sys.executable, '-c', 'pass'], 'lint': {'enabled': False}, 'output_dir': '.'}}}}}
+        config = {'schema_version': 4, 'default_document': 'manuscript', 'documents': {'manuscript': {'root': 'main.tex', 'build_command': [sys.executable, '-c', 'pass'], 'lint': {'enabled': False}, 'output_dir': '.'}}}
         with contextlib.redirect_stdout(io.StringIO()), self.assertRaisesRegex(core.WorkbenchError, "freshness|rewrit|receipt"):
             rt.full_check(p, config)
 
@@ -92,7 +92,7 @@ class ArchitectureTests(unittest.TestCase):
         (p / "main.tex").write_text("source")
         (p / "builder.py").write_text("from pathlib import Path\nimport sys\nif 'broken' in Path('main.tex').read_text(): sys.exit(1)\n"
                                       "if not Path('main.pdf').exists():\n Path('main.pdf').write_bytes(b'%PDF-' + Path('main.tex').read_bytes())\n Path('main.log').write_text('successful fixture')\n")
-        config = {'schema_version': 3, 'modules': {'latex': {'default_document': 'manuscript', 'documents': {'manuscript': {'root': 'main.tex', 'build_command': [sys.executable, 'builder.py'], 'lint': {'enabled': False}, 'output_dir': '.'}}}}}
+        config = {'schema_version': 4, 'default_document': 'manuscript', 'documents': {'manuscript': {'root': 'main.tex', 'build_command': [sys.executable, 'builder.py'], 'lint': {'enabled': False}, 'output_dir': '.'}}}
         with contextlib.redirect_stdout(io.StringIO()):
             latex.build(p, schema.document_settings(config))
             latex.build(p, schema.document_settings(config))  # a verified incremental no-op is legitimate
@@ -116,18 +116,14 @@ class ArchitectureTests(unittest.TestCase):
             self.assertFalse((p / ".latex-ai/artifacts/unverified/manuscript/main.pdf").exists())
 
     def test_effective_config_keeps_persisted_schema_and_module_defaults(self):
-        persisted = {'schema_version': 3, 'modules': {'latex': {'default_document': 'manuscript', 'documents': {'manuscript': {'root': 'main.tex', 'engine': 'pdflatex', 'output_dir': '.'}}}}}
+        persisted = {'schema_version': 4, 'default_document': 'manuscript', 'documents': {'manuscript': {'root': 'main.tex', 'engine': 'pdflatex', 'output_dir': '.'}}}
         before = json.dumps(persisted)
         effective = core.effective_config(persisted)
-        self.assertEqual(effective["schema_version"], 3)
+        self.assertEqual(effective["schema_version"], 4)
         self.assertEqual(effective, core.effective_config(effective))
         self.assertEqual(json.dumps(persisted), before)
         self.assertIn("latex.py", core.runtime_sources(effective))
 
-    def test_bibliography_alias_selects_standalone_validation(self):
-        (self.project / "refs.bib").write_text("@misc{fixture, title={Synthetic fixture}}")
-        config = {'schema_version': 3, 'modules': {'bibliography': {'files': ['./refs.bib']}}}
-        self.assertTrue(rt.validation_plan(self.project, config, ["refs.bib"])["bibliography"])
 
     def test_reference_matches_distribution(self):
         reference = boot.PACKAGE.parent
@@ -147,7 +143,7 @@ class ArchitectureTests(unittest.TestCase):
         p = self.project
         source = p / "main.tex"
         source.write_text("\\documentclass{article}\n\\begin{document}Fixture\\end{document}\n")
-        config = {'schema_version': 3, 'modules': {'latex': {'default_document': 'manuscript', 'documents': {'manuscript': {'root': 'main.tex', 'build_command': ['latexmk', '-pdf', '-recorder', '-interaction=nonstopmode', '-halt-on-error', 'main.tex'], 'lint': {'enabled': False}, 'output_dir': '.'}}}}}
+        config = {'schema_version': 4, 'default_document': 'manuscript', 'documents': {'manuscript': {'root': 'main.tex', 'build_command': ['latexmk', '-pdf', '-recorder', '-interaction=nonstopmode', '-halt-on-error', 'main.tex'], 'lint': {'enabled': False}, 'output_dir': '.'}}}
         with contextlib.redirect_stdout(io.StringIO()):
             latex.build(p, schema.document_settings(config))
             latex.build(p, schema.document_settings(config))
@@ -161,7 +157,7 @@ class ArchitectureTests(unittest.TestCase):
     def test_explicit_build_inputs_are_not_hidden_by_generated_suffixes(self):
         (self.project / "main.tex").write_text("source")
         (self.project / "data.log").write_text("one")
-        config = {'schema_version': 3, 'modules': {'latex': {'default_document': 'manuscript', 'documents': {'manuscript': {'root': 'main.tex', 'output_dir': '.'}}}}, 'validation': {'manuscript_inputs': ['data.log']}}
+        config = {'schema_version': 4, 'default_document': 'manuscript', 'documents': {'manuscript': {'root': 'main.tex', 'output_dir': '.'}}, 'validation': {'manuscript_inputs': ['data.log']}}
         before = latex.build_inputs(self.project, schema.document_settings(config))
         (self.project / "data.log").write_text("two")
         self.assertNotEqual(before, latex.build_inputs(self.project, schema.document_settings(config)))
@@ -231,20 +227,6 @@ class ImportLayering(unittest.TestCase):
         edges = {m: {o: lines for o, lines in self.graph[m].items() if o in group} for group in cycles for m in group}
         self.assertEqual(cycles, [], f"import cycle among {cycles}; edges (module: imported: lines) {edges}")
 
-    def test_function_local_imports_name_only_modules_that_not_every_project_has(self):
-        """A lazy import of a module every project installs dodges nothing now that the graph has no cycle; one of
-        an optional module (latex, documents, output_transaction) is how an absent module stays absent."""
-        always = {name[:-3] for name in core.runtime_sources({"schema_version": 3, "modules": {}}) if name.endswith(".py")}
-        offenders = []
-        for module in self.modules:
-            tree = ast.parse((self.package / f"{module}.py").read_text(encoding="utf-8"))
-            top = {id(node) for node in tree.body}
-            for node in ast.walk(tree):
-                if id(node) in top or not isinstance(node, (ast.Import, ast.ImportFrom)):
-                    continue
-                names = [alias.name for alias in node.names] if isinstance(node, ast.Import) else [node.module] if node.level == 0 and node.module else []
-                offenders += [f"{module}.py:{node.lineno} imports {name} inside a function" for name in names if name.split(".")[0] in always]
-        self.assertEqual(offenders, [])
 
     def test_core_and_schema_sit_at_the_bottom(self):
         """core imports only processes; schema, the validated configuration and its documents, only core and the command registry,
@@ -278,18 +260,14 @@ class CommandRegistry(unittest.TestCase):
 
     def test_the_names_shown_to_readers_are_derived_not_restated(self):
         self.assertIs(guide.COMMANDS, commands.COMMANDS)
-        reserved = [command.reserved for command in commands.COMMANDS if command.reserved]
-        self.assertEqual(len(reserved), len(set(reserved)))
         shorts = [command.short for command in commands.COMMANDS]
         self.assertEqual(len(shorts), len(set(shorts)))
 
     def test_the_flags_of_an_action_agree_with_each_other(self):
         for action in commands.ACTIONS:
             with self.subTest(action=action.name):
-                if action.standalone:
-                    self.assertIsNone(action.module, "a standalone action reads no configuration, so it cannot require a module")
                 if action.view:
-                    self.assertEqual(action.module, "latex", "only a LaTeX document has a view of the configuration")
+                    self.assertTrue(action.document)
                 for target in action.targets:
                     self.assertIn(target.selects, commands.RECIPE_ARGUMENTS)
                     if target.selects == "document":
@@ -298,66 +276,13 @@ class CommandRegistry(unittest.TestCase):
                         self.assertEqual(target.usage.split("=")[0], {"document": "DOC", "task": "TASK"}[target.selects])
 
     def test_json_output_is_native_only_where_the_commands_always_printed_their_own(self):
-        self.assertEqual({action.name for action in commands.ACTIONS if action.native_json}, {"plan", "modules"})
+        self.assertEqual({action.name for action in commands.ACTIONS if action.native_json}, {"plan"})
 
     def test_every_installed_runtime_carries_the_registry(self):
         self.assertIn("commands.py", core.RUNTIME_FILES)
         for modules in ({}, {"latex": {"default_document": "paper", "documents": {"paper": {"root": "main.tex"}}}}, {"bibliography": {}}):
             with self.subTest(modules=sorted(modules)):
                 self.assertIn("commands.py", core.runtime_sources({"schema_version": 3, "modules": modules}))
-
-
-class ModuleTests(unittest.TestCase):
-    """Origin: tests/test_modules.py."""
-
-    def setUp(self):
-        isolate_environment(self)
-        self.temp = tempfile.TemporaryDirectory(prefix="workbench-modules-")
-        self.project = Path(self.temp.name).resolve()
-
-    def tearDown(self):
-        self.temp.cleanup()
-
-    def cli(self, *args):
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            return boot.main([*args, str(self.project)])
-
-    def command(self, *args, expected=0):
-        result = subprocess.run([sys.executable, "-B", str(self.project / ".latex-ai/workbench.py"), *args],
-                                cwd=self.project, env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}, capture_output=True, text=True)
-        self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
-        return result
-
-    PAPER = "\\documentclass{article}\n\\begin{document}\nx\n\\end{document}\n"
-
-    def fresh_project(self):
-        shutil.rmtree(self.project)
-        self.project.mkdir()
-
-    def test_one_command_table_drives_targets_actions_and_every_name_shown_to_readers(self):
-        reserved = {command.reserved for command in guide.COMMANDS if command.reserved}
-        self.assertEqual({command.action.split()[0] for command in guide.COMMANDS if command.action} - set(rt.ACTIONS), set())
-        self.assertEqual(len(reserved), sum(1 for command in guide.COMMANDS if command.reserved))  # no reserved name twice
-        # Internal targets of adapted Makefiles are the only latex-ai- names outside the table.
-        internal = {"latex-ai-integrity", "latex-ai-core-check", "latex-ai-check-passed"}
-        texts = {"full policy": (boot.PACKAGE / "templates/AGENTS.md").read_text(),
-                 "skill": (boot.PACKAGE / "skills/latex-ai-workbench/SKILL.md").read_text()}
-        texts.update({"docs/" + path.name: path.read_text() for path in sorted((boot.PACKAGE / "docs").glob("*.md"))})
-        texts["README"] = (boot.PACKAGE / "README.md").read_text()
-        for name, text in texts.items():
-            with self.subTest(text=name):
-                self.assertEqual(set(re.findall(r"\bmake (latex-ai-[a-z-]+)", text)) - reserved - internal, set())
-        # The Makefile of every starting set of modules holds exactly the reserved targets they enable.
-        for modules in ("", "latex"):
-            with self.subTest(modules=modules):
-                self.fresh_project()
-                (self.project / "main.tex").write_text(self.PAPER)
-                self.assertEqual(self.cli("init", "--modules", modules), 0)
-                config = schema.load_config(self.project)
-                targets = guide.make_targets((self.project / "Makefile").read_text())
-                expected = {command.reserved for command in guide.COMMANDS if command.reserved and guide.enabled(command, config)}
-                self.assertEqual({name for name in targets if name.startswith("latex-ai-")} - internal, expected)
-                self.assertEqual({command.short for command in guide.COMMANDS if command.reserved and guide.enabled(command, config)} - targets, set())  # and every alias
 
 
 class PinnedActions(unittest.TestCase):

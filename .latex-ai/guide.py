@@ -1,25 +1,16 @@
 """Orientation commands: ``help`` lists what this project can do, ``status`` says where it stands.
 
-Both are read-only: nothing is built, run, written or changed in Git. What they list comes from
-the project's own Makefile and configuration, so a command that is not installed is never offered.
-This module is also the one place that knows how a workbench command is named in a given Makefile.
+Both are read-only. Commands come from the fixed registry; configured documents and paths personalize the output.
+The small Make reader is retained only for conservative validation of projects with custom check rules.
 """
 import re
 from pathlib import Path
 
 from commands import COMMANDS  # the registry derives every name shown to readers
-from core import MAKEFILES, MODULES, VERSION, WorkbenchError, document_paths, has_module
+from core import MAKEFILES, VERSION, WorkbenchError, document_paths
 from schema import STATES, specifications
 
 
-def enabled(command, config):
-    """Whether this configuration turns the command on."""
-    return not command.needs or any(has_module(config, name) for name in command.needs)
-
-
-PURPOSE = {
-    "latex": "build and check a LaTeX manuscript", "bibliography": "check bibliography files and keys",
-}
 CHECKED = ("files", "policy", "unit", "portability", "manuscript", "bibliography")
 
 
@@ -49,16 +40,6 @@ def makefile_text(project):
         return ""
 
 
-def make_targets(text):
-    """The targets a Makefile text names on rule lines. Nothing is expanded or included."""
-    return {name for match in RULE.finditer(text) for name in match.group(1).split()}
-
-
-def old_adapter(project):
-    """Whether the Makefile still carries the build adapter of Workbench 4.3 and before, which this release cannot run."""
-    return "latex-ai-build-prepare" in makefile_text(project)
-
-
 def project_check_rule(project):
     """Whether the Makefile gives ``check`` anything beyond what the installer wrote: prerequisites, an inline recipe, a recipe
     other than the workbench's own, a second rule that adds any of those, or an include or eval that might define one. ``validate`` then runs
@@ -83,32 +64,13 @@ def project_check_rule(project):
     return False
 
 
-def usable_name(text, short, reserved, targets=None):
-    """The Make name that reaches the workbench command, or None when this Makefile lacks it."""
-    targets = make_targets(text) if targets is None else targets
-    if reserved is None:
-        return short if short in targets else None
-    if reserved not in targets:
-        return None  # a bare `short` here would not be ours
-    return short if re.search(rf"^{re.escape(short)}\s*:\s*{re.escape(reserved)}\s*$", text, re.M) else reserved
-
-
 def available(project, config=None):
-    """Each command's usable Make name here (None when it is not available)."""
-    text = makefile_text(project)
-    targets = make_targets(text)
-    return {command.short: None if config is not None and not enabled(command, config)
-            else usable_name(text, command.short, command.reserved, targets) for command in COMMANDS}
+    """The supported template has one fixed name for each public command."""
+    return {command.short: command.short for command in COMMANDS}
 
 
 def command_name(project, short):
-    """The Make name of one command in this project, or None when its Makefile lacks it."""
-    reserved = next(command.reserved for command in COMMANDS if command.short == short)
-    return usable_name(makefile_text(project), short, reserved)
-
-
-def enabled_modules(config):
-    return [name for name in MODULES if config is not None and has_module(config, name)]
+    return short if short in {command.short for command in COMMANDS} else None
 
 
 def installer(arguments):
@@ -117,62 +79,25 @@ def installer(arguments):
     return f"python3 /path/to/workbench/latex-ai-init {arguments}"
 
 
-ENABLE = 'add it to "modules" in .latex-ai.json (docs/modules.md in the workbench package says how)'
-
-
-def module_disabled(config, name):
-    return WorkbenchError(f"Module is disabled: {name}", hint="to turn it on, " + ENABLE)
-
-
-def document_targets(project, config):
-    """What to type to build one document: its own Make target where the Makefile has one, else the long way."""
-    text = makefile_text(project)
-    documents = specifications(config)
-    # A matching name alone may be cleanup, another workbench command, or a project-owned recipe.
-    own = [document.name for document in documents if re.search(
-        rf"^{re.escape(document.name)}:\n\t@\$\(PYTHON\) \.latex-ai/workbench\.py build --document {re.escape(document.name)}\s*$", text, re.M)]
-    other = [document.name for document in documents if document.name not in own]
-    build = command_name(project, "build") or "latex-ai-build"
-    sentences = []
-    if own:
-        sentences.append(", ".join(f"make {name}" for name in own) + ": each builds that document.")
-    if own or len(documents) > 1:
-        sentences += [f"{name} has no target of its own: make {build} DOC={name}" for name in other]
-    return sentences
-
-
 def help_text(project, config, problem):
-    names = available(project, config)
-    enabled = enabled_modules(config)
-    lines = [f"LaTeX AI Workbench {VERSION}: commands for this project" + (f" (enabled: {', '.join(enabled)})" if enabled else "")]
+    lines = [f"LaTeX AI Workbench {VERSION}: commands for this project", "",
+             "Start here: make status, then make guide (a short manual)"]
     if problem:
-        lines += ["", f"Configuration problem: {problem[0]}",
-                  f"  To fix it: {problem[1]}", "  Until then only help, status, the guide and the issue report work."]
-    start = [f"make {names[short]}{extra}" for short, extra in (("status", ""), ("guide", " (a short manual)")) if names[short]]
-    if start:
-        lines[1:1] = ["", "Start here: " + ", then ".join(start)]
-    groups = {}  # a group is listed once, where its first command is
+        lines += ["", f"Configuration problem: {problem[0]}", f"  To fix it: {problem[1]}"]
+    groups = {}
     for command in COMMANDS:
-        if names[command.short]:
-            groups.setdefault(command.group, []).append(command)
-    for title, commands in groups.items():
+        groups.setdefault(command.group, []).append(command)
+    for title, entries in groups.items():
         lines += ["", title]
-        for command in commands:
-            short = command.short
-            usage = command.usage if config or not command.usage.startswith("DOC") else ""
-            line = f"make {names[short]}" + (f" {usage}" if usage else "")
-            lines.append(f"  {line:<34}{command.description}")
-    disabled = [name for name in MODULES if name not in enabled and config is not None]
-    if disabled:
-        lines += ["", "Not enabled here: " + "; ".join(f"{name} ({PURPOSE[name]})" for name in disabled),
-                  "  To turn one on, " + ENABLE + "."]
-    if config and has_module(config, "latex"):
+        for command in entries:
+            usage = f" {command.usage}" if command.usage else ""
+            lines.append(f"  {'make ' + command.short + usage:<34}{command.description}")
+    if config:
         lines += ["", "Documents: " + ", ".join(document.name + (" (default)" if document.default else "") for document in specifications(config)),
-                  "  make check checks all documents; build/export without DOC uses the default."]
-        lines += ["  " + sentence for sentence in document_targets(project, config)]
-    lines += ["", "Nothing here changes Git. Written guide: docs/quickstart.md in the workbench package (the folder the installer was run from)."]
-    if names["guide"]:
-        lines.append(f"A short manual for this project: make {names['guide']}")
+                  "  make check checks all documents; build/export without DOC uses the default.",
+                  "  make build DOC=name builds one document; make all builds every document."]
+    lines += ["", "Commands assume the generated Makefile interface. Local overrides are the project's responsibility.",
+              "Nothing here changes Git. Written guide: docs/quickstart.md in the workbench package; make guide prints the manual."]
     return "\n".join(lines)
 
 
@@ -210,7 +135,7 @@ def manual_text(project, config, problem, documents=None):
     if problem:
         lines += [f"Configuration problem: {problem[0]}", f"  To fix it: {problem[1]}", "  Until then only help, status, this manual and the issue report work.", ""]
     else:
-        lines.append("Modules: " + (", ".join(enabled_modules(config)) or "none (core only)"))
+        lines.append("LaTeX project; make check checks every declared document.")
     if documents:
         lines.append("Documents: " + "; ".join(f"{d['id']} = {d['root']}{' (default)' if d.get('default') else ''}: {STATE_WORDS.get(d['state'], d['state'])}" for d in documents))
     lines += ["", "The everyday loop",
@@ -223,11 +148,10 @@ def manual_text(project, config, problem, documents=None):
         lines += ["", "Before a risky change (an upgrade, a large edit, an agent let loose on the files)",
                   *line("snapshot", "keep a copy of every file, uncommitted ones too, outside the project (needs Git installed; the project need not use it)", 'SNAPSHOT_NOTE="why"'),
                   *line("snapshots", "list the copies, with the commands that restore from one (write a file's path where it says FILE; that overwrites the file)")]
-    if config is not None and has_module(config, "latex"):
+    if config is not None:
         lines += ["", "One document (DOC=NAME; without it, the default document)",
                   *line("build", f"build the PDF (into {pdf_folders(config)})", "DOC=NAME"),
                   *line("all", "build every document, one after another; it stops at the first one that fails"),
-                  *[f"  {sentence}" for sentence in document_targets(project, config)],
                   *line("document-check", "build, check and lint one document", "DOC=NAME"),
                   *line("pdf-artifact", "copy the current PDF to .latex-ai/artifacts/documents/NAME/document.pdf", "DOC=NAME"),
                   *line("lint-baseline", "accept today's ChkTeX style warnings so that only new ones fail; your decision, never for an ERROR", "DOC=NAME"),
@@ -244,10 +168,6 @@ def manual_text(project, config, problem, documents=None):
               "  They do not edit .latex-ai/ (the workbench's own files) or switch a check off to get a green result.",
               "", "More: make " + (names["help"] or "help") + " lists every command.",
               "To update this project, follow docs/upgrading.md in a newer workbench folder (the one you installed from)."]
-    differ = [(short, actual) for short, actual in names.items() if actual and actual != short]
-    if differ:
-        lines += ["", "Names: your Makefile keeps its own target for " + ", ".join(f"`{short}`" for short, _ in differ) +
-                  "; the workbench's commands are " + ", ".join(f"`make {actual}`" for _, actual in differ) + "."]
     return "\n".join(lines)
 
 
@@ -275,14 +195,11 @@ def status_text(project, config, problem, installed, git, plan, plan_error, docu
             lines.append(f"               and {len(changed) - 5} more")
         if changed and installed.get("version_matches"):
             next_steps.append(installer("diff . --diff") + "   (shows what differs from the files that were installed)")
-    if old_adapter(project):
-        row("Makefile", "wraps its build in an adapter that this release no longer has; the build and check fail until the project is migrated")
-        next_steps.insert(0, "migrate the project to the workbench's own Makefile: docs/migrating.md in the workbench package says how")
     if problem:
         row("Config", f"Configuration problem: {problem[0]}")
         next_steps.insert(0, problem[1])
     else:
-        row("Modules", ", ".join(enabled_modules(config)) or "none (core only)")
+        row("Project", "LaTeX; " + str(len(specifications(config))) + " document(s)")
     if git and git.get("branch"):
         row("Git", f"branch {git['branch']} at {git['head']}, {git['uncommitted_files']} uncommitted file(s)")
     else:

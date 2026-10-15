@@ -22,62 +22,16 @@ import diagnostics
 import guide
 import processes
 import snapshot
-from core import CONFIG, GENERATED_TREES, VERSION, MODULES, RUNTIME_FILES, WorkbenchError, atomic_write, damaged_text, environment_root, git_read_env, input_identity, operation_lock, line_buffered, local_path, run, has_module, module_config, path_name, tracked_name, effective_config, module_names, validation_actions, validation_argv, VALIDATION_ACTIONS, CAPTURE_COMMANDS, read_tex
+from core import CONFIG, GENERATED_TREES, VERSION, RUNTIME_FILES, WorkbenchError, atomic_write, damaged_text, environment_root, git_read_env, input_identity, operation_lock, line_buffered, local_path, run, path_name, tracked_name, effective_config, validation_actions, validation_argv, VALIDATION_ACTIONS, CAPTURE_COMMANDS, read_tex
 from schema import document_settings, load_config, required_tools, resolve, specifications
 
 
-# Module-gated backend calls: latex.py is installed only with the latex module, so each is imported when called.
-def output_paths(*args, **kwargs):
-    import latex
-    return latex.output_paths(*args, **kwargs)
-
-
-def source_tree(*args, **kwargs):
-    import latex
-    return latex.source_tree(*args, **kwargs)
-
-
-def tex_without_comments(*args, **kwargs):
-    import latex
-    return latex.tex_without_comments(*args, **kwargs)
-
-
-def bib_keys(*args, **kwargs):
-    import latex
-    return latex.bib_keys(*args, **kwargs)
-
-
-def bibliography_check(*args, **kwargs):
-    import latex
-    return latex.bibliography_check(*args, **kwargs)
-
-
-def lint(*args, **kwargs):
-    import latex
-    return latex.lint(*args, **kwargs)
-
-
-def build(*args, **kwargs):
-    import latex
-    return latex.build(*args, **kwargs)
-
-
-def verify(*args, **kwargs):
-    import latex
-    return latex.verify(*args, **kwargs)
-
-
-def artifact(*args, **kwargs):
-    import latex
-    return latex.artifact(*args, **kwargs)
+from latex import output_paths, source_tree, tex_without_comments, bib_keys, bibliography_check, lint, build, verify, artifact
 
 
 def bibliography_checks(project, config, document=None):
     """Readiness of the shared bibliography and of each document's own declared files (or one document's)."""
     config = effective_config(config)
-    if not has_module(config, "latex"):
-        checked = bibliography_check(project, document_settings(config))
-        return [{"document": None, "files": sorted(path.relative_to(project).as_posix() for path in checked)}]
     rows = []
     for target in ([resolve(config, document)] if document else specifications(config)):
         checked = bibliography_check(project, target.view)
@@ -114,15 +68,8 @@ def document_checks(project, config, names=None):
 
 def full_check(project, config, documents=None):
     config = effective_config(config)
-    results = []
-    if has_module(config, "latex"):
-        results = document_checks(project, config, documents)
-    elif has_module(config, "bibliography"):
-        bibliography_check(project, document_settings(config))
-    # Include all ordinary files for a no-TeX full check; skip generated trees.
-    if not has_module(config, "latex"):
-        file_checks(project, {"paths": project_files(project), "policy": True, "full": True})
-    print("Full check passed: " + (", ".join(name for name in MODULES if has_module(config, name)) or "core files and policy"))
+    results = document_checks(project, config, documents)
+    print("Full check passed: all selected documents")
     return results
 
 
@@ -160,10 +107,6 @@ def project_files(project):
         names.extend((here / n).relative_to(project).as_posix() for n in files if not (here / n).is_symlink())
     return names
 
-
-def require(config, module):
-    if not has_module(config, module):
-        raise guide.module_disabled(config, module)
 
 def git_names(project, *args, env=None):
     """NUL-separated names from a read-only Git query."""
@@ -226,8 +169,6 @@ def why_no_changes(error, base):
 
 
 def manuscript_dependencies(project, config):
-    if not has_module(config, "latex"):
-        return set()
     import latex
     return latex.manuscript_dependencies(project, document_settings(config))
 
@@ -264,16 +205,16 @@ def matches(name, patterns):
 def validation_plan(project, config, paths=None, base=None):
     config = effective_config(config)
     validation = config.get("validation", {})
+    has_bibliography = any(target.view.bibliography["files"] or target.view.bibliography.get("export") for target in specifications(config))
     fallback = None
     if paths is None:
         paths, fallback = changed_files(project, base)
     paths = sorted({tracked_name(project, name) for name in paths})
     dependencies = set()
     from_documents = {}
-    if has_module(config, "latex"):
-        from documents import dependency_index
-        from_documents = dependency_index(project, config, paths)
-        dependencies = set().union(*from_documents.values())
+    from documents import dependency_index
+    from_documents = dependency_index(project, config, paths)
+    dependencies = set().union(*from_documents.values())
     dependency_ids = {input_identity(project, name) for name in dependencies}
     directory = package_dir(project, config)
     package = bool(directory)
@@ -292,10 +233,10 @@ def validation_plan(project, config, paths=None, base=None):
         declared = input_identity(project, name) in dependency_ids or matches(name, validation.get("manuscript_inputs", []))
         ignored = matches(name, validation.get("ignore", []))  # but never what the build reads or the owner declared: those come first
         if control:
-            plan.update(manuscript=has_module(config, "latex"), unit=package, portability=package and has_module(config, "latex"), policy=True, bibliography=has_module(config, "bibliography"))
+            plan.update(manuscript=True, unit=package, portability=package, policy=True, bibliography=has_bibliography)
             reason = "build/configuration: full validation"
         elif declared or (not ignored and suffix in MANUSCRIPT_SUFFIXES):
-            plan["manuscript"] = has_module(config, "latex")
+            plan["manuscript"] = True
             reason = "manuscript input or potential figure"
         elif policy:
             plan["policy"] = True
@@ -304,36 +245,33 @@ def validation_plan(project, config, paths=None, base=None):
             reason = "ignored by validation.ignore: file checks only"
         elif package and name.startswith(directory + "/") and suffix == ".py":
             plan["unit"] = package
-            plan["portability"] |= has_module(config, "latex") and name == f"{directory}/tests/portability.py"
+            plan["portability"] |= name == f"{directory}/tests/portability.py"
             reason = "workbench Python: regression tests"
         elif suffix in DOCUMENT_SUFFIXES or Path(name).name in {".gitignore", "LICENSE"}:
             reason = "ordinary documentation/data/code: file checks; use task-specific tests when relevant"
         else:
-            plan["manuscript"] = has_module(config, "latex")
+            plan["manuscript"] = True
             reason = "unclassified input: conservative manuscript validation"
         plan["reasons"][name] = reason
-    if has_module(config, "bibliography") or has_module(config, "latex"):
-        bib = module_config(config, "bibliography") if has_module(config, "bibliography") else {}
-        names = set(bib.get("files", []))
-        if bib.get("export"):
-            names.add(bib["export"]["path"])
-        if has_module(config, "latex"):
-            for target in specifications(config):  # a document's own declared bibliography files
-                names.update(target.view.get("bibliography", {}).get("files", []))
-        if {path_name(project, name) for name in names} & set(paths):
-            plan["bibliography"] = True
+    bib = config.get("bibliography", {})
+    names = set(bib.get("files", []))
+    if bib.get("export"):
+        names.add(bib["export"]["path"])
+    for target in specifications(config):  # a document's own declared bibliography files
+        names.update(target.view.get("bibliography", {}).get("files", []))
+    if {path_name(project, name) for name in names} & set(paths):
+        plan["bibliography"] = True
     if fallback:
-        plan.update(manuscript=has_module(config, "latex"), unit=package, portability=package and has_module(config, "latex"), policy=True, bibliography=has_module(config, "bibliography"))
+        plan.update(manuscript=True, unit=package, portability=package, policy=True, bibliography=has_bibliography)
     selected_documents = set()
     document_reasons = {}
-    if has_module(config, "latex"):
-        # A document whose last build failed stays selected until it builds, even when its
-        # sources are back to the committed text and nothing appears changed.
-        from documents import failed
-        for name in failed(project, config):
-            plan["manuscript"] = True
-            selected_documents.add(name)
-            document_reasons.setdefault(name, []).append("its last build failed or was interrupted")
+    # A document whose last build failed stays selected until it builds, even when its
+    # sources are back to the committed text and nothing appears changed.
+    from documents import failed
+    for name in failed(project, config):
+        plan["manuscript"] = True
+        selected_documents.add(name)
+        document_reasons.setdefault(name, []).append("its last build failed or was interrupted")
     if plan["manuscript"]:
         identities = {name: {input_identity(project, value) for value in inputs} for name, inputs in from_documents.items()}
         for path in paths:
@@ -423,7 +361,7 @@ def validate_changes(project, plan, files_only=False):
     for action in validation_actions(plan):
         if action == "bibliography":
             bibliography_checks(project, load_config(project))
-        elif action == "full" and has_module(load_config(project), "latex"):
+        elif action == "full" and load_config(project):
             if plan.get("project_check"):
                 # The project's own check rule may run anything; selecting documents would skip it.
                 print("NOTE: this project's Makefile has its own check rule; running make check so that it is not skipped")
@@ -432,7 +370,7 @@ def validate_changes(project, plan, files_only=False):
             results, failures = [], []
             for name in plan.get("documents", []):
                 try:
-                    run(["make", "latex-ai-document-check", "DOC=" + name], project, env)
+                    run(["make", "document-check", "DOC=" + name], project, env)
                 except EXPECTED as error:
                     failures.append(f"{name}: {describe(error)}")
                     results.append({"id": name, "status": "failed", "error": describe(error)})
@@ -461,7 +399,7 @@ def internal_fault(project, error):
         pass  # capturing evidence must never hide the fault
     print(f"INTERNAL ERROR: {type(error).__name__}: {error}", file=sys.stderr)
     print("This looks like a defect in the workbench, not a problem with your files or your work.", file=sys.stderr)
-    print("Do not edit .latex-ai/ or work around the check. Capture a local report with `make latex-ai-issue`", file=sys.stderr)
+    print("Do not edit .latex-ai/ or work around the check. Capture a local report with `make issue`", file=sys.stderr)
     print("(or `python3 .latex-ai/workbench.py issue --note '...'`); nothing is sent anywhere.", file=sys.stderr)
     if path:
         print(f"Traceback kept at {path}", file=sys.stderr)
@@ -517,7 +455,7 @@ def explain(project, args):
     """guide: the short manual, with this project's own documents and command names in it."""
     config, problem = orientation_config(project)
     rows = None
-    if config is not None and has_module(config, "latex"):
+    if config is not None:
         from documents import report
         try:
             rows = report(project, config)
@@ -543,7 +481,7 @@ def orient(project, args):
     args.result = {"configuration": effective_config(config) if config else None, "configuration_error": problem,
                    "installation": installed, "git": git, "validation_plan": plan, "plan_error": plan_error}
     rows = None
-    if config is not None and has_module(config, "latex"):
+    if config is not None:
         from documents import report
         try:
             rows = args.result["documents"] = report(project, config)
@@ -557,10 +495,6 @@ ACTIONS = commands.NAMES  # every action, from the registry
 
 
 def main():
-    if sys.argv[1:2] and sys.argv[1] in commands.REMOVED_ACTIONS:
-        print(f"ERROR: {sys.argv[1]} belongs to the build adapter that Workbench 4.4 no longer has: this project's Makefile still calls it", file=sys.stderr)
-        print("Hint: migrate the project to the workbench's own Makefile; docs/migrating.md in the workbench package says how", file=sys.stderr)
-        return 2
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=ACTIONS)
     parser.add_argument("--document", help="Named LaTeX document; omitted uses the default for document operations")
@@ -572,7 +506,7 @@ def main():
     parser.add_argument("--project", type=Path, default=Path.cwd(), help="Project root (default: current directory); an installed runtime belongs to its own project")
     parser.add_argument("--base", default=os.environ.get("LATEX_AI_BASE"), help="Git revision to compare; default HEAD plus local/untracked changes")
     parser.add_argument("--files", nargs="*", help="Explicit changed paths, including deleted paths")
-    parser.add_argument("--json", action="store_true", help="Print structured results; plan/modules retain their native JSON formats")
+    parser.add_argument("--json", action="store_true", help="Print structured results; plan retains its native JSON format")
     parser.add_argument("--files-only", action="store_true", help="Run lightweight file/policy checks only (a hook or a hosted job can run the rest separately)")
     args = parser.parse_args()
     project = args.project.resolve()
@@ -641,7 +575,6 @@ def do_guide(project, config, persisted, args):
     return explain(project, args)
 
 
-
 def selected_checks(project, config, args):
     """The checks the changed files select, reported as the plan; validate goes on to run them."""
     plan = validation_plan(project, config, args.files, args.base)
@@ -662,7 +595,7 @@ def selected_checks(project, config, args):
             print("NOTE: " + plan["fallback"])
         if os.environ.get("DOC"):
             print(f"NOTE: DOC={os.environ['DOC']} is ignored here: documents are selected from the changed files. "
-                  f"To check one document use make {guide.command_name(project, 'document-check') or 'latex-ai-document-check'} DOC={os.environ['DOC']}")
+                  f"To check one document use make {guide.command_name(project, 'document-check') or 'document-check'} DOC={os.environ['DOC']}")
     return plan
 
 
@@ -672,11 +605,6 @@ def do_plan(project, config, persisted, args):
 
 def do_validate(project, config, persisted, args):
     validate_changes(project, selected_checks(project, config, args), args.files_only)
-
-
-def do_modules(project, config, persisted, args):
-    report = {name: {"enabled": has_module(config, name), "configuration": module_config(config, name) if has_module(config, name) else None} for name in MODULES}
-    print(json.dumps(report, indent=2))
 
 
 def do_documents(project, config, persisted, args):
@@ -693,7 +621,7 @@ def do_document_check(project, config, persisted, args):
 
 def do_check(project, config, persisted, args):
     checked = full_check(project, config, [args.document] if args.document else None)
-    args.result = {"modules": list(module_names(config)), "documents": checked}
+    args.result = {"documents": checked}
 
 
 def do_build(project, config, persisted, args):
@@ -720,8 +648,6 @@ def do_verify(project, config, persisted, args):
 
 
 def do_bib_check(project, config, persisted, args):
-    if not has_module(persisted, "latex"):
-        require(persisted, "bibliography")
     rows = bibliography_checks(project, persisted, args.document or None)
     args.result = {"bibliographies": rows}
     for row in rows:
@@ -761,7 +687,7 @@ def do_doctor(project, config, persisted, args):
         print("All required tools found")
     print("\n".join(diagnostics.version_report(project)))
     print("\n".join(diagnostics.template_report(project, args.template) if args.template else [
-        f"template: not given; to compare with a release, make {guide.command_name(project, 'doctor') or 'latex-ai-doctor'} LATEX_AI_TEMPLATE=/path/to/workbench"]))
+        f"template: not given; to compare with a release, make {guide.command_name(project, 'doctor') or 'doctor'} LATEX_AI_TEMPLATE=/path/to/workbench"]))
     if missing:
         tex = [name for name in missing if name in {"latexmk", "pdflatex", "chktex", "bibtex"}]
         others = [name for name in missing if name not in tex]
@@ -792,9 +718,6 @@ def dispatch(project, args):
             if not (project / CONFIG).is_file():
                 raise missing_config(project)
             persisted = load_config(project)
-            module = action.module or ("latex" if args.document else None)  # --document names a LaTeX document, whatever the action
-            if module:
-                require(persisted, module)
             config = effective_config(persisted)
             if args.document or action.view:
                 target = resolve(config, args.document)

@@ -4,7 +4,7 @@ For people who change or release the workbench itself; users do not need any of 
 
 The records cite local evidence folders (trial transcripts, an adjudication report, smoke projects). On 13 October 2026 they were packed, unchanged, into one archive kept outside the repository, `latex-ai-evidence-3.7.0.tar.gz` (11 MB); the folder names in the records are the top-level folders of that archive. The other scratch folders of the portability and audit runs were deleted.
 
-Workbench 4 is the supported development line. Earlier releases and their
+Workbench 5 is the supported development line. Earlier releases and their
 verification records below are historical, retired from support; they are not
 compatibility targets. Keep that evidence without maintaining old runtime paths.
 
@@ -20,6 +20,8 @@ The repository was recreated on 13 October 2026 from the same tree, with its his
 removed from one record). The first version's pull requests and runs went with it, so pull request numbers here start again at 1; the hosted results of
 4.0.0 to 4.4.0 that ran there are given in the records as plain text.
 
+- [Version 5.0.0 verification](verification-5.0.0.md): explicit configuration, LaTeX-only projects, fixed commands, and retained safety.
+- [Plan after 4.10.2](plan-after-4.10.2.md): LaTeX-only projects, explicit installation, and fixed commands; no migration support.
 - [Plan after 4.4.0](plan-after-4.4.0.md): the remaining reductions in steps, with the owner's gates.
 - [Lessons learned](lessons-learned.md): what building this tool taught, for this project and for others like it.
 - [The minimal scope](minimal-scope.md): what the tool is for, what stays and what goes, decided question by question.

@@ -93,7 +93,7 @@ import output_transaction
 import runtime
 import runtime as rt
 import schema
-from test_support import ProjectCase, fixture_env, isolate_environment
+from test_support import ProjectCase, fixture_env, isolate_environment, prepare_config
 
 
 SOURCE = "\\documentclass{article}\n\\begin{document}Audit fixture.\\end{document}\n"
@@ -125,10 +125,10 @@ COMPILER = (
     "(out/(root.stem+'.log')).write_text('Clean compiler log\\n')\n")
 
 
-OLD_RECURSIVE_GOALS = {"latex-ai-build", "latex-ai-document-check", "latex-ai-validate", "check", "document-check", "validate"}
+OLD_RECURSIVE_GOALS = {"build", "document-check", "validate", "check", "document-check", "validate"}
 
 
-RECURSIVE_GOALS = OLD_RECURSIVE_GOALS | {"build", "latex-ai-build-all"}  # since 4.4 the short `build` is always the workbench's own alias; since 4.6 so is the whole package
+RECURSIVE_GOALS = OLD_RECURSIVE_GOALS | {"build", "all"}  # since 4.4 the short `build` is always the workbench's own alias; since 4.6 so is the whole package
 
 
 GENERATED = "\\documentclass{article}\n\\begin{document}\\input{table}\\end{document}\n"
@@ -175,10 +175,10 @@ def latex_module(document=None, defaults=None):
 
 
 def configuration(document=None, defaults=None, **bibliography):
-    modules = {"latex": latex_module(document, defaults)}
+    config = {"schema_version": 4, **latex_module(document, defaults)}
     if bibliography:
-        modules["bibliography"] = {"files": [], **bibliography}
-    return {"schema_version": 3, "modules": modules}
+        config["bibliography"] = {"files": [], **bibliography}
+    return config
 
 
 SOURCE_4_8_1 = '\\documentclass{article}\n\\begin{document}Fixture.\\end{document}\n'
@@ -221,7 +221,8 @@ class Audit3Repairs(unittest.TestCase):
             self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return result
 
-    def install(self, *args, expected=0):
+    def install(self, *args, expected=0, **choices):
+        prepare_config(self.project, **choices)
         return self.run_command(sys.executable, '-B', str(bootstrap.PACKAGE / 'latex-ai-init'),
                                 *args, str(self.project), expected=expected)
 
@@ -238,12 +239,9 @@ class Audit3Repairs(unittest.TestCase):
             "(out/(root.stem+'.log')).write_text('Clean fixture log\\n')\n")
         for name in ('main.tex', 'note.tex'):
             (self.project / name).write_text(SOURCE)
-        config = {'schema_version': 3, 'modules': {'latex': {
-            'default_document': 'paper', 'defaults': {'lint': {'enabled': False}},
-            'documents': {name: {'root': root, 'build_command': [sys.executable, 'compile.py', root,
-                f'.latex-ai/artifacts/documents/{name}/build']} for name, root in [('paper','main.tex'),('note','note.tex')]}}}}
+        config = {'schema_version': 4, 'default_document': 'paper', 'defaults': {'lint': {'enabled': False}}, 'documents': {name: {'root': root, 'build_command': [sys.executable, 'compile.py', root, f'.latex-ai/artifacts/documents/{name}/build']} for name, root in [('paper', 'main.tex'), ('note', 'note.tex')]}}
         (self.project / core.CONFIG).write_text(json.dumps(config))
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         if makefile is not None:  # the project's own Make text goes after what init wrote
             with (self.project / 'Makefile').open('a') as stream:
                 stream.write('\n' + makefile)
@@ -262,7 +260,7 @@ class Audit3Repairs(unittest.TestCase):
                     path.unlink(missing_ok=True)
                     path.symlink_to(outside)
                     view = {'root':'main.tex', 'engine':'pdflatex', 'lint':{'enabled':False}, 'output_dir':output_dir}
-                    config = {'schema_version': 3, 'modules': {'latex': {'default_document': 'manuscript', 'documents': {'manuscript': view}}}}
+                    config = {'schema_version': 4, 'default_document': 'manuscript', 'documents': {'manuscript': view}}
                     with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(core.WorkbenchError):
                         latex.build(self.project, schema.document_settings(config))
                     self.assertEqual(outside.read_bytes(), b'Keep this outside-project sentinel')
@@ -275,8 +273,7 @@ class Audit3Repairs(unittest.TestCase):
             "import subprocess,sys\n"
             "if sys.stdin.readline().strip()!='approve': raise SystemExit(3)\n"
             "subprocess.run(['pdflatex','-interaction=nonstopmode','-halt-on-error','main.tex'],check=True)\n")
-        self.install('init','--no-lint','--skip-editor',
-                     '--build-command',json.dumps([sys.executable,'compile.py']))
+        self.install('init', lint=False, editor=False, build_command=json.loads(json.dumps([sys.executable, 'compile.py'])))
         self.command('build', input='approve\n')
         self.command('verify')
 
@@ -284,7 +281,7 @@ class Audit3Repairs(unittest.TestCase):
         (self.project / 'main.tex').write_text(SOURCE)
         (self.project / 'main.pdf').write_bytes(b'%PDF-original')
         (self.project / 'main.log').write_text('Original log')
-        config = {'schema_version': 3, 'modules': {'latex': {'default_document': 'manuscript', 'documents': {'manuscript': {'root': 'main.tex', 'engine': 'pdflatex', 'build_command': [sys.executable, '-c', 'pass'], 'output_dir': '.'}}}}}
+        config = {'schema_version': 4, 'default_document': 'manuscript', 'documents': {'manuscript': {'root': 'main.tex', 'engine': 'pdflatex', 'build_command': [sys.executable, '-c', 'pass'], 'output_dir': '.'}}}
         original = shutil.move
         calls = 0
         def fail_second(*args, **kwargs):
@@ -318,7 +315,7 @@ class Audit3Repairs(unittest.TestCase):
     @unittest.skipUnless(TEX, 'real latexmk/pdflatex required')
     def test_a8_current_startup_failure_never_uses_prior_tex_log(self):
         (self.project / 'main.tex').write_text(SOURCE.replace('Audit fixture.','\\OLDMACRO'))
-        self.install('init','--no-lint','--skip-editor')
+        self.install('init', lint=False, editor=False)
         first = self.command('build',expected=1)
         self.assertIn('Undefined control sequence',first.stderr)
         (self.project / 'main.tex').write_text(SOURCE)
@@ -372,7 +369,8 @@ class BlindRepairTests(unittest.TestCase):
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return result
 
-    def install(self, *args, expected=0):
+    def install(self, *args, expected=0, **choices):
+        prepare_config(self.project, **choices)
         return self.command(sys.executable, "-B", str(PACKAGE / "latex-ai-init"),
                             *args, expected=expected)
 
@@ -387,7 +385,7 @@ class BlindRepairTests(unittest.TestCase):
         if custom:
             settings["build_command"] = ["latexmk", "-pdf", "-recorder", "-interaction=nonstopmode",
                                          "-halt-on-error", "-outdir=custom/output with spaces", "tex/nested/paper.tex"]
-        config = {"schema_version": 3, "modules": {"latex": {"default_document": "paper", "documents": {"paper": settings}}}}
+        config = {'schema_version': 4, 'default_document': 'paper', 'documents': {'paper': settings}}
         (project / core.CONFIG).write_text(json.dumps(config))
         self.install("init", str(project))
         return config
@@ -395,7 +393,7 @@ class BlindRepairTests(unittest.TestCase):
     @unittest.skipUnless(TEX_blind_repairs, "real compiler required; fixture lint deliberately disabled")
     def test_first_custom_nested_build_needs_no_retry(self):
         self.fixture()
-        self.command("make", "latex-ai-build")
+        self.command("make", "build")
         self.assertEqual(documents.report(self.project, schema.load_config(self.project))[0]["state"], "current")
 
     @unittest.skipUnless(TEX_blind_repairs, "real compiler required; fixture lint deliberately disabled")
@@ -403,14 +401,14 @@ class BlindRepairTests(unittest.TestCase):
         config = self.fixture(hidden=True)
         # Permit the old first-build retry here so the stale-certification failure
         # is independently demonstrated, rather than hidden by the first-run defect.
-        first = subprocess.run(["make", "latex-ai-build"], cwd=self.project,
+        first = subprocess.run(["make", "build"], cwd=self.project,
                                env=fixture_env(), capture_output=True, text=True, timeout=30)
         if first.returncode:
-            self.command("make", "latex-ai-build")
+            self.command("make", "build")
         (self.project / "hidden.tex").write_text("Changed source.\n")
         result = self.command(sys.executable, ".latex-ai/workbench.py", "verify", "--json", expected=1)
         self.assertEqual(json.loads(result.stdout)["status"], "failed")
-        self.command("make", "latex-ai-pdf-artifact", expected=2)
+        self.command("make", "pdf-artifact", expected=2)
         self.assertEqual(documents.report(self.project, config)[0]["state"], "stale")
 
     @unittest.skipUnless(TEX_blind_repairs, "real compiler required; fixture lint deliberately disabled")
@@ -420,7 +418,7 @@ class BlindRepairTests(unittest.TestCase):
                 with self.subTest(custom=custom, spelling=spelling):
                     project = self.project / str(custom) / spelling
                     config = self.fixture(project, custom, hidden=True)
-                    self.command("make", "latex-ai-build", cwd=project)
+                    self.command("make", "build", cwd=project)
                     view = schema.document_settings(config)
                     name = "hidden.tex" if custom else "tex/nested/hidden.tex"
                     receipt = latex.read_receipt(project, view)
@@ -431,8 +429,8 @@ class BlindRepairTests(unittest.TestCase):
                     self.assertIn(name, documents.dependency_index(project, config)["paper"])
                     (project / name).write_text("Changed hidden source.\n")
                     self.assertEqual(documents.report(project, config)[0]["state"], "stale")
-                    self.command("make", "latex-ai-build", cwd=project)
-                    self.command("make", "latex-ai-pdf-artifact", cwd=project)
+                    self.command("make", "build", cwd=project)
+                    self.command("make", "pdf-artifact", cwd=project)
 
     def test_recorder_pwd_is_authoritative_and_unresolvable_relative_inputs_fail(self):
         nested = self.project / "nested"
@@ -479,7 +477,7 @@ class BlindRepairTests(unittest.TestCase):
 
     def test_discovery_rebuild_still_rejects_input_changes(self):
         config = self.fixture()
-        settings = config["modules"]["latex"]["documents"]["paper"]
+        settings = config["documents"]["paper"]
         settings["output_dir"] = "outputs"
         settings["build_command"] = [sys.executable, "builder.py"]
         (self.project / "hidden.txt").write_text("original")
@@ -493,7 +491,7 @@ class BlindRepairTests(unittest.TestCase):
             "(out/'paper.fls').write_text('PWD '+str(Path.cwd())+'\\nINPUT hidden.txt\\nINPUT tex/nested/paper.tex\\n')\n"
             "if count==2: Path('hidden.txt').write_text('changed during protected rebuild')\n")
         (self.project / core.CONFIG).write_text(json.dumps(config))
-        self.command("make", "latex-ai-build", expected=2)
+        self.command("make", "build", expected=2)
         self.assertEqual((self.project / "count").read_text(), "2")
         self.assertEqual(documents.report(self.project, config)[0]["state"], "failed")
 
@@ -534,7 +532,8 @@ class DocumentLifecycleTests(unittest.TestCase):
                 pass
         self.temp.cleanup()
 
-    def install(self, *arguments, expected=0):
+    def install(self, *arguments, expected=0, **choices):
+        prepare_config(self.project, **choices)
         result = subprocess.run([sys.executable, "-B", str(bootstrap.PACKAGE / "latex-ai-init"),
                                  *arguments, str(self.project)], capture_output=True, text=True)
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
@@ -557,9 +556,8 @@ class DocumentLifecycleTests(unittest.TestCase):
     def make_paper(self, rules, goal="main.pdf"):
         """A paper whose own Make rule owns compilation: init first, then the project's rules after what init wrote."""
         (self.project / "main.tex").write_text(SOURCE_blind_repairs)
-        self.write_config({"schema_version": 3, "modules": {"latex": {"default_document": "manuscript", "documents": {"manuscript": {
-            "root": "main.tex", "engine": "pdflatex", "lint": {"enabled": False}, "build_command": ["make", goal], "output_dir": "."}}}}})
-        self.install("init", "--skip-editor")
+        self.write_config({'schema_version': 4, 'default_document': 'manuscript', 'documents': {'manuscript': {'root': 'main.tex', 'engine': 'pdflatex', 'lint': {'enabled': False}, 'build_command': ['make', goal], 'output_dir': '.'}}})
+        self.install('init', editor=False)
         with (self.project / "Makefile").open("a") as stream:
             stream.write("\n" + rules)
 
@@ -572,12 +570,9 @@ class DocumentLifecycleTests(unittest.TestCase):
             path = self.project / root
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(SOURCE_blind_repairs)
-        config = {"schema_version": 3, "modules": {"latex": {
-            "default_document": "paper", "defaults": {"lint": {"enabled": False}}, "documents": {
-                "paper": {"root": "main.tex", "build_command": [sys.executable, "compile.py", "main.tex", ".latex-ai/artifacts/documents/paper/build"]},
-                "note": {"root": "notes/main.tex", "build_command": [sys.executable, "compile.py", "notes/main.tex", ".latex-ai/artifacts/documents/note/build"]}}}}}
+        config = {'schema_version': 4, 'default_document': 'paper', 'defaults': {'lint': {'enabled': False}}, 'documents': {'paper': {'root': 'main.tex', 'build_command': [sys.executable, 'compile.py', 'main.tex', '.latex-ai/artifacts/documents/paper/build']}, 'note': {'root': 'notes/main.tex', 'build_command': [sys.executable, 'compile.py', 'notes/main.tex', '.latex-ai/artifacts/documents/note/build']}}}
         for name, values in documents.items():
-            config["modules"]["latex"]["documents"][name].update(values)
+            config["documents"][name].update(values)
         (self.project / core.CONFIG).write_text(json.dumps(config))
         return config
 
@@ -660,22 +655,22 @@ class DocumentLifecycleTests(unittest.TestCase):
         config = self.named()
         self.install("init")
         self.command("check")
-        config["modules"]["latex"]["default_document"] = "note"
-        config["modules"]["latex"]["documents"]["paper"]["lint"] = {"args": ["-n8"]}
+        config["default_document"] = "note"
+        config["documents"]["paper"]["lint"] = {"args": ["-n8"]}
         self.write_config(config)
         self.assertEqual(self.states(), {"paper": "current", "note": "current"})
-        config["modules"]["latex"]["documents"]["paper"]["backend"] = "bibtex"
+        config["documents"]["paper"]["backend"] = "bibtex"
         self.write_config(config)
         self.assertEqual(self.states(), {"paper": "stale", "note": "current"})
 
     @unittest.skipUnless(shutil.which("latexmk") and shutil.which("pdflatex"), "real TeX tools required")
     def test_compiler_failure_names_the_tex_error(self):
         (self.project / "main.tex").write_text(SOURCE_blind_repairs)
-        self.install("init", "--no-lint", "--skip-editor")
+        self.install('init', lint=False, editor=False)
         (self.project / "notes").mkdir()
         (self.project / "notes/derivation.tex").write_text("\\documentclass{article}\n\\begin{document}\n\\undefinedfixturemacro\n\\end{document}\n")
         config = json.loads((self.project / core.CONFIG).read_text())
-        config["modules"]["latex"]["documents"]["derivation"] = {"root": "notes/derivation.tex", "lint": {"enabled": False}}
+        config["documents"]["derivation"] = {"root": "notes/derivation.tex", "lint": {"enabled": False}}
         self.write_config(config)
         result = self.command("document-check", "--document", "derivation", expected=1)
         self.assertIn("derivation.tex:3: Undefined control sequence", result.stderr)
@@ -693,7 +688,8 @@ class DocumentTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def install(self, *arguments, expected=0):
+    def install(self, *arguments, expected=0, **choices):
+        prepare_config(self.project, **choices)
         result = subprocess.run([sys.executable, "-B", str(bootstrap.PACKAGE / "latex-ai-init"),
                                  *arguments, str(self.project)], capture_output=True, text=True)
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
@@ -728,10 +724,7 @@ class DocumentTests(unittest.TestCase):
             "out.mkdir(parents=True, exist_ok=True)\n"
             "(out/(root.stem+'.pdf')).write_bytes(b'%PDF-1.4\\n'+root.read_bytes())\n"
             "(out/(root.stem+'.log')).write_text('Clean compiler log\\n')\n")
-        config = {"schema_version": 3, "modules": {"latex": {
-            "default_document": "paper", "defaults": {"lint": {"enabled": False}}, "documents": {
-                "paper": {"root": "main.tex", "build_command": [sys.executable, "compile.py", "main.tex", ".latex-ai/artifacts/documents/paper/build"]},
-                "note": {"root": "notes/main.tex", "build_command": [sys.executable, "compile.py", "notes/main.tex", ".latex-ai/artifacts/documents/note/build"]}}}}}
+        config = {'schema_version': 4, 'default_document': 'paper', 'defaults': {'lint': {'enabled': False}}, 'documents': {'paper': {'root': 'main.tex', 'build_command': [sys.executable, 'compile.py', 'main.tex', '.latex-ai/artifacts/documents/paper/build']}, 'note': {'root': 'notes/main.tex', 'build_command': [sys.executable, 'compile.py', 'notes/main.tex', '.latex-ai/artifacts/documents/note/build']}}}
         (self.project / core.CONFIG).write_text(json.dumps(config))
         return config
 
@@ -739,7 +732,7 @@ class DocumentTests(unittest.TestCase):
         config = self.configuration()
         (self.project / "output").mkdir()
         (self.project / "alias").symlink_to(self.project / "output", target_is_directory=True)
-        targets = config["modules"]["latex"]["documents"]
+        targets = config["documents"]
         targets["paper"]["output_dir"] = "output"
         targets["note"]["output_dir"] = "alias"
         with self.assertRaisesRegex(core.WorkbenchError, "collision"):
@@ -748,7 +741,7 @@ class DocumentTests(unittest.TestCase):
     def test_build_outputs_cannot_overwrite_another_document_export(self):
         config = self.configuration()
         (self.project / "document.tex").write_text("\\documentclass{article}\n")
-        config["modules"]["latex"]["documents"]["note"].update({"root": "document.tex", "output_dir": ".latex-ai/artifacts/documents/paper"})
+        config["documents"]["note"].update({"root": "document.tex", "output_dir": ".latex-ai/artifacts/documents/paper"})
         with self.assertRaisesRegex(core.WorkbenchError, "exported PDF"):
             schema.validate_config(self.project, config)
 
@@ -768,15 +761,15 @@ class DocumentTests(unittest.TestCase):
         self.configuration()
         self.install("init")
         for name in ("paper", "note"):
-            self.make("latex-ai-build", "DOC=" + name)
-            self.make("latex-ai-pdf-artifact", "DOC=" + name)
+            self.make("build", "DOC=" + name)
+            self.make("pdf-artifact", "DOC=" + name)
         directory = self.project / ".latex-ai/artifacts/documents"
         paper = (directory / "paper/build-receipt.json").read_bytes()
         (self.project / "notes/main.tex").write_text("BROKEN\n")
-        self.make("latex-ai-build", "DOC=note", expected=2)
+        self.make("build", "DOC=note", expected=2)
         self.assertEqual(paper, (directory / "paper/build-receipt.json").read_bytes())
-        self.make("latex-ai-pdf-artifact", "DOC=note", expected=2)
-        self.make("latex-ai-pdf-artifact", "DOC=paper")
+        self.make("pdf-artifact", "DOC=note", expected=2)
+        self.make("pdf-artifact", "DOC=paper")
         self.assertTrue((directory / "paper/document.pdf").read_bytes().startswith(b"%PDF-"))
         self.assertFalse((self.project / ".latex-ai/artifacts/manuscript.pdf").exists())
 
@@ -784,7 +777,7 @@ class DocumentTests(unittest.TestCase):
         config = self.configuration()
         self.install("init")
         self.command("check")
-        config["modules"]["latex"]["documents"]["note"]["backend"] = "bibtex"
+        config["documents"]["note"]["backend"] = "bibtex"
         (self.project / core.CONFIG).write_text(json.dumps(config))
         states = {row["id"]: row["state"] for row in json.loads(self.command("documents").stdout)}
         self.assertEqual(states, {"paper": "current", "note": "stale"})
@@ -801,7 +794,7 @@ class DocumentTests(unittest.TestCase):
 
     def test_active_adopted_build_blocks_other_cleanup_and_export(self):
         config = self.configuration()
-        config["modules"]["latex"]["documents"]["note"]["build_command"] = None
+        config["documents"]["note"]["build_command"] = None
         (self.project / core.CONFIG).write_text(json.dumps(config))
         self.install("init")
         with contextlib.redirect_stdout(io.StringIO()):
@@ -816,7 +809,7 @@ class DocumentTests(unittest.TestCase):
         config = self.configuration()
         (self.project / "Makefile").write_text("paper: main.tex # uses $< and 100%\nnote: notes/main.tex\n")
         for name in ("paper", "note"):
-            config["modules"]["latex"]["documents"][name]["build_command"] = ["make", name]
+            config["documents"][name]["build_command"] = ["make", name]
         schema.validate_config(self.project, config)
 
 
@@ -831,7 +824,8 @@ class ModuleTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def cli(self, *args):
+    def cli(self, *args, **choices):
+        prepare_config(self.project, **choices)
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             return boot.main([*args, str(self.project)])
 
@@ -845,7 +839,7 @@ class ModuleTests(unittest.TestCase):
     def test_full_check_builds_before_linting_and_a_lint_failure_says_what_can_be_done(self):
         import latex
         (self.project / "main.tex").write_text(self.PAPER)
-        self.assertEqual(self.cli("init", "--modules", "latex"), 0)
+        self.assertEqual(self.cli('init'), 0)
         config = schema.load_config(self.project)
         order = []
         with patch.object(rt, "build", side_effect=lambda *a: order.append("build")), patch.object(rt, "verify", side_effect=lambda *a: order.append("verify")), \
@@ -865,7 +859,7 @@ class ModuleTests(unittest.TestCase):
     def test_lint_baseline_accepts_recorded_warnings_and_fails_only_on_new_ones(self):
         import latex
         (self.project / "main.tex").write_text(self.PAPER)
-        self.assertEqual(self.cli("init", "--modules", "latex"), 0)
+        self.assertEqual(self.cli('init'), 0)
         config = schema.load_config(self.project)
         baseline = self.project / latex.baseline_path(schema.document_settings(config))
 
@@ -905,13 +899,13 @@ class ModuleTests(unittest.TestCase):
         plan = rt.validation_plan(self.project, config, paths=[".chktex-baseline.json"])
         self.assertTrue(plan["manuscript"])  # changing the baseline is a change to what is checked
         policy = (boot.PACKAGE / "templates/AGENTS.md").read_text()
-        self.assertIn("make latex-ai-lint-baseline", policy)
+        self.assertIn("make lint-baseline", policy)
         self.assertRegex(policy, r"(?s)baseline.*owner")
 
     def test_lint_output_that_cannot_be_read_fails_instead_of_passing(self):
         import latex
         (self.project / "main.tex").write_text(self.PAPER)
-        self.assertEqual(self.cli("init", "--modules", "latex"), 0)
+        self.assertEqual(self.cli('init'), 0)
         config = schema.load_config(self.project)
         for returncode, stdout in ((2, "something this version prints differently\n"), (1, "")):
             done = argparse.Namespace(returncode=returncode, stdout=stdout, stderr="chktex: complaint\n")
@@ -934,29 +928,25 @@ class RecursionGuard(ProjectCase):
         (self.project / "main.tex").write_text("\\documentclass{article}\\begin{document}x\\end{document}\n")
 
     def test_the_goals_that_run_the_build_again_come_from_the_registry(self):
-        self.assertEqual(set(commands.RECURSIVE_GOALS), RECURSIVE_GOALS)
-        names = {name for command in commands.COMMANDS for name in (command.short, command.reserved)}
-        self.assertLessEqual(commands.RECURSIVE_GOALS, names | {"latex-ai-build"})
-        self.assertTrue(all(goal.startswith(commands.RESERVED_PREFIX) or goal in {"build", "check", "validate", "document-check"}
-                            for goal in commands.RECURSIVE_GOALS))
-        self.assertTrue(all(command.reserved.startswith(commands.RESERVED_PREFIX) for command in commands.COMMANDS if command.reserved))
+        self.assertEqual(commands.RECURSIVE_GOALS, {"build", "all", "check", "validate", "document-check"})
+        self.assertLessEqual(commands.RECURSIVE_GOALS, {command.short for command in commands.COMMANDS})
 
     def test_a_build_command_naming_any_of_them_is_refused(self):
-        for goal in sorted(commands.RECURSIVE_GOALS) + ["latex-ai-plan", "latex-ai-anything"]:
+        for goal in sorted(commands.RECURSIVE_GOALS):
             with self.subTest(goal=goal):
                 config = self.configure(documents_={"paper": {"root": "main.tex", "build_command": ["make", goal]}})
                 with self.assertRaisesRegex(schema.WorkbenchError, "Recursive build_command"):
                     schema.validate_config(self.project, config)
 
     def test_the_project_s_own_targets_are_not_refused(self):
-        for goal in ("lint", "paper", "all"):
+        for goal in ("paper", "pdf", "raw-build"):
             with self.subTest(goal=goal):
                 config = self.configure(documents_={"paper": {"root": "main.tex", "build_command": ["make", goal]}})
                 schema.validate_config(self.project, config)
 
     def test_the_closure_check_forbids_the_same_goals(self):
         source = (PACKAGE / "schema.py").read_text(encoding="utf-8")
-        self.assertNotIn('"latex-ai-document-check"', source, "the goals are the registry's, not a second list")
+        self.assertNotIn('"document-check"', source, "the goals are the registry's, not a second list")
         self.assertNotIn('"document-check", "validate"', source)
 
 
@@ -976,7 +966,7 @@ class Repairs(ProjectCase):
                      "if not table.exists() or table.read_text() != text:\n"
                      "    table.write_text(text)\n", inputs=("main.tex", "data.txt", "table.tex"))
         self.configure()
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
 
     def test_generated_input_is_certified_on_the_first_build_and_after_data_changes(self):
         self.generated_project()
@@ -1003,7 +993,7 @@ class Repairs(ProjectCase):
                                                "Sum of data: \\input{table}\n\\includegraphics[width=2cm]{figure.pdf}\n\\end{document}\n")
         self.run_command("pdflatex", "-interaction=nonstopmode", "-jobname=base", "\\documentclass{article}\\begin{document}x\\end{document}")
         self.configure({"paper": {"root": "main.tex", "lint": {"enabled": False}, "backend": "none", "build_command": ["make", "pdf"], "output_dir": "."}})
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         with (self.project / "Makefile").open("a") as stream:  # the project's own rules, after what init wrote
             stream.write(
                 ".PHONY: pdf\npdf: main.pdf\n"
@@ -1026,7 +1016,7 @@ class Repairs(ProjectCase):
         (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\\includegraphics{shared/plot.pdf}\\end{document}\n")
         self.builder(inputs=("main.tex", "shared/plot.txt", "/outside/system.sty"))
         self.configure()
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         return outside
 
     def test_link_leaving_the_project_is_a_tracked_input(self):
@@ -1063,7 +1053,7 @@ class Repairs(ProjectCase):
         (self.project / "refs.bib").write_text("@article{a,title={A}}\n")
         self.builder()
         self.configure()
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         view = schema.document_settings(schema.load_config(self.project))
         self.assertIn("house.bst", latex.manuscript_dependencies(self.project, view, include_receipt=False))
         self.assertIn("house.bst", latex.build_inputs(self.project, view))
@@ -1076,7 +1066,7 @@ class Repairs(ProjectCase):
         (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}Cite.\\bibliographystyle{plain}\\end{document}\n")
         self.builder()
         self.configure()
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         view = schema.document_settings(schema.load_config(self.project))
         self.assertNotIn("plain.bst", latex.build_inputs(self.project, view))
         (self.project / "plain.bst").write_text("% a local style shadows the system one\n")
@@ -1086,7 +1076,7 @@ class Repairs(ProjectCase):
         self.configure()
         (self.project / "main.tex").write_text(SOURCE)
         self.builder()
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         result = self.run_command("make", "check")
         self.assertEqual(result.stdout.count("Citation/reference integrity checks passed"), 1, result.stdout)
 
@@ -1103,7 +1093,7 @@ class Repairs_3_0_2(ProjectCase):
             (self.project / name).write_bytes(b"x" * 1000)
         self.configure()
         self.builder(inputs=inputs)
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
 
     def test_unchanged_inputs_are_hashed_once_per_invocation(self):
         self.built(SOURCE, ("main.tex",), older=("data.bin",))
@@ -1159,7 +1149,8 @@ class ReviewFixes(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def install(self, *arguments, env=None):
+    def install(self, *arguments, env=None, **choices):
+        prepare_config(self.project, **choices)
         return subprocess.run([sys.executable, "-B", str(bootstrap.PACKAGE / "latex-ai-init"),
                                "init", str(self.project), *arguments], env=env, capture_output=True, text=True)
 
@@ -1168,7 +1159,7 @@ class ReviewFixes(unittest.TestCase):
         p = self.project
         source = p / "main.tex"
         source.write_text("\\documentclass{article}\n\\begin{document}Fixture\\end{document}\n")
-        config = {'schema_version': 3, 'modules': {'latex': {'default_document': 'manuscript', 'documents': {'manuscript': {'root': 'main.tex', 'lint': {'enabled': False}, 'output_dir': '.'}}}}, 'integrations': {'ci': {'pdf_artifact': True}}}
+        config = {'schema_version': 4, 'default_document': 'manuscript', 'documents': {'manuscript': {'root': 'main.tex', 'lint': {'enabled': False}, 'output_dir': '.'}}, 'integrations': {'ci': {'pdf_artifact': True}}}
         with contextlib.redirect_stdout(io.StringIO()):
             latex.build(p, schema.document_settings(config))
             latex.build(p, schema.document_settings(config))
@@ -1186,7 +1177,7 @@ class ReviewFixes(unittest.TestCase):
     def test_existing_make_target_and_custom_build_work_together(self):
         p = self.project
         (p / "main.tex").write_text("\\documentclass{article}\n\\begin{document}Fixture\\end{document}\n")
-        result = self.install("--build-command", '["make","pdf"]', "--no-lint", "--skip-editor")
+        result = self.install(build_command=json.loads('["make","pdf"]'), lint=False, editor=False)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         with (p / "Makefile").open("a") as stream:  # the project's own rule goes after what init wrote
             stream.write("\npdf:\n\t@echo compiler >> calls\n\tlatexmk -pdf -recorder -interaction=nonstopmode -halt-on-error main.tex\n")
@@ -1215,8 +1206,7 @@ class Receipts(ProjectCase):
         (self.project / "outputs").mkdir()
         (self.project / "outputs/main.pdf").write_bytes(b"%PDF-fixture\n")
         (self.project / "outputs/main.log").write_text("Clean log\n")
-        (self.project / core.CONFIG).write_text(json.dumps({"schema_version": 3, "modules": {"latex": {"default_document": "paper", "documents": {
-            "paper": {"root": "main.tex", "lint": {"enabled": False}, "output_dir": "outputs", "build_command": ["python3", "builder.py"]}}}}}))
+        (self.project / core.CONFIG).write_text(json.dumps({'schema_version': 4, 'default_document': 'paper', 'documents': {'paper': {'root': 'main.tex', 'lint': {'enabled': False}, 'output_dir': 'outputs', 'build_command': ['python3', 'builder.py']}}}))
         receipt = self.project / ".latex-ai/artifacts/documents/paper/build-receipt.json"
         receipt.parent.mkdir(parents=True)
         receipt.write_text(json.dumps(FROZEN_RECEIPT, indent=2) + "\n")
@@ -1237,7 +1227,7 @@ class ExportSafetyAudit(ProjectCase):
         (self.project / 'main.tex').write_text(SOURCE_4_8_1)
         self.configure()
         self.builder()
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         self.command('build')
         self.destination = self.project / '.latex-ai/artifacts/documents/paper/document.pdf'
 
@@ -1328,7 +1318,7 @@ class AuditRepairs(ProjectCase):
 
     def native(self, source=SOURCE_4_8_1):
         (self.project / 'main.tex').write_text(source)
-        self.install('init', '--no-lint', '--skip-editor')
+        self.install('init', lint=False, editor=False)
         return schema.document_settings(schema.load_config(self.project))
 
     def test_f1_standard_auxiliary_output_links_cannot_escape(self):
@@ -1355,7 +1345,7 @@ class AuditRepairs(ProjectCase):
                     config = self.configure(documents_={
                         'paper': {'root': 'main.tex', 'output_dir': '.'},
                         'notes': {'root': 'notes.tex', 'output_dir': '.'}})
-                    config['modules']['latex']['default_document'] = default
+                    config['default_document'] = default
                     try:
                         with self.assertRaisesRegex(core.WorkbenchError, 'collision|overlap|aliases'):
                             schema.validate_config(self.project, config)
@@ -1375,7 +1365,7 @@ class AuditRepairs(ProjectCase):
         (self.project / 'main.log').hardlink_to(self.project / 'fragment.tex')
         self.configure(documents_={'paper': {'root': 'main.tex', 'output_dir': '.',
             'lint': {'enabled': False}, 'build_command': [sys.executable, '-c', 'raise SystemExit(99)']}})
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         result = self.command('build', expected=1)
         self.assertRegex(result.stderr, 'aliases|overlap|collision')
         self.assertEqual((self.project / 'fragment.tex').read_text(), 'Valuable fragment.\n')
@@ -1389,7 +1379,7 @@ class AuditRepairs(ProjectCase):
         self.configure()
         (self.project / 'outputs').mkdir()
         (self.project / 'outputs/main.idx').hardlink_to(self.project / 'example.idx')
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         result = self.command('build', expected=1)
         self.assertIn('aliases a source input', result.stderr)
         self.assertEqual((self.project / 'example.idx').read_text(), 'Keep the authored listing.\n')
@@ -1398,7 +1388,7 @@ class AuditRepairs(ProjectCase):
         (self.project / 'train.log').write_text('first')
         self.builder(inputs=('main.tex', 'train.log'))
         self.configure()
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         self.command('build')
         self.assertIn('train.log', self.receipt()['inputs'])
         (self.project / 'train.log').write_text('changed')
@@ -1412,7 +1402,7 @@ class AuditRepairs(ProjectCase):
         self.configure()
         (self.project / 'outputs').mkdir()
         (self.project / 'outputs/main.idx').write_text('Keep the authored listing.\n')
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         result = self.command('build', expected=1)
         self.assertIn('aliases a source input', result.stderr)
         self.assertEqual((self.project / 'outputs/main.idx').read_text(), 'Keep the authored listing.\n')
@@ -1424,9 +1414,9 @@ class AuditRepairs(ProjectCase):
         script = self.project / 'outputs/main.log'
         original = (self.project / 'builder.py').read_text()
         script.write_text(original)
-        self.edit_config(lambda data: data['modules']['latex']['documents']['paper'].update(
+        self.edit_config(lambda data: data['documents']['paper'].update(
             build_command=[sys.executable, 'outputs/main.log']))
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         self.assertIn('aliases a source input', self.command('build', expected=1).stderr)
         self.assertEqual(script.read_text(), original)
 
@@ -1434,7 +1424,7 @@ class AuditRepairs(ProjectCase):
         (self.project / 'main.tex').write_text(SOURCE_4_8_1.replace('Fixture.', '\\texttt{outputs/main.log}'))
         self.builder()
         self.configure()
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         self.command('build')
         self.command('build')
         self.assertEqual(self.state(), 'current')
@@ -1442,9 +1432,9 @@ class AuditRepairs(ProjectCase):
     def test_f2_output_command_arguments_are_not_treated_as_source_scripts(self):
         self.builder()
         config = self.configure()
-        config['modules']['latex']['documents']['paper']['build_command'] += ['--output', 'outputs/main.pdf']
+        config['documents']['paper']['build_command'] += ['--output', 'outputs/main.pdf']
         (self.project / core.CONFIG).write_text(json.dumps(config))
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         self.command('build')
         self.command('build')
         self.assertNotIn('outputs/main.pdf', self.receipt()['inputs'])
@@ -1453,7 +1443,7 @@ class AuditRepairs(ProjectCase):
     def test_f2_makefiles_at_an_output_path_are_protected(self):
         self.builder()
         self.configure()
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         original = 'raw:\n\t' + sys.executable + ' builder.py\n'
         for stem, directory in (('main', 'outputs'), ('-paper', '.'), ('-file', '.')):
             (self.project / (stem + '.tex')).write_text(SOURCE_4_8_1)
@@ -1468,7 +1458,7 @@ class AuditRepairs(ProjectCase):
                 with self.subTest(arguments=arguments):
                     script.write_text(original)
                     (self.project / '.latex-ai/artifacts/documents/paper/build-receipt.json').unlink(missing_ok=True)
-                    self.edit_config(lambda data: data['modules']['latex']['documents']['paper'].update(
+                    self.edit_config(lambda data: data['documents']['paper'].update(
                         root=stem + '.tex', output_dir=directory, build_command=['make', *arguments, 'raw']))
                     self.assertIn('aliases a source input', self.command('build', expected=1).stderr)
                     self.assertEqual(script.read_text(), original)
@@ -1477,7 +1467,7 @@ class AuditRepairs(ProjectCase):
         self.builder("Path('outputs').mkdir(exist_ok=True)\nPath('outputs/main.aux').write_text('generated')\n",
                      inputs=('main.tex', 'outputs/main.aux'))
         self.configure()
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         self.command('build')
         self.assertNotIn('outputs/main.aux', self.receipt()['inputs'])
         self.assertEqual(self.state(), 'current')
@@ -1485,13 +1475,13 @@ class AuditRepairs(ProjectCase):
     def test_f2_dash_named_makefile_does_not_turn_an_output_goal_into_source(self):
         self.builder()
         self.configure()
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         (self.project / '-f').write_text('outputs/main.pdf: main.tex builder.py\n\t' + sys.executable + ' builder.py\n')
         for arguments in (['-f', '-f'], ['--file', '-f'], ['--makefile', '-f'],
                           ['-f-f'], ['--file=-f'], ['--makefile=-f']):
             with self.subTest(arguments=arguments):
                 (self.project / '.latex-ai/artifacts/documents/paper/build-receipt.json').unlink(missing_ok=True)
-                self.edit_config(lambda data: data['modules']['latex']['documents']['paper'].update(
+                self.edit_config(lambda data: data['documents']['paper'].update(
                     build_command=['make', *arguments, 'outputs/main.pdf']))
                 self.command('build')
                 self.command('build')
@@ -1502,7 +1492,7 @@ class AuditRepairs(ProjectCase):
     def test_f2_known_script_roles_preserve_dash_named_source_scripts(self):
         self.builder()
         self.configure()
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         (self.project / '-paper.tex').write_text(SOURCE_4_8_1)
         builder = "from pathlib import Path\nPath('-paper.pdf').write_bytes(b'%PDF-fixture')\nPath('-paper.log').write_text('would overwrite the script')\n"
         (self.project / 'builder.py').write_text(builder)
@@ -1519,7 +1509,7 @@ class AuditRepairs(ProjectCase):
                 if not shutil.which(executable, path=self.env['PATH']):
                     self.skipTest(executable + ' required')
                 (self.project / '.latex-ai/artifacts/documents/paper/build-receipt.json').unlink(missing_ok=True)
-                self.edit_config(lambda data: data['modules']['latex']['documents']['paper'].update(
+                self.edit_config(lambda data: data['documents']['paper'].update(
                     root='-paper.tex', output_dir='.', build_command=[executable, *options, '-paper.log']))
                 self.assertIn('aliases a source input', self.command('build', expected=1).stderr)
                 self.assertEqual(script.read_text(), original)
@@ -1576,13 +1566,11 @@ class SimplificationTests(unittest.TestCase):
         self.project = Path(self.directory.name).resolve()
 
     def config(self):
-        return {"schema_version": 3, "modules": {"latex": {
-            "default_document": "paper", "documents": {"paper": {
-                "root": "./main.tex", "lint": {"enabled": False}}}}}}
+        return {'schema_version': 4, 'default_document': 'paper', 'documents': {'paper': {'root': './main.tex', 'lint': {'enabled': False}}}}
 
     def test_old_project_schemas_refuse_installation_without_writes(self):
-        for version in (1, 2):
-            config = {"schema_version": version, "modules": {}}
+        for version in (1, 2, 3):
+            config = {'schema_version': version}
             (self.project / core.CONFIG).write_text(json.dumps(config))
             before = {p.name: p.read_bytes() for p in self.project.iterdir()}
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
@@ -1592,7 +1580,7 @@ class SimplificationTests(unittest.TestCase):
     def test_project_commands_reject_document_selector_without_skipping_checks(self):
         (self.project / "main.tex").write_text("\\documentclass{article}\n")
         (self.project / core.CONFIG).write_text(json.dumps(self.config()))
-        for action in ("plan", "validate", "modules", "doctor", "documents"):
+        for action in ("plan", "validate", "doctor", "documents"):
             with self.subTest(action=action), patch.object(sys, "argv", ["workbench", action, "--document", "paper", "--project", str(self.project)]), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(runtime.main(), 1)
 
@@ -1615,7 +1603,7 @@ class SimplificationTests(unittest.TestCase):
     def test_malformed_receipt_dependencies_are_stale_without_breaking_inspection(self):
         (self.project / "main.tex").write_text("\\documentclass{article}\n")
         config = self.config()
-        config["modules"]["latex"]["documents"]["paper"]["root"] = "main.tex"
+        config["documents"]["paper"]["root"] = "main.tex"
         path = self.project / latex.receipt_path(schema.document_settings(config))
         path.parent.mkdir(parents=True)
         path.write_text(json.dumps({"schema_version": latex.RECEIPT_SCHEMA, "status": "verified",
@@ -1632,11 +1620,13 @@ class WorkbenchTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix="latex-ai-unit-")
         self.project = Path(self.temp.name).resolve()
         (self.project / "paper.tex").write_text(TEX_workbench)
+        prepare_config(self.project, root="paper.tex", output_dir=".")
 
     def tearDown(self):
         self.temp.cleanup()
 
-    def cli(self, *args):
+    def cli(self, *args, **choices):
+        prepare_config(self.project, **{"root": "paper.tex", "output_dir": ".", **choices})
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             return boot.main([*args, str(self.project)])
 
@@ -1667,7 +1657,7 @@ class ReadTheLog(ProjectCase):
         """A project whose stand-in compiler writes this log and exits with this code."""
         (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}x\\end{document}\n")
         self.configure()
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         self.compiler(log, code)
 
     def compiler(self, log, code=0):
@@ -1684,7 +1674,7 @@ class ReadTheLog(ProjectCase):
         """A project built by the default `latexmk`, which here is a stand-in that writes this log and fails."""
         (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}x\\end{document}\n")
         self.configure({"paper": {"root": "main.tex", "lint": {"enabled": False}, "output_dir": "outputs"}})
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         shim = self.root / "bin"
         shim.mkdir()
         (shim / "latexmk").write_text(

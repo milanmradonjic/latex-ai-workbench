@@ -1,6 +1,6 @@
 # Working with AI agents
 
-The workbench gives agents one policy (`AGENTS.md`), prompts before Git mutations, and a way to report a suspected fault in the workbench itself. A short orientation for an agent: `make latex-ai-help` lists the project's commands by the names that work there and `make latex-ai-status` says where it stands and what comes next (`make help` and `make status` are the same commands wherever the project had no targets of those names; the policy names the forms that always reach the workbench).
+The workbench gives agents one policy (`AGENTS.md`), prompts before Git mutations, and a way to report a suspected fault in the workbench itself. A short orientation for an agent: `make help` lists the project's commands by the names that work there and `make status` says where it stands and what comes next (`make help` and `make status` are the same commands wherever the project had no targets of those names; the policy names the forms that always reach the workbench).
 
 ## Writer and reviewer
 
@@ -94,7 +94,7 @@ but exits 2 itself, so the label is the reliable signal); the traceback is kept 
 temp directory, never in the project, so read-only commands stay read-only. (Hand-edited
 configuration was fuzzed so that bad data gives a diagnostic and not this label.)
 
-`make latex-ai-issue ISSUE_NOTE="observed ... expected ..." ISSUE_COMMAND="the command"` (or
+`make issue ISSUE_NOTE="observed ... expected ..." ISSUE_COMMAND="the command"` (or
 `python3 .latex-ai/workbench.py issue --note ...`) writes one local file,
 `.latex-ai/artifacts/issues/report-*.json` (ignored by Git), holding the version, how the
 installed files compare with the record, the configuration, the validation plan,
@@ -104,9 +104,8 @@ section then records the failure and the rest of the report is still written), n
 environment variables, and nothing is sent anywhere: review it and pass it to whoever maintains the workbench. `AGENTS.md` tells agents
 what counts as a suspected defect, to stop trusting that verdict, never to edit `.latex-ai/`
 or weaken a check, to capture a report and tell you; a repair belongs in the distribution,
-with a failing test first and an independent review. The long name is the one the installer
-always provides: a project's own `issue` target is kept, so the short `make issue` is only an
-alias where nothing else uses that name, and the guidance never relies on it.
+with a failing test first and an independent review. The fixed report command is
+`make issue`; a local override of that target is the project's responsibility.
 
 This catches faults that announce themselves. A plausible wrong result that passes every check
 does not, which is why the review of a change matters more than any flag.

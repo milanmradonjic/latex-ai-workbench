@@ -2,14 +2,14 @@
 
 The project keeps its own runtime in `.latex-ai/`. The distribution supplies the
 installer and templates; ordinary checks do not depend on its original location.
-Python and Make provide the core. Optional modules require their own tools.
+Python and Make provide the interface; declared document builds require their configured tools.
 
 ## Four boundaries
 
 1. **Authored work:** TeX, notes, bibliography exports and data belong to the
    project. The installer preserves them.
-2. **Configuration:** `.latex-ai.json` declares enabled modules and named
-   documents. The installer chooses initial settings; nothing applies them again.
+2. **Configuration:** `.latex-ai.json` explicitly declares named LaTeX documents and optional
+   bibliography/editor settings. The installer validates these choices before writing.
 3. **Execution:** Make is the canonical interface. Editor tasks and CI invoke
    those commands. Builds compile documents; planning never builds.
 4. **Evidence:** receipts describe what happened under declared
@@ -32,10 +32,9 @@ and compiler identities from the same process checks used to block competing bui
 ## Daily loop
 
 Use `make status` to see missing, stale, failed, running, or current documents.
-Edit authored files, preview `make latex-ai-plan`, and run `make validate`.
+Edit authored files, preview `make validation-plan`, and run `make validate`.
 Use `make build DOC=name` for explicit compilation and `make check` for all
-documents and enabled checks. If a project already owns a short target name,
-`make latex-ai-help` identifies its reserved Workbench counterpart.
+documents and their checks. Public command names are fixed; document selection uses `DOC=name`.
 
 Included TeX fragments are checked through consuming documents. Independent
 notes have their own root, document ID, receipt, and PDF.

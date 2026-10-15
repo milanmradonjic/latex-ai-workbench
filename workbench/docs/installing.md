@@ -1,50 +1,20 @@
 # Installing and limits
 
-The full reference for putting the workbench into a project. For the short version, start with the [quickstart](quickstart.md).
+Start with [quickstart](quickstart.md). Prepare `.latex-ai.json` before invoking
+`init`; only schema 4 is supported. Every project declares at least one LaTeX
+root and its default document. Bibliography checking and editor integration are
+optional settings within that project. Non-LaTeX and standalone bibliography
+projects are unsupported.
 
-Python 3.10+ and Make are the core requirements. Git is optional: absent Git or
-comparison history yields unavailable metadata and full validation selection.
+## Explicit configuration
 
-`make latex-ai-build` always reaches the workbench's build/receipt wrapper, and the short `build` is an alias of it.
-A build command of the project's own, such as `["make", "pdf"]` for a target it added to the Makefile, runs like any other build
-command; no GNU Make version is required (the 3.81 that macOS ships runs the generated Makefile).
-Custom builders must produce the configured PDF and compiler log, and a no-op
-is accepted only when a matching verified receipt already vouches for them.
-PDF export also requires that receipt; changing inputs or failing a build
-invalidates it. Default latexmk builds regenerate when a current receipt is
-absent, then may reuse unchanged verified outputs on subsequent checks.
-
-## Choosing modules
-
-For a new project let `init` detect a paper, or choose an explicit `--modules` list (`--modules ''` for the file checks and agent rules only).
-The editor adapter is opt-in for modular projects. Read
-[module configuration](modules.md).
-
-Every installation uses schema 3. Older project schemas are refused and never converted.
-The reference uses LaTeX and bibliography.
-
-## Package and installed project
-
-| Layer | Location | Responsibility |
-|---|---|---|
-| Reusable templates | `templates/` | Agent policy, Make, editor, permissions |
-| Create and refresh | `latex-ai-init`, `bootstrap.py` | `init` creates a project (detects the root and bibliography; refuses to touch a file the project has); `diff` shows how a project differs from this release; `runtime` refreshes `.latex-ai/` |
-| Runtime/core | `runtime.py`, `core.py`, `guide.py`, `diagnostics.py` | Vendored to `.latex-ai/`; dispatcher, config and file checks, help/status/guide, local defect reports |
-| Optional backends | `latex.py`, `documents.py` | Installed when LaTeX or bibliography is enabled |
-| Configuration | Project `.latex-ai.json` | Enabled modules, paths, commands, optional adapters; schema 3 only |
-| Installation record | Project `.latex-ai/installation.json` | The release, and a digest of each runtime file so that a local edit shows; keep in version control |
-| Operating skill | `skills/latex-ai-workbench/` | Bootstrap, writing, independent review, updates |
-
-The entire `workbench/` directory is relocatable. Keep it together: the CLI
-needs its sibling templates and backend files. Installed projects need only their
-configuration, runtime, record and project files; builds do not depend on
-the distribution's location. Adding this CLI to a global PATH or installing
-the skill globally is optional and is outside bootstrap's scope.
-
-## New projects
-
-Create a real TeX root yourself or use your institution's manuscript template.
-The workbench never overwrites or generates manuscript content.
+Use [the minimal example](../examples/minimal/.latex-ai.json) or the
+[multiple-document example](../examples/tex-notes/.latex-ai.json). Installation
+validates exactly those declarations. It does not search for roots, add bibliography files to configuration, inspect
+engine hints, or choose a toolchain. Source and recorder dependency tracing still
+protects actual build inputs during checks. Set another compiler through a
+document's `build_command` argv and matching `output_dir` in configuration.
+See [configuration](configuration.md) for all fields and custom-build limits.
 
 ```sh
 python3 /path/to/workbench/latex-ai-init init /path/to/project --dry-run --diff
@@ -53,60 +23,39 @@ make -C /path/to/project doctor
 make -C /path/to/project check
 ```
 
-A single plain root is detected. For multiple roots, select `--root thesis.tex`.
-The workbench builds with pdflatex and BibTeX. `init` reads the source for the signs that a paper needs lualatex, xelatex or biber (a `% !TeX program` comment,
-`\directlua`, `fontspec`, biblatex without `backend=bibtex`) and, finding one, stops before writing anything and prints the `--build-command` to run it again with
-(`latexmk` with the engine's flag). A `--build-command` of your own takes the guard away. Bibliography detection follows literal `\bibliography{...}` inputs; paths
-assembled through macros, and the `\addbibresource` of biblatex (even with `backend=bibtex`), go in `bibliography.files`, with `backend` set to `bibtex` if BibTeX processes them.
+The only init switches are previews (`--dry-run`, `--diff`) and structured output
+(`--json`). Document, bibliography, lint, and editor choices belong in the file.
+Missing/invalid declarations fail before installation writes. The installer never
+creates manuscript content or initializes Git.
 
-## Existing projects
+## Files and conflicts
 
-`init` writes only files that are absent, or already what it would write, and refuses the rest, listing each with `CONFLICT`.
-An existing project is therefore migrated, not adapted to: follow [migrating](migrating.md). Begin with the state of Git and a
-snapshot to return to; setup never discards a dirty file.
+`init` creates absent files and accepts identical files. Any differing destination
+is a `CONFLICT` and no planned installation is applied. Existing Makefiles and editor
+files are not adopted or merged. Choose a fresh directory or resolve conflicts
+explicitly while preserving local content and guardrails. Set `integrations.editor`
+to `false` when editor files should remain wholly project-managed.
 
-```sh
-python3 /path/to/workbench/latex-ai-init init /path/to/project --dry-run
-```
+The generated file is named `Makefile`; an existing `GNUmakefile` or `makefile` is
+also a conflict because Make would read it instead. Workflows are never generated
+or changed. After installing, projects may append their own targets. Public
+workbench targets have fixed names, without aliases or generated document-name
+rules; local overrides are the project's responsibility.
 
-A build that is not `latexmk -pdf` (another engine, biber, a Make target) is declared with its argv, for example:
+## Runtime and refresh
 
-```sh
-python3 /path/to/workbench/latex-ai-init init /path/to/project \
-  --build-command '["make", "pdf"]' --dry-run --diff
-```
+Keep the distribution folder intact for installation. Every project receives the
+same standalone runtime in `.latex-ai/`, plus an installation record containing
+version and file digests. Builds do not need the original distribution location.
+Python 3.10+ and Make are required; Git metadata is optional. No particular GNU
+Make version is required. Editor tasks and CI use the canonical Make interface.
 
-Use the project's actual command, and set `output_dir` if its outputs are elsewhere. Never name `build`, `check` or another goal that
-reaches the workbench: that would call itself. `--dry-run --diff` previews the content; new runtime files under `.latex-ai/` are listed by
-name and size instead of printed, and the summary is printed last.
+An installed project is refused by `init`. `latex-ai-init diff PROJECT --diff`
+compares it with a release without writing; `latex-ai-init runtime PROJECT`
+refreshes runtime files with backups and refuses locally edited files unless
+explicitly forced. See [updating](upgrading.md). No old-schema conversion is provided.
 
-GitHub workflows are never written, and any a project has are left as they are. The Makefile `init` writes is named `Makefile`;
-a `GNUmakefile` or `makefile` would be read instead of it, so either is a conflict.
-[GNU Make filename rules](https://www.gnu.org/software/make/manual/make.html#Makefile-Names).
-
-## After installing, and limitations
-
-`init` is for a new project: it refuses one that already has `.latex-ai/installation.json`. To see how an installed project
-differs from a release run `latex-ai-init diff PROJECT --diff`; to refresh its runtime files, `latex-ai-init runtime PROJECT`.
-[Updating](upgrading.md) is the recipe an agent follows, [configuration](configuration.md) lists the supported fields, and
-[bibliography](bibliography.md) covers Better BibTeX setup.
-
-Exit status: 0 means done, current or a safe dry-run; `diff` returns 1 when a runtime file differs; 2 means ambiguity, conflicts or
-invalid input (an `ERROR:` line, with a `Hint:` where there is a next step); 70 marks an `INTERNAL ERROR`, a defect in the installer
-itself. `diff` and dry-runs make no project writes and never execute project builds.
-
-Every workbench command has a reserved Make name (`latex-ai-doctor`,
-`latex-ai-bib-check`, `latex-ai-help`, ...). The short name (`doctor`,
-`bib-check`, `help`) is an alias of it, unless the template defines that name itself.
-A project that gives a short name a recipe of its own keeps it, and the `latex-ai-` name still reaches the workbench.
-The shared targets are `check`, which runs the workbench's checks and anything the
-project adds to it, and `lint`; `latex-ai-build` establishes the build's receipt.
-
-Literal include/resource detection is conservative. Macro-generated resources,
-custom import layouts, external shared libraries
-or changed job names need explicit declaration in `inputs`.
-Schema 3 supports explicit named roots; see [TeX notes](tex-notes.md). TeX root paths with spaces
-or TeX-special characters are rejected; directories containing ordinary spaces
-are handled through argv. Sources outside the project are not installed or
-modified. Use compiler results and local conventions to resolve uncertain
-discovery rather than accepting guessed settings.
+Exit statuses: 0 is success or a safe preview; `diff` returns 1 for differing runtime
+files; 2 means conflicts or invalid input; 70 means an `INTERNAL ERROR`. Preview and
+diff never execute project builds. Custom scripts and TeX are not sandboxed by
+configuration validation; declare their actual inputs and outputs.

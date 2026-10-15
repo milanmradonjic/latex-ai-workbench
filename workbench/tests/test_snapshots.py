@@ -91,6 +91,48 @@ def stores(base):
     return [path for path in sorted(base.iterdir()) if not path.name.startswith(".")]
 
 
+def numbers(repository):
+    """The numbers of a store's snapshots, newest first."""
+    return [int(ref.rsplit("/", 1)[1]) for ref in git(repository, "for-each-ref", "--sort=-refname", "--format=%(refname)", "refs/snapshots/").decode().split()]
+
+
+EXCLUDED = ("main.aux", "main.log", "main.synctex.gz", "outputs/main.pdf", "outputs/main.fls", ".latex-ai/artifacts/locks/build.lock",
+            ".latex-ai/backups/20260101T000000Z/old.py", "__pycache__/x.pyc", "docs/__pycache__/y.pyc", "node_modules/p/index.js", ".venv/lib/x.py",
+            "env/pyvenv.cfg", "env/lib/x.py", "conda/conda-meta/history", "conda/lib/x.py", "vendor/lib/.git/HEAD", "vendor/lib2/.git", "vendor/lib3/.GIT/config")
+
+
+FILES = {"main.tex": SOURCE, "refs.bib": "@misc{k}\n", "notes/todo.txt": "z", "figure.pdf": "%PDF-1.5", "main.pdf": "%PDF-1.5 beside its source", ".gitignore": "secret.txt\n", "secret.txt": "kept anyway",
+         "a b.tex": "", "é.tex": "", "[x]*.tex": "", "-n.tex": "", ".latex-ai/workbench.py": "# runtime", "crlf.txt": "a\r\nb\r\n", "vendor/lib/x.txt": "a nested repository's file",
+         "scripts/train.log": "", "results/solver.out": "", "data/run.toc": "", "refs.bbl": "", "analysis/notes.aux": "",  # a compiler's suffixes, and no .tex of that name beside them
+         **({} if os.name == "nt" else {"line\nbreak.tex": ""})}
+
+
+def newest(repository):
+    """The commit of the store's newest snapshot."""
+    return git(repository, "for-each-ref", "--sort=-refname", "--count=1", "--format=%(objectname)", "refs/snapshots/").decode().strip()
+
+
+def names(repository, revision=None):
+    return set(git(repository, "ls-tree", "-r", "-z", "--name-only", revision or newest(repository)).decode().split("\0")) - {""}
+
+
+def digest(folder):
+    """Every byte of a folder, in one hash: what 'untouched' means for a project's own .git."""
+    total = hashlib.sha256()
+    for path in sorted(Path(folder).rglob("*")):
+        total.update(os.fsencode(path.relative_to(folder)))
+        if path.is_file() and not path.is_symlink():
+            total.update(path.read_bytes())
+    return total.hexdigest()
+
+
+def numbers_and_names(repository):
+    return sorted(ref.rsplit("/", 1)[1] for ref in git(repository, "for-each-ref", "--format=%(refname)", "refs/snapshots/").decode().split())
+
+
+SOURCE_4_8_1 = '\\documentclass{article}\n\\begin{document}Fixture.\\end{document}\n'
+
+
 class Case(ProjectCase):
     def setUp(self):
         super().setUp()
@@ -127,41 +169,6 @@ class Case(ProjectCase):
             subprocess.run(["git", *arguments], cwd=self.project, env={**fixture_env(), **IDENTITY}, check=True, capture_output=True)
 
 
-def numbers(repository):
-    """The numbers of a store's snapshots, newest first."""
-    return [int(ref.rsplit("/", 1)[1]) for ref in git(repository, "for-each-ref", "--sort=-refname", "--format=%(refname)", "refs/snapshots/").decode().split()]
-
-
-EXCLUDED = ("main.aux", "main.log", "main.synctex.gz", "outputs/main.pdf", "outputs/main.fls", ".latex-ai/artifacts/locks/build.lock",
-            ".latex-ai/backups/20260101T000000Z/old.py", "__pycache__/x.pyc", "docs/__pycache__/y.pyc", "node_modules/p/index.js", ".venv/lib/x.py",
-            "env/pyvenv.cfg", "env/lib/x.py", "conda/conda-meta/history", "conda/lib/x.py", "vendor/lib/.git/HEAD", "vendor/lib2/.git", "vendor/lib3/.GIT/config")
-
-
-FILES = {"main.tex": SOURCE, "refs.bib": "@misc{k}\n", "notes/todo.txt": "z", "figure.pdf": "%PDF-1.5", "main.pdf": "%PDF-1.5 beside its source", ".gitignore": "secret.txt\n", "secret.txt": "kept anyway",
-         "a b.tex": "", "é.tex": "", "[x]*.tex": "", "-n.tex": "", ".latex-ai/workbench.py": "# runtime", "crlf.txt": "a\r\nb\r\n", "vendor/lib/x.txt": "a nested repository's file",
-         "scripts/train.log": "", "results/solver.out": "", "data/run.toc": "", "refs.bbl": "", "analysis/notes.aux": "",  # a compiler's suffixes, and no .tex of that name beside them
-         **({} if os.name == "nt" else {"line\nbreak.tex": ""})}
-
-
-def newest(repository):
-    """The commit of the store's newest snapshot."""
-    return git(repository, "for-each-ref", "--sort=-refname", "--count=1", "--format=%(objectname)", "refs/snapshots/").decode().strip()
-
-
-def names(repository, revision=None):
-    return set(git(repository, "ls-tree", "-r", "-z", "--name-only", revision or newest(repository)).decode().split("\0")) - {""}
-
-
-def digest(folder):
-    """Every byte of a folder, in one hash: what 'untouched' means for a project's own .git."""
-    total = hashlib.sha256()
-    for path in sorted(Path(folder).rglob("*")):
-        total.update(os.fsencode(path.relative_to(folder)))
-        if path.is_file() and not path.is_symlink():
-            total.update(path.read_bytes())
-    return total.hexdigest()
-
-
 class Case_4_8_0(Case):
     def setUp(self):
         super().setUp()
@@ -174,13 +181,6 @@ class Case_4_8_0(Case):
 
     def labels(self, tier):
         return self.history().get(tier, [])
-
-
-def numbers_and_names(repository):
-    return sorted(ref.rsplit("/", 1)[1] for ref in git(repository, "for-each-ref", "--format=%(refname)", "refs/snapshots/").decode().split())
-
-
-SOURCE_4_8_1 = '\\documentclass{article}\n\\begin{document}Fixture.\\end{document}\n'
 
 
 class Basics(Case):
@@ -226,7 +226,7 @@ class Contents(Case):
     def test_a_default_output_folder_is_left_out_too(self):
         (self.project / "build").mkdir()
         (self.project / "build/x.txt").write_text("x")
-        (self.project / core.CONFIG).write_text(json.dumps({"modules": {"latex": {"default_document": "a", "defaults": {"output_dir": "build"}, "documents": {"a": {"root": "main.tex"}}}}}))
+        (self.project / core.CONFIG).write_text(json.dumps({"default_document": "a", "defaults": {"output_dir": "build"}, "documents": {"a": {"root": "main.tex"}}}))
         self.take()
         self.assertNotIn("build/x.txt", names(self.repository()))
 
@@ -274,7 +274,7 @@ class Contents(Case):
                 for name in (probe, root):
                     (self.project / name).parent.mkdir(parents=True, exist_ok=True)
                     (self.project / name).write_text("x")
-                (self.project / core.CONFIG).write_text(json.dumps({"modules": {"latex": {"default_document": "a", "documents": {"a": {"root": root, "output_dir": output}}}}}))
+                (self.project / core.CONFIG).write_text(json.dumps({"default_document": "a", "documents": {"a": {"root": root, "output_dir": output}}}))
                 self.take()
                 self.assertEqual(probe in names(self.repository()), kept)
 
@@ -520,7 +520,7 @@ class Commands(Case):
 
     def setUp(self):
         super().setUp()
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         self.snapshots = self.home / ".snapshots"
 
     def restore_command(self, output, name):
@@ -592,24 +592,6 @@ class Commands(Case):
         self.assertIn("Git", result.stderr)
         self.assertFalse(self.snapshots.exists())
 
-    def test_a_projects_own_snapshot_target_is_not_replaced(self):
-        self.own_targets("snapshot")
-        self.assertIn("mine", self.run_command("make", "snapshot").stdout)
-        self.run_command("make", "latex-ai-snapshot")
-        self.assertTrue(self.snapshots.exists())
-
-    def test_diff_shows_a_project_from_4_6_exactly_the_lines_it_lacks_and_runtime_leaves_the_makefile_alone(self):
-        path = self.project / "Makefile"
-        text = path.read_text()
-        old = re.sub(r"\.PHONY: (?:latex-ai-)?snapshots?\n(?:latex-ai-)?snapshots?:[^\n]*\n(?:\t[^\n]*\n)?", "", text.replace("export SNAPSHOT_NOTE\n", ""))
-        self.assertEqual(len(text.splitlines()) - len(old.splitlines()), 11)
-        path.write_text(old)
-        diff = self.install("diff", "--diff", expected=None).stdout
-        for line in ("+export SNAPSHOT_NOTE", "+.PHONY: snapshot", "+.PHONY: snapshots", "+.PHONY: latex-ai-snapshot", "+.PHONY: latex-ai-snapshots"):
-            self.assertIn(line, diff)
-        self.assertEqual([line for line in diff.splitlines() if line.startswith("-") and not line.startswith("---")], [])
-        self.install("runtime")
-        self.assertEqual(path.read_text(), old)
 
     def test_the_guide_and_help_name_both_commands(self):
         for text in (self.command("guide").stdout, self.command("help").stdout):
@@ -639,22 +621,14 @@ class Registered(unittest.TestCase):
             with self.subTest(action=name):
                 action = commands.BY_NAME[name]
                 self.assertTrue(action.standalone)
-                self.assertIsNone(action.module)
-                self.assertIsNone(action.needs)
                 self.assertFalse(action.document or action.batch or action.view)
 
     def test_the_generated_makefile_carries_them_even_with_no_module(self):
-        text = bootstrap.desired_files({"schema_version": 3, "modules": {}, "integrations": {"editor": False}})["Makefile"]
-        self.assertIn("export SNAPSHOT_NOTE\n", text)
-        self.assertIn('latex-ai-snapshot:\n\t@$(PYTHON) .latex-ai/workbench.py snapshot --note="$$SNAPSHOT_NOTE"\n', text)
-        self.assertIn("latex-ai-snapshots:\n\t@$(PYTHON) .latex-ai/workbench.py snapshots\n", text)
-        self.assertIn("snapshot: latex-ai-snapshot\n", text)
-        self.assertIn("snapshots: latex-ai-snapshots\n", text)
+        text = bootstrap.desired_files({'schema_version': 4, 'integrations': {'editor': False}})["Makefile"]
+        self.assertIn("export ISSUE_NOTE ISSUE_COMMAND SNAPSHOT_NOTE DOC\n", text)
+        self.assertIn('snapshot:\n\t@$(PYTHON) .latex-ai/workbench.py snapshot --note="$$SNAPSHOT_NOTE"\n', text)
+        self.assertIn("snapshots:\n\t@$(PYTHON) .latex-ai/workbench.py snapshots\n", text)
 
-    def test_a_name_the_project_has_taken_gets_no_alias(self):
-        text = bootstrap.module_make_targets({"schema_version": 3, "modules": {}}, frozenset({"snapshot"}))
-        self.assertNotIn("\nsnapshot: latex-ai-snapshot", text)
-        self.assertIn("\nlatex-ai-snapshot:", text)
 
     def test_every_installed_runtime_carries_the_module(self):
         self.assertIn("snapshot.py", core.RUNTIME_FILES)
@@ -663,7 +637,7 @@ class Registered(unittest.TestCase):
                 self.assertEqual(core.runtime_sources({"schema_version": 3, "modules": modules})["snapshot.py"], "snapshot.py")
 
     def test_the_upgrade_and_migration_guides_start_with_a_snapshot(self):
-        for name in ("upgrading.md", "migrating.md"):
+        for name in ("upgrading.md",):
             with self.subTest(guide=name):
                 first = re.search(r"^1\. (.*?)(?=^2\. )", (PACKAGE / "docs" / name).read_text(), re.S | re.M)[1]
                 self.assertRegex(first, r"make snapshot|runtime\.py snapshot --project")
@@ -914,7 +888,7 @@ class Commands_4_8_0(Case_4_8_0):
 
     def setUp(self):
         super().setUp()
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         self.snapshots = self.home / ".snapshots"
 
     def test_the_tier_option_chooses_the_store_and_make_snapshot_is_the_manual_one(self):
@@ -968,7 +942,7 @@ class Launchd(Case_4_8_0):
 
     def setUp(self):
         super().setUp()
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
 
     def agents(self):
         text = (PACKAGE / "docs/snapshots.md").read_text()

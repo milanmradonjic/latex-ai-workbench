@@ -18,7 +18,7 @@
       "type": "process",
       "command": "make",
       "args": [
-        "latex-ai-build",
+        "build",
         "DOC=paper"
       ],
       "options": {
@@ -31,7 +31,7 @@
       "type": "process",
       "command": "make",
       "args": [
-        "latex-ai-document-check",
+        "document-check",
         "DOC=paper"
       ],
       "options": {
@@ -44,7 +44,7 @@
       "type": "process",
       "command": "make",
       "args": [
-        "latex-ai-pdf-artifact",
+        "pdf-artifact",
         "DOC=paper"
       ],
       "options": {
@@ -57,7 +57,7 @@
       "type": "process",
       "command": "make",
       "args": [
-        "latex-ai-build",
+        "build",
         "DOC=derivation"
       ],
       "options": {
@@ -70,7 +70,7 @@
       "type": "process",
       "command": "make",
       "args": [
-        "latex-ai-document-check",
+        "document-check",
         "DOC=derivation"
       ],
       "options": {
@@ -83,7 +83,7 @@
       "type": "process",
       "command": "make",
       "args": [
-        "latex-ai-pdf-artifact",
+        "pdf-artifact",
         "DOC=derivation"
       ],
       "options": {
@@ -96,7 +96,7 @@
       "type": "process",
       "command": "make",
       "args": [
-        "latex-ai-build",
+        "build",
         "DOC=notebook"
       ],
       "options": {
@@ -109,7 +109,7 @@
       "type": "process",
       "command": "make",
       "args": [
-        "latex-ai-document-check",
+        "document-check",
         "DOC=notebook"
       ],
       "options": {
@@ -122,7 +122,7 @@
       "type": "process",
       "command": "make",
       "args": [
-        "latex-ai-pdf-artifact",
+        "pdf-artifact",
         "DOC=notebook"
       ],
       "options": {

@@ -1,35 +1,31 @@
 {
-  "schema_version": 3,
-  "modules": {
-    "latex": {
-      "default_document": "manuscript",
-      "documents": {
-        "manuscript": {
-          "root": "main.tex",
-          "engine": "pdflatex",
-          "backend": "none",
-          "lint": {
-            "enabled": true,
-            "args": [],
-            "baseline": ".chktex-baseline.json"
-          },
-          "output_dir": ".",
-          "build_command": null
-        }
-      }
-    },
-    "bibliography": {
-      "files": [
-        "bibliography/zotero.bib"
-      ],
-      "export": {
-        "path": "bibliography/zotero.bib",
-        "required": true,
-        "format": "bibtex"
-      }
-    }
-  },
+  "schema_version": 4,
   "integrations": {
     "editor": true
+  },
+  "default_document": "manuscript",
+  "documents": {
+    "manuscript": {
+      "root": "main.tex",
+      "engine": "pdflatex",
+      "backend": "none",
+      "lint": {
+        "enabled": true,
+        "args": [],
+        "baseline": ".chktex-baseline.json"
+      },
+      "output_dir": ".",
+      "build_command": null
+    }
+  },
+  "bibliography": {
+    "files": [
+      "bibliography/zotero.bib"
+    ],
+    "export": {
+      "path": "bibliography/zotero.bib",
+      "required": true,
+      "format": "bibtex"
+    }
   }
 }

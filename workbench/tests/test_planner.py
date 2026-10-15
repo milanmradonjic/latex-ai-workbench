@@ -78,7 +78,7 @@ import latex
 import runtime
 import runtime as rt
 import schema
-from test_support import ProjectCase, fixture_env, isolate_environment
+from test_support import ProjectCase, fixture_env, isolate_environment, prepare_config
 
 
 SOURCE = "\\documentclass{article}\n\\begin{document}Audit fixture.\\end{document}\n"
@@ -165,7 +165,8 @@ class Audit3Repairs(unittest.TestCase):
             self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return result
 
-    def install(self, *args, expected=0):
+    def install(self, *args, expected=0, **choices):
+        prepare_config(self.project, **choices)
         return self.run_command(sys.executable, '-B', str(bootstrap.PACKAGE / 'latex-ai-init'),
                                 *args, str(self.project), expected=expected)
 
@@ -175,11 +176,9 @@ class Audit3Repairs(unittest.TestCase):
     def named(self, makefile=None):
         for name in ('main.tex', 'note.tex'):
             (self.project / name).write_text(SOURCE)
-        config = {'schema_version': 3, 'modules': {'latex': {
-            'default_document': 'paper', 'defaults': {'lint': {'enabled': False}},
-            'documents': {'paper': {'root': 'main.tex'}, 'note': {'root': 'note.tex'}}}}}
+        config = {'schema_version': 4, 'default_document': 'paper', 'defaults': {'lint': {'enabled': False}}, 'documents': {'paper': {'root': 'main.tex'}, 'note': {'root': 'note.tex'}}}
         (self.project / core.CONFIG).write_text(json.dumps(config))
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         if makefile is not None:  # the project's own Make text goes after what init wrote
             with (self.project / 'Makefile').open('a') as stream:
                 stream.write('\n' + makefile)
@@ -195,12 +194,9 @@ class Audit3Repairs(unittest.TestCase):
             "(out/(root.stem+'.log')).write_text('Clean fixture log\\n')\n")
         for name in ('main.tex', 'note.tex'):
             (self.project / name).write_text(SOURCE)
-        config = {'schema_version': 3, 'modules': {'latex': {
-            'default_document': 'paper', 'defaults': {'lint': {'enabled': False}},
-            'documents': {name: {'root': root, 'build_command': [sys.executable, 'compile.py', root,
-                f'.latex-ai/artifacts/documents/{name}/build']} for name, root in [('paper','main.tex'),('note','note.tex')]}}}}
+        config = {'schema_version': 4, 'default_document': 'paper', 'defaults': {'lint': {'enabled': False}}, 'documents': {name: {'root': root, 'build_command': [sys.executable, 'compile.py', root, f'.latex-ai/artifacts/documents/{name}/build']} for name, root in [('paper', 'main.tex'), ('note', 'note.tex')]}}
         (self.project / core.CONFIG).write_text(json.dumps(config))
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         if makefile is not None:  # the project's own Make text goes after what init wrote
             with (self.project / 'Makefile').open('a') as stream:
                 stream.write('\n' + makefile)
@@ -264,7 +260,8 @@ class DocumentLifecycleTests(unittest.TestCase):
                 pass
         self.temp.cleanup()
 
-    def install(self, *arguments, expected=0):
+    def install(self, *arguments, expected=0, **choices):
+        prepare_config(self.project, **choices)
         result = subprocess.run([sys.executable, "-B", str(bootstrap.PACKAGE / "latex-ai-init"),
                                  *arguments, str(self.project)], capture_output=True, text=True)
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
@@ -281,12 +278,9 @@ class DocumentLifecycleTests(unittest.TestCase):
             path = self.project / root
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(SOURCE_document_lifecycle)
-        config = {"schema_version": 3, "modules": {"latex": {
-            "default_document": "paper", "defaults": {"lint": {"enabled": False}}, "documents": {
-                "paper": {"root": "main.tex", "build_command": [sys.executable, "compile.py", "main.tex", ".latex-ai/artifacts/documents/paper/build"]},
-                "note": {"root": "notes/main.tex", "build_command": [sys.executable, "compile.py", "notes/main.tex", ".latex-ai/artifacts/documents/note/build"]}}}}}
+        config = {'schema_version': 4, 'default_document': 'paper', 'defaults': {'lint': {'enabled': False}}, 'documents': {'paper': {'root': 'main.tex', 'build_command': [sys.executable, 'compile.py', 'main.tex', '.latex-ai/artifacts/documents/paper/build']}, 'note': {'root': 'notes/main.tex', 'build_command': [sys.executable, 'compile.py', 'notes/main.tex', '.latex-ai/artifacts/documents/note/build']}}}
         for name, values in documents.items():
-            config["modules"]["latex"]["documents"][name].update(values)
+            config["documents"][name].update(values)
         (self.project / core.CONFIG).write_text(json.dumps(config))
         return config
 
@@ -324,7 +318,8 @@ class DocumentTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def install(self, *arguments, expected=0):
+    def install(self, *arguments, expected=0, **choices):
+        prepare_config(self.project, **choices)
         result = subprocess.run([sys.executable, "-B", str(bootstrap.PACKAGE / "latex-ai-init"),
                                  *arguments, str(self.project)], capture_output=True, text=True)
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
@@ -348,10 +343,7 @@ class DocumentTests(unittest.TestCase):
             "out.mkdir(parents=True, exist_ok=True)\n"
             "(out/(root.stem+'.pdf')).write_bytes(b'%PDF-1.4\\n'+root.read_bytes())\n"
             "(out/(root.stem+'.log')).write_text('Clean compiler log\\n')\n")
-        config = {"schema_version": 3, "modules": {"latex": {
-            "default_document": "paper", "defaults": {"lint": {"enabled": False}}, "documents": {
-                "paper": {"root": "main.tex", "build_command": [sys.executable, "compile.py", "main.tex", ".latex-ai/artifacts/documents/paper/build"]},
-                "note": {"root": "notes/main.tex", "build_command": [sys.executable, "compile.py", "notes/main.tex", ".latex-ai/artifacts/documents/note/build"]}}}}}
+        config = {'schema_version': 4, 'default_document': 'paper', 'defaults': {'lint': {'enabled': False}}, 'documents': {'paper': {'root': 'main.tex', 'build_command': [sys.executable, 'compile.py', 'main.tex', '.latex-ai/artifacts/documents/paper/build']}, 'note': {'root': 'notes/main.tex', 'build_command': [sys.executable, 'compile.py', 'notes/main.tex', '.latex-ai/artifacts/documents/note/build']}}}
         (self.project / core.CONFIG).write_text(json.dumps(config))
         return config
 
@@ -385,7 +377,7 @@ class DocumentTests(unittest.TestCase):
         config = self.configuration()
         (self.project / "resource.md").write_text("Resource\n")
         os.link(self.project / "resource.md", self.project / "alias.md")
-        config["modules"]["latex"]["documents"]["paper"]["inputs"] = ["resource.md"]
+        config["documents"]["paper"]["inputs"] = ["resource.md"]
         self.assertEqual(runtime.validation_plan(self.project, config, ["alias.md"])["documents"], ["paper"])
 
     def test_uncertain_tex_and_build_policy_select_all_documents(self):
@@ -404,7 +396,7 @@ class DocumentTests(unittest.TestCase):
 
     def test_deleted_explicit_input_selects_target_before_first_build(self):
         config = self.configuration()
-        config["modules"]["latex"]["documents"]["note"]["inputs"] = ["notes/context.md"]
+        config["documents"]["note"]["inputs"] = ["notes/context.md"]
         self.assertEqual(runtime.validation_plan(self.project, config, ["notes/context.md"])["documents"], ["note"])
         (self.project / core.CONFIG).write_text(json.dumps(config))
         self.install("init")
@@ -432,7 +424,8 @@ class ModuleTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def cli(self, *args):
+    def cli(self, *args, **choices):
+        prepare_config(self.project, **choices)
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             return boot.main([*args, str(self.project)])
 
@@ -446,7 +439,7 @@ class ModuleTests(unittest.TestCase):
         return result
 
     def test_saving_a_text_file_validates_without_a_compiler(self):
-        self.assertEqual(self.cli("init", "--modules", ""), 0)
+        self.assertEqual(self.cli('init'), 0)
         notes = self.project / "notes/session.md"
         notes.parent.mkdir()
         notes.write_text("A question about physics.\n")
@@ -468,7 +461,7 @@ class ModuleTests(unittest.TestCase):
         return done.stdout
 
     def test_validation_without_git_history_says_so_in_plain_words(self):
-        self.assertEqual(self.cli("init", "--modules", ""), 0)
+        self.assertEqual(self.cli('init'), 0)
         text = self.make_output("validation-plan")
         self.assertIn("full validation selected", text)
         self.assertIn("not a Git repository", text)
@@ -487,8 +480,6 @@ class GeneratedTrees(unittest.TestCase):
     def test_one_constant_holds_the_folders_no_check_treats_as_sources(self):
         self.assertEqual(core.GENERATED_TREES, {".git", ".latex-ai", ".venv", "__pycache__", "node_modules", "site-packages", "dist-packages"})
 
-    def test_the_installer_adds_only_its_own_folders(self):
-        self.assertEqual(bootstrap.EXCLUDED, core.GENERATED_TREES | {"workbench", "build", "out"})
 
     def test_no_module_but_core_lists_them_again(self):
         for path in sorted(PACKAGE.glob("*.py")):
@@ -575,7 +566,7 @@ class Repairs(ProjectCase):
         (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\\includegraphics{shared/plot.pdf}\\end{document}\n")
         self.builder(inputs=("main.tex", "shared/plot.txt", "/outside/system.sty"))
         self.configure()
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         return outside
 
     def test_planning_accepts_a_changed_link_that_leaves_the_project(self):
@@ -585,13 +576,13 @@ class Repairs(ProjectCase):
         self.assertEqual(plan["documents"], ["paper"])
 
     def test_every_installed_runtime_file_is_a_full_validation_trigger(self):
-        everything = {"schema_version": 3, "modules": {name: {} for name in core.MODULES}}
+        everything = self.configure()
         shipped = set(core.runtime_sources(everything)) | {"bootstrap.py", "latex-ai-init"}
         self.assertLessEqual(shipped, set(core.RUNTIME_FILES))
         self.configure()
         (self.project / "main.tex").write_text(SOURCE)
         self.builder()
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         (self.project / "workbench").mkdir()
         (self.project / "workbench/Makefile").write_text("test:\n\ttrue\n")
         (self.project / "workbench/latex-ai-init").write_text("#!/usr/bin/env python3\n")
@@ -605,7 +596,7 @@ class Repairs(ProjectCase):
         self.configure()
         (self.project / "main.tex").write_text(SOURCE)
         self.builder()
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         result = self.command("plan", "--files", "main.tex", env=fixture_env(DOC="paper"))
         self.assertIn("DOC=paper", result.stdout)
         self.assertIn("ignored", result.stdout)
@@ -624,7 +615,7 @@ class Repairs_3_0_2(ProjectCase):
                                                "\\begin{document}\n\\input{chap}\n\\end{document}\n")
         (self.project / "chap.tex").write_bytes("Caf\u00e9 na\u00efve\n".encode("latin-1"))
         (self.project / "other.tex").write_bytes("\u00e9t\u00e9\n".encode("latin-1"))
-        self.install("init", "--skip-editor")
+        self.install('init', editor=False)
         plan = json.loads(self.command("plan", "--files", "chap.tex", "--json").stdout)
         self.assertEqual(plan["documents"], ["manuscript"])
         self.command("validate", "--files-only", "--files", "chap.tex")
@@ -639,7 +630,7 @@ class AuditRepairs(ProjectCase):
 
     def native(self, source=SOURCE_4_8_1):
         (self.project / 'main.tex').write_text(source)
-        self.install('init', '--no-lint', '--skip-editor')
+        self.install('init', lint=False, editor=False)
         return schema.document_settings(schema.load_config(self.project))
 
     def test_f4_recipeprefix_selects_the_projects_own_check(self):
@@ -672,7 +663,7 @@ class AuditRepairs(ProjectCase):
         (self.project / 'main.tex').write_text(SOURCE_4_8_1.replace('Fixture.', '<<<<<<< HEAD\nOld\n=======\nNew\n>>>>>>> topic\n'))
         self.builder()
         self.configure()
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         result = self.command('check', expected=1)
         self.assertIn('conflict marker', result.stderr)
 
@@ -680,7 +671,7 @@ class AuditRepairs(ProjectCase):
         (self.project / 'hidden.txt').write_text('<<<<<<< HEAD\nOld\n>>>>>>> topic\n')
         self.builder(inputs=('main.tex', 'hidden.txt'))
         self.configure()
-        self.install('init', '--skip-editor')
+        self.install('init', editor=False)
         result = self.command('document-check', expected=1)
         self.assertIn('hidden.txt', result.stderr)
 
@@ -795,11 +786,13 @@ class WorkbenchTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix="latex-ai-unit-")
         self.project = Path(self.temp.name).resolve()
         (self.project / "paper.tex").write_text(TEX_workbench)
+        prepare_config(self.project, root="paper.tex", output_dir=".")
 
     def tearDown(self):
         self.temp.cleanup()
 
-    def cli(self, *args):
+    def cli(self, *args, **choices):
+        prepare_config(self.project, **{"root": "paper.tex", "output_dir": ".", **choices})
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             return boot.main([*args, str(self.project)])
 
@@ -919,7 +912,7 @@ class WorkbenchTests(unittest.TestCase):
         self.assertTrue(self.selection("data/values.txt")["manuscript"])
         (self.project / "helper.py").write_text("print('build')\n")
         config = rt.load_config(self.project)
-        config["modules"]["latex"]["documents"]["manuscript"]["build_command"] = ["python3", "helper.py"]
+        config["documents"]["manuscript"]["build_command"] = ["python3", "helper.py"]
         self.assertTrue(rt.validation_plan(self.project, config, ["helper.py"])["manuscript"])
 
     def test_git_discovery_includes_all_working_changes_without_mutation(self):
@@ -954,7 +947,7 @@ class WorkbenchTests(unittest.TestCase):
             subprocess.run(["git", "-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid", "-C", str(self.project), *args],
                            check=True, capture_output=True)
         git("init", "-q")
-        git("add", "paper.tex")
+        git("add", "paper.tex", ".latex-ai.json")
         git("commit", "-q", "-m", "fixture")
         paper = self.project / "paper.tex"
         stamp = paper.stat().st_mtime + 100
@@ -988,12 +981,12 @@ class WorkbenchTests(unittest.TestCase):
         # With a split index Git refreshes the shared-index file's mtime on any read, which no query can
         # avoid; what is guaranteed, and checked here, is that neither index file's contents change.
         self.throwaway_git("init", "-q")
-        self.throwaway_git("add", "paper.tex")
+        self.throwaway_git("add", "paper.tex", ".latex-ai.json")
         self.throwaway_git("commit", "-q", "-m", "one")
         self.throwaway_git("update-index", "--split-index")
         paper = self.project / "paper.tex"
         paper.write_text(paper.read_text() + "% second revision\n")
-        self.throwaway_git("add", "paper.tex")
+        self.throwaway_git("add", "paper.tex", ".latex-ai.json")
         self.throwaway_git("commit", "-q", "-m", "two")
         stamp = paper.stat().st_mtime + 100
         os.utime(paper, (stamp, stamp))  # stale stat data again
@@ -1102,7 +1095,7 @@ class WorkbenchTests(unittest.TestCase):
         plan = self.selection(rt.CONFIG)
         with patch.object(rt, "run") as run, contextlib.redirect_stdout(io.StringIO()):
             rt.validate_changes(self.project, plan)
-        self.assertEqual([item.args[0] for item in run.call_args_list], [["make", "-C", "workbench", "test"], ["make", "-C", "workbench", "portability"], ["make", "latex-ai-document-check", "DOC=manuscript"]])
+        self.assertEqual([item.args[0] for item in run.call_args_list], [["make", "-C", "workbench", "test"], ["make", "-C", "workbench", "portability"], ["make", "document-check", "DOC=manuscript"]])
         with patch.object(rt, "run", side_effect=AssertionError("Build tool invoked")), contextlib.redirect_stdout(io.StringIO()):
             rt.validate_changes(self.project, plan, files_only=True)
 

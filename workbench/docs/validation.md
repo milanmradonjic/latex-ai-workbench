@@ -3,7 +3,7 @@
 Ordinary notes, documentation, scripts and other files belong alongside the
 manuscript. Creating or saving them does not start the workbench runtime. The
 single-document editor's existing `onSave` setting builds saved TeX documents;
-schema-3 generated settings use explicit named tasks and disable builds on save.
+schema-4 generated settings use explicit named tasks and disable builds on save.
 The workbench adds no general file watcher or save hook.
 
 After a task, use the canonical Make interface:
@@ -103,15 +103,15 @@ working tree selects no build; use `make check` to check the manuscript anyway.
 A document whose last build failed or was interrupted stays selected until it
 builds, even when its sources are back to the committed text.
 
-With schema-3 named documents, validation checks only the selected documents.
-A project-wide `make check` already covers enabled modules and subsumes the
+With schema-4 named documents, validation checks only the selected documents.
+A project-wide `make check` already covers declared document checks and subsumes the
 selected bibliography check.
 If the Makefile gives `check` anything beyond what `init` wrote (prerequisites, a recipe of its own,
 a second rule, a computed target, an include or `.RECIPEPREFIX`), `make validate` runs `make check` instead, so
 those project-owned checks are never skipped. The JSON plan includes
 `project_check`. It is decided by reading the rule lines, never by running Make, and when it cannot
 tell it says yes: that costs selective document validation, never a skipped check.
-The reserved `make latex-ai-plan` and `make latex-ai-validate` targets always expose this
+The fixed `make validation-plan` and `make validate` targets always expose this
 workbench's selection.
 
 For a precise known list, the project runtime also accepts `plan` or `validate`
@@ -145,32 +145,27 @@ and workbench state, caches, `node_modules`, installed packages
 `conda-meta`, whatever the directory is called).
 
 Markdown files get the core's lightweight inline-link check. Missing comparison history
-checks all enabled modules.
+checks all declared document checks.
 
-## Optional modules
+## Project scope
 
-A disabled module is never selected. Missing comparison history selects
-all enabled checks, without introducing a TeX dependency into projects
-without LaTeX. Module/control changes select their relevant full checks; package
-compiler portability is selected only in a LaTeX-enabled distribution project.
-
-No filesystem watcher or save hook is installed. See [module configuration](modules.md).
-
+Every project has named LaTeX documents. Missing comparison history selects all
+project checks; package compiler portability also runs when the distribution is hosted.
+No filesystem watcher or save hook is installed. See [configuration](configuration.md).
 
 ## The execution contract
 
 The JSON plan includes an ordered `actions` list. The shared action table
 in `core.py` defines package tests, compiler portability, full project checks,
 and the selected bibliography check, and `validate` runs exactly those. Full checks subsume the
-individual module checks, preventing duplicate execution. Package unit tests and
+standalone bibliography checks, preventing duplicate execution. Package unit tests and
 portability are separate actions.
 
-Module runtime files, check groups and base tool requirements are registered in
-`core.MODULES`. Planning and installation use schema 3 with module defaults. Compilation uses
-one resolved settings representation per document; inspection never rewrites
-the persisted project configuration.
+Every project receives the same runtime. Planning and installation use schema 4.
+Compilation uses one resolved settings representation per document; inspection never
+rewrites persisted project configuration.
 
-## Document selection (schema 3)
+## Document selection (schema 4)
 
 Plans include `documents` and `document_reasons`. A changed input selects each
 document consuming it, including hard-link aliases and deleted declared inputs.

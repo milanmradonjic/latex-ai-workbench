@@ -15,7 +15,7 @@
       "args": [
         "-C",
         "%WORKSPACE_FOLDER%",
-        "latex-ai-build",
+        "build",
         "DOC=manuscript"
       ]
     }
