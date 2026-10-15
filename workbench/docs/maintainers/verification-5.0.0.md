@@ -32,8 +32,9 @@ interface are supported; there is no migration or compatibility implementation.
 
 ## Validation
 
-Implementation and local validation are complete. The independent check and
-hosted CI are pending; no hosted result is claimed at this stage.
+Implementation, local validation, and the independent check are complete.
+Hosted completion is tracked by the [PR checks](https://github.com/milanmradonjic/latex-ai-workbench/pull/23/checks);
+the record does not claim a hosted result before those checks finish.
 
 - `make -C workbench check`: 502 tests passed subject to two platform skips,
   followed by all 48 real-TeX portability scenarios passing. Logs:
@@ -54,8 +55,29 @@ hosted CI are pending; no hosted result is claimed at this stage.
 - Local custom LuaLaTeX, XeLaTeX, and biber integration tests passed.
 - Production Python source: 4,474 to 4,043 physical lines (431 removed, including
   comments/blank lines; excludes vendored copies and tests). No dependency was added.
-- Hosted CI: pending.
-- Independent check: pending, one user-authorized subagent after implementation.
+- Hosted CI: the PR requires `validate` and Python `test (3.10)` through
+  `test (3.14)`. Their names and matrix are unchanged; see the current PR checks.
+- Independent check: one user-authorized GPT-6.1 Sol reviewer checked the finished
+  implementation `9734f58..c9eb06f`. It found no actionable regression or unintended
+  weakening of retained tests. The reviewer did not modify the checkout.
+
+## Independent check
+
+The reviewer inspected schema validation/resolution, explicit installation, fixed
+commands/guidance, validation routing, build/export protections, removed test
+coverage, and maintained documentation/skill vocabulary. It independently ran:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests -p test_simplification.py -k ExplicitProjects
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests -p test_simplification.py -k MultipleDocuments
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests -p test_receipts.py -k ExportSafetyAudit
+```
+
+From `workbench/`: 8 explicit-configuration, 3 multi-document/interface, and 5
+export-safety tests; all 16 passed. It did not repeat the root agent's full suite,
+real-TeX portability, or hosted CI. No further production repair was needed.
+
+## Coverage changes
 
 Removed tests covered unsupported operating modes, inference, aliases, old adapter
 advice, or migration. Retained regressions were converted to explicit schema-4

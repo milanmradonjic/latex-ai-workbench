@@ -1,6 +1,6 @@
 # Simplification after 4.10.2
 
-Status: implementation and local validation complete for 5.0.0, 15 October 2026; independent check pending. See [verification](verification-5.0.0.md).
+Status: implemented and independently checked for 5.0.0, 15 October 2026. See [verification](verification-5.0.0.md).
 
 The owner approved planning these three reductions: require LaTeX projects, make
 installation explicit, and standardize commands and guidance. There are no real
