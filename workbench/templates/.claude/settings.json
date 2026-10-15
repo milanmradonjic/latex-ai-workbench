@@ -153,15 +153,37 @@
       "Bash(gh pr merge)",
       "Bash(gh pr merge:*)",
       "mcp__github__merge_pull_request",
-      "mcp__github__enable_pr_auto_merge"
+      "mcp__github__enable_pr_auto_merge",
+      "Bash(git push * main)",
+      "Bash(git push * main *)",
+      "Bash(git push * +main)",
+      "Bash(git push * +main *)",
+      "Bash(git push * refs/heads/main)",
+      "Bash(git push * refs/heads/main *)",
+      "Bash(git push * +refs/heads/main)",
+      "Bash(git push * +refs/heads/main *)",
+      "Bash(git push *:main)",
+      "Bash(git push *:main *)",
+      "Bash(git push *:refs/heads/main)",
+      "Bash(git push *:refs/heads/main *)",
+      "Bash(git push * master)",
+      "Bash(git push * master *)",
+      "Bash(git push * +master)",
+      "Bash(git push * +master *)",
+      "Bash(git push * refs/heads/master)",
+      "Bash(git push * refs/heads/master *)",
+      "Bash(git push * +refs/heads/master)",
+      "Bash(git push * +refs/heads/master *)",
+      "Bash(git push *:master)",
+      "Bash(git push *:master *)",
+      "Bash(git push *:refs/heads/master)",
+      "Bash(git push *:refs/heads/master *)"
     ],
     "ask": [
       "Bash(git init)",
       "Bash(git init:*)",
       "Bash(git clone)",
       "Bash(git clone:*)",
-      "Bash(git add)",
-      "Bash(git add:*)",
       "Bash(git commit)",
       "Bash(git commit:*)",
       "Bash(git push)",
@@ -274,9 +296,7 @@
       "Bash(git submodule sync)",
       "Bash(git submodule sync:*)",
       "Bash(git remote update)",
-      "Bash(git remote update:*)",
-      "Bash(git fetch)",
-      "Bash(git fetch:*)"
+      "Bash(git remote update:*)"
     ]
   }
 }

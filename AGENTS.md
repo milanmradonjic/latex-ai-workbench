@@ -77,10 +77,11 @@ the same Make commands, and build exclusively from repository contents.
 # Git safety
 
 - Inspect branch, status, and diff before editing; preserve user changes.
-- Git mutations require explicit user approval, including staging, committing,
+- Git mutations that write history, branches or the working tree require explicit user approval, including committing,
   initializing/cloning repositories, writing Git configuration,
   pushing, pulling, merging, rebasing, resetting, restoring, cleaning, stashing,
   branch changes/deletion, worktree creation/removal, and history rewriting.
+  Staging (`git add`) and `git fetch` change none of those and need no approval of their own; the commit or merge that follows does.
 - Changes reach the default branch (`main` or `master`) only through a pull request
   from a topic branch; never push, merge or fast-forward to it directly. Agents open
   pull requests; only the owner merges them, on the hosting service or from their own

@@ -122,17 +122,18 @@ class WorkbenchTests(unittest.TestCase):
             return {tuple(entry[len("Bash("):-1].removesuffix(":*").split()) for entry in entries if entry.startswith("Bash(")}
         claude = commands(settings["ask"])
         self.assertEqual(claude, codex)  # the two agents must not drift apart
-        self.assertEqual(commands(settings.get("deny", [])), refused)
+        # Claude's wildcard denies (4.10.0: `git push *:main` and the like) have no Codex counterpart, which matches whole words only; the others agree.
+        self.assertEqual(commands(entry for entry in settings.get("deny", []) if "*" not in entry[len("Bash("):-1].removesuffix(":*")), refused)
         # Refused outright: pushes to the default branch and merging pull requests (3.0.4); everything else prompts.
         self.assertTrue(all(command[:2] == ("git", "push") or command == ("gh", "pr", "merge") for command in refused))
         self.assertTrue(all(entry.startswith(("Bash(", "mcp__github__")) for entry in settings.get("deny", [])))
-        # AGENTS.md: staging, committing, pushing, pulling, merging, rebasing, resetting, restoring, cleaning,
-        # stashing, branch changes/deletion, worktree creation/removal and history rewriting.
-        named = {("git", name) for name in ("add", "commit", "push", "pull", "merge", "rebase", "reset", "restore", "clean", "stash", "checkout", "switch",
+        # AGENTS.md (4.10.0, gate G1): what writes history, branches or the working tree: committing, pushing, pulling, merging, rebasing, resetting,
+        # restoring, cleaning, stashing, branch changes/deletion, worktree creation/removal and history rewriting. Staging and fetch prompt no more.
+        named = {("git", name) for name in ("commit", "push", "pull", "merge", "rebase", "reset", "restore", "clean", "stash", "checkout", "switch",
                                             "cherry-pick", "revert", "am", "rm", "mv", "tag", "update-ref", "filter-branch", "commit-tree")}
         named |= {("git", "branch", flag) for flag in ("-d", "-D", "--delete", "-m", "-f")}
         named |= {("git", "worktree", action) for action in ("add", "remove")}
-        named |= {("git", "remote", "set-url"), ("git", "remote", "update"), ("git", "reflog", "expire"), ("git", "fetch")}  # fetch writes objects, FETCH_HEAD and refs
+        named |= {("git", "remote", "set-url"), ("git", "remote", "update"), ("git", "reflog", "expire")}
         self.assertFalse(named - codex, f"policy-named operations without a guardrail: {sorted(named - codex)}")
         for read_only in ("status", "diff", "log", "show", "ls-files", "rev-parse"):
             self.assertNotIn(("git", read_only), codex)  # inspection must stay prompt-free

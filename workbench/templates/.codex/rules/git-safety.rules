@@ -11,12 +11,6 @@ prefix_rule(
 )
 
 prefix_rule(
-    pattern = ["git", "add"],
-    decision = "prompt",
-    justification = "Staging changes requires explicit user approval.",
-)
-
-prefix_rule(
     pattern = ["git", "commit"],
     decision = "prompt",
     justification = "Repository policy requires explicit user approval for commits.",
@@ -206,12 +200,6 @@ prefix_rule(
     pattern = ["git", "submodule", ["add", "update", "init", "deinit", "sync"]],
     decision = "prompt",
     justification = "Submodule changes alter the checkout and require explicit approval.",
-)
-
-prefix_rule(
-    pattern = ["git", "fetch"],
-    decision = "prompt",
-    justification = "Fetching downloads objects and moves remote-tracking references, so it changes repository state and requires explicit approval.",
 )
 
 prefix_rule(

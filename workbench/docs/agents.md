@@ -20,21 +20,28 @@ review the existing working diff without creating a worktree.
 ## Agent permission guardrails
 
 `.claude/settings.json` and `.codex/rules/git-safety.rules` make the agents prompt
-before Git mutations; they are generated from one list and a regression test keeps
-them identical and covering what `AGENTS.md` names: staging, committing, pushing,
+before the Git commands that write history, branches or the working tree; a regression
+test keeps the two files identical and covering what `AGENTS.md` names: committing, pushing,
 pulling, merging, rebasing, resetting, restoring, cleaning, stashing, branch
 changes and deletion, worktree creation and removal, and history rewriting (plus
-neighbours such as `cherry-pick`, `revert`, `rm`, `mv`, `tag`, `update-ref`,
-`remote set-url` and `fetch`, which writes objects, `FETCH_HEAD` and remote-tracking
-references). Read-only commands (`status`, `diff`, `log`, `show`, `worktree list`,
+neighbours such as `cherry-pick`, `revert`, `rm`, `mv`, `tag`, `update-ref`, `init`, `clone`
+and `remote set-url`). Staging (`git add`) and `git fetch` do not prompt: they change no commit, no
+branch and no file of the working tree, and the commit or merge that follows does prompt.
+Read-only commands (`status`, `diff`, `log`, `show`, `worktree list`,
 `remote -v`) stay prompt-free; the allow list holds no Git entry because Claude Code
 already runs read-only forms of `git` unasked, and an explicit `git diff:*` allow would
-also cover `git diff --output=PATH`.
+also cover `git diff --output=PATH`. In a workbench session of this repository the agent's own
+commits and pushes to a topic branch need no prompt of the owner's, once the task's work is done:
+that is a line of `AGENTS.md`, not a rule in these files, which keep their prompts for every project.
 
 Pushes that target the default branch are refused outright rather than prompted: `deny`
 rules in `.claude/settings.json` and `forbidden` rules in the Codex file cover
 `git push [-u|--set-upstream|-f|--force|--force-with-lease] origin <ref>` for `main`, `master`,
-`HEAD:main`, `HEAD:refs/heads/main` and their `+` forms. This carries the policy that changes
+`HEAD:main`, `HEAD:refs/heads/main` and their `+` forms. Claude's file adds wildcard rules
+(`git push * main`, `git push *:main`, `git push *:refs/heads/main`, with and without arguments after
+them, and the same for `master` and the `+` forms), which refuse any remote, any option and any source:
+`git push upstream feature:main` is refused. Codex rules match whole words, so there it only prompts,
+as every push does. This carries the policy that changes
 reach the default branch only through a pull request, where the hosting service cannot
 enforce it (branch protection on a private repository needs a paid GitHub plan). An agent
 pushes a topic branch and opens a pull request; only the owner merges it, on the hosting
