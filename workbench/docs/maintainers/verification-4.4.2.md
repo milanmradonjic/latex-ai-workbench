@@ -5,7 +5,7 @@ Tested on 2026-10-14 on Linux (x86_64, GNU Make 4.3, Python 3.13.16 and 3.12.13;
 
 | Check | Result |
 |---|---|
-| `tests/test_scope_4_4_2.py` against 4.4.1 | 3 of its 5 tests fail: the module table still has `check_group`, `tools` and `requires` (two sub-failures, one per module); `module_names` still accepts a group; `modules` still prints `requires` (two sub-failures). The other two pin what must not change (the tools a project needs, and the schema's refusals of an unknown module and field, with their messages) and pass on both |
+| `tests/test_scope_4_4_2.py` (now in `tests/test_installer.py`) against 4.4.1 | 3 of its 5 tests fail: the module table still has `check_group`, `tools` and `requires` (two sub-failures, one per module); `module_names` still accepts a group; `modules` still prints `requires` (two sub-failures). The other two pin what must not change (the tools a project needs, and the schema's refusals of an unknown module and field, with their messages) and pass on both |
 | The same after the change | All 5 pass, on 3.13.16 and 3.12.13 |
 | Six mutations | Each is caught by the test named for it: a module regaining a `tools` list; `module_names` taking a group again; `module_names` reversing the table order; `required_tools` forgetting `make`; a bibliography field no longer checked; the `modules` report regaining `requires` |
 | `make -C workbench test` | 361 tests (356 before, 5 new), 16 skipped (they need TeX), OK on 3.13.16 and on 3.12.13 |

@@ -20,7 +20,7 @@ The diagnostic was `Makefile:30: *** multiple target patterns. Stop.` GNU Make
 3.81 cannot parse `private`. The 3.0.2 modern-Make `.FEATURES=` simulation still
 accepted that syntax, so the suite did not expose the defect.
 
-`tests/test_repairs_3_0_3.py` exercises the actual old parser, and failed at `make pdf`
+`tests/test_repairs_3_0_3.py` (now in `tests/test_installer.py`) exercises the actual old parser, and failed at `make pdf`
 before the fix. The adapter now guards both private shell assignments with the
 existing required `extra-prereqs` feature. No receipt, configuration or manifest
 schema changes. This intentionally adds a guard to installed adopted-build Makefile

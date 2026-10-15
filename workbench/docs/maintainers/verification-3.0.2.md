@@ -8,7 +8,7 @@ does not claim it.
 ## Findings repaired
 
 Each finding was reproduced before the change. Each regression test in
-`tests/test_repairs_3_0_2.py` failed against 3.0.1: all 14 failed, 13 by assertion and 1
+`tests/test_repairs_3_0_2.py` (its tests are now in `tests/test_processes.py`, `tests/test_receipts.py`, `tests/test_diagnostics.py` and others (see [where the tests are](tests-map.md))) failed against 3.0.1: all 14 failed, 13 by assertion and 1
 by a missing attribute.
 
 | Finding | Reproduction | Repair | Regression |

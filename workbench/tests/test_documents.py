@@ -1,26 +1,223 @@
-"""Installed workflows for named TeX documents and mixed note organization."""
-import contextlib
-import io
+"""Tests of named documents and their views: defaults, selectors, notes, `make all` and a target for each.
+
+Regrouped by component in step 3.8 of docs/maintainers/plan-after-4.4.0.md from 5 older test files; each class says which one, and the release it came with.
+What each of those files said of itself:
+
+test_document_views.py:
+Resolved document views are immutable, typed mappings whose JSON is exactly what 3.2.0 stored.
+
+The build record keeps a view as JSON ("configuration") and compares it with the view of the build that finishes it, so
+the shape must not change while a build runs across an upgrade. `fixtures/views.json` pins it, for every configuration
+of the generated-files guard and one that sets every key a document can carry. Refresh it only with
+`python3 -B tests/test_documents.py --generate`, and only when a release announces a change of shape.
+
+test_documents.py:
+Installed workflows for named TeX documents and mixed note organization.
+
+test_repairs_3_2_0.py:
+3.2.0: --document names a LaTeX document, so a project without LaTeX refuses it and says how to turn LaTeX on.
+
+Before, `check --document X` and `bib-check --document X` in a project created without LaTeX stopped with an internal
+error (`documents.py` was not installed there). Once the configuration code moved into `schema.py`, which every
+project has, they refused, but without the hint `build --document X` gives; where LaTeX had been disabled they
+never gave one.
+
+test_scope_4_4_0.py:
+Workbench 4.4.0 removes the adoption of a project's own Makefile (see docs/maintainers/minimal-scope.md): the workbench no longer merges
+into, parses or wraps a Makefile it did not write. `init` creates a project and refuses to touch a file of the project's that differs
+from what it would write; an existing project is migrated to the workbench's layout by an agent following docs/migrating.md.
+
+These tests pin what is gone (the Make parser, the adapter, the build hooks, the Make version requirement), what `init` now promises
+(it writes only files that are absent or already identical, and says what to do about the rest) and what stays (a project's own Make
+targets run as an ordinary build command, and `validate` still runs a project's own `check`).
+
+test_scope_4_6_0.py:
+Workbench 4.6.0, step 3.5 of docs/maintainers/plan-after-4.4.0.md: `make all`, and `make NAME` for each document of a project that has several.
+
+`make all` builds every document, one after another (one runtime action, `build --all`, because the project's build lock refuses two builds at once and so
+`make -j all` must not start them side by side). `make notes` builds that document, as `make build DOC=notes` does. The generated Makefile gains the targets on purpose:
+`all` for every project with LaTeX, and a target per document when there are two or more, written only where the name is free. The bare `make` still builds the
+default document. `make guide` names the targets, and `diff` shows an existing project the lines it lacks.
+"""
+
+import copy
 import json
-import os
-from pathlib import Path
-import shutil
+import re
 import subprocess
 import sys
 import tempfile
 import unittest
-from test_support import isolate_environment
+from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+PACKAGE = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PACKAGE))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 import bootstrap
 import core
-import schema
 import documents
 import latex
-import runtime
+import schema
+from test_installer import FIXTURES
+from test_support import ProjectCase, isolate_environment
+
+
+# One configuration that sets every key a document or the shared settings can carry.
+EVERY_KEY = {
+    "schema_version": 3,
+    "modules": {
+        "latex": {"default_document": "paper",
+                  "defaults": {"engine": "pdflatex", "backend": "bibtex", "lint": {"enabled": True, "args": ["-n8"]}, "output_dir": "out"},
+                  "documents": {"paper": {"root": "main.tex", "inputs": ["data/*.csv"], "bibliography_files": ["extra.bib"]},
+                                "note": {"root": "notes/note.tex", "engine": "pdflatex", "backend": "none", "build_command": ["make", "note"],
+                                         "output_dir": "note-out", "lint": {"enabled": False, "baseline": "note.baseline.json"}}}},
+        "bibliography": {"files": ["refs.bib"], "export": {"path": "refs.bib", "required": True, "format": "bibtex"}},
+    },
+    "integrations": {"editor": False},
+    "validation": {"manuscript_inputs": ["figures/*.pdf"], "package": None},
+}
+
+
+CONFIGURATIONS = {**dict(FIXTURES), "every-key": EVERY_KEY}
+
+
+STORED = Path(__file__).resolve().parent / "fixtures" / "views.json"
+
+
+def rendered():
+    """For every configuration, each declared document with its view as the JSON a build record stores."""
+    return {name: [{"name": document.name, "default": document.default, "view": json.loads(document.configuration)}
+                   for document in schema.specifications(core.effective_config(config))]
+            for name, config in CONFIGURATIONS.items()}
+
+
+TEX = "\\documentclass{article}\n\\begin{document}\nHello.\n\\end{document}\n"
+
+
+REMOVED_WORDS = re.compile(r"(?i)adopted (?:make|single-target|build|command|goal|document)|EXTRA_PREREQS|GNU Make 4\.3|build-shell|build-prepare"
+                           r"|kept your Makefile target|explicit (?:project )?adapter|phased (?:Make|build)|shared adopted|Make adoption")
+
+
+BUILDER = ("import sys\nfrom pathlib import Path\nname = sys.argv[1]\n"
+           "if Path('fail-' + name).exists():\n    sys.exit('simulated compiler failure for ' + name)\n"
+           "out = Path('outputs'); out.mkdir(exist_ok=True)\n"
+           "(out / (name + '.pdf')).write_bytes(b'%PDF-fixture ' + name.encode())\n"
+           "(out / (name + '.log')).write_text('Clean log\\n')\n"
+           "(out / (name + '.fls')).write_text('PWD ' + str(Path.cwd()) + '\\nINPUT ' + name + '.tex\\n')\n")
+
+
+SOURCE = "\\documentclass{article}\\begin{document}x\\end{document}\n"
+
+
+def document(name, **fields):
+    return {"root": f"{name}.tex", "lint": {"enabled": False}, "output_dir": "outputs", "build_command": [sys.executable, "builder.py", name], **fields}
+
+
+def configuration(*names, default=None, **fields):
+    return {"schema_version": 3, "modules": {"latex": {"default_document": default or names[0], "documents": {name: document(name, **fields) for name in names}}},
+            "integrations": {"editor": False}}
+
+
+def generate():
+    STORED.parent.mkdir(parents=True, exist_ok=True)
+    STORED.write_text(json.dumps(rendered(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+class ViewShapeIsPinned(unittest.TestCase):
+    """Origin: tests/test_document_views.py."""
+
+    def test_every_view_has_exactly_the_json_stored_for_it(self):
+        self.assertEqual(rendered(), json.loads(STORED.read_text(encoding="utf-8")),
+                         "a view changed shape: a build running across an upgrade would fail (see the module docstring)")
+
+    def test_the_stored_text_of_a_build_record_is_the_canonical_json_of_the_view(self):
+        for name, config in CONFIGURATIONS.items():
+            for document in schema.specifications(core.effective_config(config)):
+                with self.subTest(configuration=name, document=document.name):
+                    self.assertEqual(json.dumps(document.view, sort_keys=True), document.configuration)
+                    self.assertEqual(json.dumps(document.view.to_json(), sort_keys=True), document.configuration)
+
+
+class ViewTypes(unittest.TestCase):
+    """Origin: tests/test_document_views.py."""
+
+    def view(self, name="paper"):
+        return schema.resolve(core.effective_config(EVERY_KEY), name).view
+
+    def test_a_view_is_a_document_view_and_compares_equal_to_the_dict_a_build_record_was_loaded_into(self):
+        view = self.view()
+        self.assertIsInstance(view, schema.DocumentView)
+        self.assertIsInstance(view, dict)
+        loaded = json.loads(json.dumps({"configuration": view}))["configuration"]
+        self.assertEqual(loaded, view)
+        self.assertEqual(view, loaded)
+        self.assertFalse(loaded != view)
+
+    def test_a_view_refuses_every_change_at_every_depth(self):
+        view = self.view()
+        for attempt in (lambda: view.__setitem__("root", "x"), lambda: view.pop("root"), lambda: view.update(root="x"),
+                        lambda: view.setdefault("new", 1), lambda: view.clear(), lambda: view.popitem(), lambda: view.__delitem__("root"),
+                        lambda: view["lint"].__setitem__("enabled", False), lambda: view["lint"]["args"].append("-n9"),
+                        lambda: view["inputs"].sort(), lambda: view["bibliography"]["files"].extend(["x.bib"]),
+                        lambda: view["bibliography"].update(backend="none")):
+            with self.subTest(attempt=attempt), self.assertRaises(TypeError):
+                attempt()
+
+    def test_typed_properties_read_the_keys_the_backends_use(self):
+        view = self.view("note")
+        self.assertEqual((view.name, view.root, view.engine, view.output_dir), ("note", "notes/note.tex", "pdflatex", "note-out"))
+        self.assertEqual(list(view.build_command), ["make", "note"])
+        self.assertEqual(view.lint["enabled"], False)
+        self.assertEqual(view.bibliography["backend"], "none")
+        self.assertEqual(list(self.view("paper").inputs), ["data/*.csv"])
+        self.assertEqual(view.validation["manuscript_inputs"], ["figures/*.pdf"])
+
+    def test_to_json_and_deep_copies_are_plain_mutable_data(self):
+        view = self.view()
+        for copy_ in (view.to_json(), copy.deepcopy(view)):
+            self.assertIs(type(copy_), dict)
+            self.assertIs(type(copy_["lint"]), dict)
+            self.assertIs(type(copy_["lint"]["args"]), list)
+            self.assertEqual(copy_, view)
+            copy_["lint"]["args"].append("-n9")  # a copy is the caller's to change
+        self.assertEqual(list(view.lint["args"]), ["-n8"])
+
+    def test_a_project_without_latex_gets_shared_settings_not_a_document(self):
+        config = core.effective_config({"schema_version": 3, "modules": {"bibliography": {"files": ["refs.bib"], "export": None}}})
+        settings = schema.document_settings(config)
+        self.assertIsInstance(settings, schema.SharedSettings)
+        self.assertNotIsInstance(settings, schema.DocumentView)
+        self.assertEqual(list(settings.bibliography["files"]), ["refs.bib"])
+        self.assertEqual(set(settings), {"bibliography", "validation"})
+
+    def test_document_settings_resolves_a_project_configuration_and_refuses_a_view(self):
+        config = core.effective_config(EVERY_KEY)
+        view = schema.document_settings(config, "note")
+        self.assertIsInstance(view, schema.DocumentView)
+        with self.assertRaises(TypeError):
+            schema.document_settings(view)  # already resolved: the caller that holds it uses it as it is
+
+
+class BackendsTakeResolvedViews(unittest.TestCase):
+    """Origin: tests/test_document_views.py."""
+
+    def test_the_latex_backend_never_resolves_a_configuration(self):
+        source = (Path(schema.__file__).resolve().parent / "latex.py").read_text(encoding="utf-8")
+        self.assertNotIn("document_settings", source)
+
+    def test_a_backend_refuses_a_project_configuration_instead_of_checking_nothing(self):
+        import latex
+        config = core.effective_config({"schema_version": 3, "modules": {"bibliography": {"files": ["refs.bib"], "export": None}}})
+        for call in (latex.bibliography_check, latex.declared_bibs):
+            with self.subTest(call=call.__name__), self.assertRaises(AttributeError):
+                call(Path("."), config)  # a project configuration has no bibliography settings of its own; resolve it first
+        settings = schema.document_settings(config)
+        self.assertEqual([path.name for path in latex.declared_bibs(Path("."), settings)], ["refs.bib"])
 
 
 class DocumentTests(unittest.TestCase):
+    """Origin: tests/test_documents.py."""
+
     def setUp(self):
         isolate_environment(self)
         self.temp = tempfile.TemporaryDirectory(prefix="workbench-documents-")
@@ -32,12 +229,6 @@ class DocumentTests(unittest.TestCase):
     def install(self, *arguments, expected=0):
         result = subprocess.run([sys.executable, "-B", str(bootstrap.PACKAGE / "latex-ai-init"),
                                  *arguments, str(self.project)], capture_output=True, text=True)
-        self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
-        return result
-
-    def command(self, *arguments, expected=0):
-        result = subprocess.run([sys.executable, "-B", str(self.project / ".latex-ai/workbench.py"),
-                                 *arguments], cwd=self.project, capture_output=True, text=True)
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return result
 
@@ -71,7 +262,6 @@ class DocumentTests(unittest.TestCase):
         (self.project / core.CONFIG).write_text(json.dumps(config))
         return config
 
-
     def test_per_document_defaults_are_independent(self):
         config = self.configuration()
         config["modules"]["latex"]["defaults"]["lint"]["args"] = ["-n8"]
@@ -98,23 +288,6 @@ class DocumentTests(unittest.TestCase):
         with self.assertRaisesRegex(core.WorkbenchError, "collision"):
             schema.validate_config(self.project, config)
 
-    def test_rejects_output_directory_symlink_alias(self):
-        config = self.configuration()
-        (self.project / "output").mkdir()
-        (self.project / "alias").symlink_to(self.project / "output", target_is_directory=True)
-        targets = config["modules"]["latex"]["documents"]
-        targets["paper"]["output_dir"] = "output"
-        targets["note"]["output_dir"] = "alias"
-        with self.assertRaisesRegex(core.WorkbenchError, "collision"):
-            schema.validate_config(self.project, config)
-
-    def test_build_outputs_cannot_overwrite_another_document_export(self):
-        config = self.configuration()
-        (self.project / "document.tex").write_text("\\documentclass{article}\n")
-        config["modules"]["latex"]["documents"]["note"].update({"root": "document.tex", "output_dir": ".latex-ai/artifacts/documents/paper"})
-        with self.assertRaisesRegex(core.WorkbenchError, "exported PDF"):
-            schema.validate_config(self.project, config)
-
     def test_malformed_document_values_are_expected_configuration_errors(self):
         for field, value in (("bibliography_files", [{}]), ("root", []), ("lint", []), ("inputs", [{}])):
             config = self.configuration()
@@ -130,105 +303,11 @@ class DocumentTests(unittest.TestCase):
         self.assertIn("Unknown document", result.stderr)
         self.assertEqual(before, self.snapshot())
 
-    def test_malformed_receipt_does_not_break_read_only_document_planning(self):
-        config = self.configuration()
-        self.install("init")
-        receipt = self.project / latex.receipt_path(schema.resolve(config, "note").view)
-        receipt.parent.mkdir(parents=True, exist_ok=True)
-        receipt.write_text(json.dumps({"schema_version": 1, "status": "verified", "configuration": None, "inputs": None}))
-        before = self.snapshot()
-        self.command("documents", "--json")
-        report = json.loads(self.command("plan", "--files", "notes/main.tex", "--json").stdout)
-        self.assertEqual(report["documents"], ["note"])
-        self.assertEqual(self.snapshot(), before)
-
-    def test_two_same_stem_documents_have_independent_receipts_and_exports(self):
-        self.configuration()
-        self.install("init")
-        for name in ("paper", "note"):
-            self.make("latex-ai-build", "DOC=" + name)
-            self.make("latex-ai-pdf-artifact", "DOC=" + name)
-        directory = self.project / ".latex-ai/artifacts/documents"
-        paper = (directory / "paper/build-receipt.json").read_bytes()
-        (self.project / "notes/main.tex").write_text("BROKEN\n")
-        self.make("latex-ai-build", "DOC=note", expected=2)
-        self.assertEqual(paper, (directory / "paper/build-receipt.json").read_bytes())
-        self.make("latex-ai-pdf-artifact", "DOC=note", expected=2)
-        self.make("latex-ai-pdf-artifact", "DOC=paper")
-        self.assertTrue((directory / "paper/document.pdf").read_bytes().startswith(b"%PDF-"))
-        self.assertFalse((self.project / ".latex-ai/artifacts/manuscript.pdf").exists())
-
-    def test_receipt_configuration_changes_are_scoped(self):
-        config = self.configuration()
-        self.install("init")
-        self.command("check")
-        config["modules"]["latex"]["documents"]["note"]["backend"] = "bibtex"
-        (self.project / core.CONFIG).write_text(json.dumps(config))
-        states = {row["id"]: row["state"] for row in json.loads(self.command("documents").stdout)}
-        self.assertEqual(states, {"paper": "current", "note": "stale"})
-
-    def test_failed_full_check_reports_document_and_checks_remaining_target(self):
-        self.configuration()
-        self.install("init")
-        (self.project / "main.tex").write_text("BROKEN\n")
-        result = self.command("check", "--json", expected=1)
-        report = json.loads(result.stdout)
-        self.assertEqual([row["status"] for row in report["result"]["documents"]], ["failed", "passed"])
-        self.assertIn("paper", report["stderr"])
-
-    def test_note_change_selects_only_its_document(self):
-        config = self.configuration()
-        plan = runtime.validation_plan(self.project, config, ["notes/main.tex"])
-        self.assertEqual(plan["documents"], ["note"])
-        self.assertTrue(plan["manuscript"])
-        self.assertEqual(runtime.validation_plan(self.project, config, ["notes/readme.md"])["documents"], [])
-
-    def test_shared_and_deleted_fragments_select_all_consumers(self):
-        config = self.configuration()
-        (self.project / "shared.tex").write_text("Shared definitions\n")
-        for root, include in (("main.tex", "shared"), ("notes/main.tex", "../shared")):
-            path = self.project / root
-            path.write_text("\\input{" + include + "}\n" + path.read_text())
-        self.assertEqual(runtime.validation_plan(self.project, config, ["shared.tex"])["documents"], ["note", "paper"])
-        (self.project / "shared.tex").unlink()
-        self.assertEqual(runtime.validation_plan(self.project, config, ["shared.tex"])["documents"], ["note", "paper"])
-
-    def test_hard_link_alias_selects_the_declared_document_input(self):
-        config = self.configuration()
-        (self.project / "resource.md").write_text("Resource\n")
-        os.link(self.project / "resource.md", self.project / "alias.md")
-        config["modules"]["latex"]["documents"]["paper"]["inputs"] = ["resource.md"]
-        self.assertEqual(runtime.validation_plan(self.project, config, ["alias.md"])["documents"], ["paper"])
-
-    def test_uncertain_tex_and_build_policy_select_all_documents(self):
-        config = self.configuration()
-        for path in ("unclassified.tex", "Makefile", core.CONFIG):
-            with self.subTest(path=path):
-                self.assertEqual(runtime.validation_plan(self.project, config, [path])["documents"], ["note", "paper"])
-
-    def test_selected_validation_does_not_build_unrelated_paper(self):
-        self.configuration()
-        self.install("init")
-        (self.project / "main.tex").write_text("BROKEN\n")
-        self.command("validate", "--files", "notes/main.tex")
-        self.assertFalse((self.project / ".latex-ai/artifacts/documents/paper/build-receipt.json").exists())
-        self.assertTrue((self.project / ".latex-ai/artifacts/documents/note/build-receipt.json").exists())
-
     def test_notes_paths_cannot_escape_the_notes_directory(self):
         for name in ("../state.tex", "/tmp/state.tex", "", "../../.latex-ai/state.tex"):
             config = {"schema_version": 3, "modules": {"notes": {"session_state": name}}}
             with self.subTest(name=name), self.assertRaises(core.WorkbenchError):
                 schema.validate_config(self.project, config)
-
-    def test_inspection_leaves_receipts_and_sources_unchanged(self):
-        self.configuration()
-        self.install("init")
-        self.command("check")
-        before = self.snapshot()
-        self.command("documents")
-        self.command("status", "--json")
-        self.command("plan", "--files", "notes/main.tex", "--json")
-        self.assertEqual(before, self.snapshot())
 
     def test_editor_tasks_use_named_make_commands(self):
         config = self.configuration()
@@ -237,56 +316,6 @@ class DocumentTests(unittest.TestCase):
         self.install("init")
         tasks = json.loads((self.project / ".vscode/tasks.json").read_text())["tasks"]
         self.assertIn(["latex-ai-build", "DOC=note"], [task["args"] for task in tasks])
-
-    def test_deleted_explicit_input_selects_target_before_first_build(self):
-        config = self.configuration()
-        config["modules"]["latex"]["documents"]["note"]["inputs"] = ["notes/context.md"]
-        self.assertEqual(runtime.validation_plan(self.project, config, ["notes/context.md"])["documents"], ["note"])
-        (self.project / core.CONFIG).write_text(json.dumps(config))
-        self.install("init")
-        result = self.command("build", "--document", "note", expected=1)
-        self.assertIn("Missing declared document input", result.stderr)
-
-    def test_schema_three_no_tex_fallback_checks_bibliography(self):
-        config = {"schema_version": 3, "modules": {"bibliography": {"files": ["refs.bib"]}}}
-        (self.project / core.CONFIG).write_text(json.dumps(config))
-        (self.project / "refs.bib").write_text("@misc{fixture, title={Synthetic fixture}}\n")
-        self.install("init")
-        (self.project / "refs.bib").write_text("@misc{fixture, title={One}}\n@misc{fixture, title={Two}}\n")
-        self.assertIn("Duplicate bibliography key", self.command("validate", expected=1).stderr)
-
-    def test_active_adopted_build_blocks_other_cleanup_and_export(self):
-        config = self.configuration()
-        config["modules"]["latex"]["documents"]["note"]["build_command"] = None
-        (self.project / core.CONFIG).write_text(json.dumps(config))
-        self.install("init")
-        with contextlib.redirect_stdout(io.StringIO()):
-            latex.prepare_build(self.project, schema.resolve(config, "paper").view, os.getpid())
-        before = self.snapshot()
-        for action in ("clean", "artifact"):
-            result = self.command(action, "--document", "note", expected=1)
-            self.assertIn("Another build is active", result.stderr)
-        self.assertEqual(before, self.snapshot())
-
-    def test_invalid_defaults_and_recursive_commands_fail_before_installation(self):
-        for change in ("default", "recursive", "malformed"):
-            config = self.configuration()
-            values = config["modules"]["latex"]
-            if change == "default":
-                values["defaults"]["engine"] = "bogus"
-                for fields in values["documents"].values():
-                    fields["engine"] = "pdflatex"
-            else:
-                values["documents"]["note"]["build_command"] = ["make", "check" if change == "recursive" else {}]
-            with self.subTest(change=change), self.assertRaises(core.WorkbenchError):
-                schema.validate_config(self.project, config)
-
-    def test_separate_adopted_graphs_allow_comments_with_make_symbols(self):
-        config = self.configuration()
-        (self.project / "Makefile").write_text("paper: main.tex # uses $< and 100%\nnote: notes/main.tex\n")
-        for name in ("paper", "note"):
-            config["modules"]["latex"]["documents"][name]["build_command"] = ["make", name]
-        schema.validate_config(self.project, config)
 
     def test_symlink_root_uses_named_output_directory(self):
         (self.project / "src").mkdir()
@@ -298,15 +327,102 @@ class DocumentTests(unittest.TestCase):
         self.assertIn("/.latex-ai/artifacts/documents/manuscript/build/", str(original).replace("\\", "/"))
         self.assertIn("/.latex-ai/artifacts/documents/manuscript/build/main.pdf", (self.project / ".gitignore").read_text())
 
-    def test_selected_validation_reports_all_failing_documents(self):
-        self.configuration()
-        self.install("init")
-        for path in ("main.tex", "notes/main.tex"):
-            (self.project / path).write_text("BROKEN\n")
-        report = json.loads(self.command("validate", "--files", "unknown.tex", "--json", expected=1).stdout)
-        self.assertEqual({row["id"] for row in report["result"]["documents"]}, {"paper", "note"})
-        self.assertTrue(all(row["status"] == "failed" for row in report["result"]["documents"]))
+
+class DocumentSelectorWithoutLatex(ProjectCase):
+    """Origin: tests/test_repairs_3_2_0.py, workbench 3.2.0."""
+
+    def refused(self, *args):
+        result = self.command(*args, expected=1)
+        shown = result.stdout + result.stderr
+        self.assertNotIn("INTERNAL ERROR", shown)
+        self.assertIn("Module is disabled: latex", result.stderr)
+        self.assertIn('"modules" in .latex-ai.json', result.stderr, "the error must say how to turn LaTeX on")
+
+    def test_a_project_created_without_latex_refuses_the_selector_and_says_how_to_enable_it(self):
+        (self.project / "README.md").write_text("notes\n")
+        self.install("init", "--modules", "", "--skip-editor")
+        for action in ("check", "bib-check", "build"):  # build always did
+            with self.subTest(action=action):
+                self.refused(action, "--document", "paper")
+
+    def test_a_project_that_disabled_latex_refuses_it_the_same_way(self):
+        (self.project / "main.tex").write_text(TEX)
+        self.install("init", "--modules", "latex", "--root", "main.tex", "--no-lint", "--skip-editor")
+        self.edit_config(lambda data: data["modules"].pop("latex"))
+        for action in ("check", "bib-check", "build"):
+            with self.subTest(action=action):
+                self.refused(action, "--document", "manuscript")
+
+    def test_with_latex_on_the_selector_still_selects_and_still_rejects_an_unknown_name(self):
+        (self.project / "main.tex").write_text(TEX)
+        self.install("init", "--modules", "latex", "--root", "main.tex", "--no-lint", "--skip-editor")
+        self.command("bib-check", "--document", "manuscript")
+        refused = self.command("check", "--document", "nope", expected=1)
+        self.assertIn("Unknown document: 'nope'", refused.stderr)
+        self.assertNotIn("INTERNAL ERROR", refused.stdout + refused.stderr)
+
+
+class Documents(unittest.TestCase):
+    """Origin: tests/test_scope_4_4_0.py, workbench 4.4.0."""
+
+    def test_no_live_document_or_guide_describes_what_is_gone(self):
+        paths = [PACKAGE / name for name in ("README.md", "templates/AGENTS.md", "skills/latex-ai-workbench/SKILL.md", "skills/latex-ai-workbench/references/installation.md",
+                                             "runtime.py", "schema.py", "bootstrap.py", "core.py", "latex.py", "Makefile")]
+        paths += sorted(path for path in (PACKAGE / "docs").glob("*.md") if path.name != "migrating.md")  # the recipe names the old adapter, to recognize it
+        for path in paths:
+            with self.subTest(file=path.name):
+                found = REMOVED_WORDS.search(path.read_text(encoding="utf-8"))
+                self.assertIsNone(found, found and found.group(0))
+
+    def test_the_migration_recipe_is_written_down_for_an_agent_to_follow(self):
+        text = (PACKAGE / "docs/migrating.md").read_text(encoding="utf-8")
+        for step in ("snapshot", "move", "init", "AGENTS.md", ".gitignore", ".vscode", "build_command", "lint-baseline", "make check", "git diff"):
+            self.assertIn(step, text)
+        self.assertLessEqual(len(text.splitlines()), 80, "a recipe an agent follows, not a manual")
+
+
+class Running(ProjectCase):
+    """Origin: tests/test_scope_4_6_0.py, workbench 4.6.0."""
+
+    def setUp(self):
+        super().setUp()
+        for name in ("paper", "notes"):
+            (self.project / f"{name}.tex").write_text(SOURCE)
+        (self.project / "builder.py").write_text(BUILDER)
+        (self.project / core.CONFIG).write_text(json.dumps(configuration("paper", "notes")))
+        self.install("init", "--skip-editor")
+
+    def states(self):
+        return {row["id"]: row["state"] for row in documents.report(self.project, schema.load_config(self.project))}
+
+    def test_make_with_a_documents_name_builds_that_document_only(self):
+        self.run_command("make", "notes")
+        self.assertEqual(self.states(), {"paper": "missing", "notes": "current"})
+
+    def test_bare_make_builds_the_default_document_only(self):
+        self.run_command("make")
+        self.assertEqual(self.states(), {"paper": "current", "notes": "missing"})
+
+    def test_make_all_builds_every_document_even_when_make_is_asked_for_parallel_jobs(self):
+        result = self.run_command("make", "-j4", "all")
+        self.assertEqual(self.states(), {"paper": "current", "notes": "current"})
+        self.assertNotIn("Cannot lock", result.stdout + result.stderr)
+
+    def test_all_stops_at_the_first_failure_and_names_the_document(self):
+        (self.project / "fail-notes").write_text("")
+        result = self.run_command("make", "all", expected=2)
+        self.assertEqual(self.states()["paper"], "current")
+        self.assertIn("notes", result.stdout + result.stderr)
+
+    def test_all_does_not_try_the_documents_after_a_failure(self):
+        (self.project / "fail-paper").write_text("")
+        self.run_command("make", "all", expected=2)
+        self.assertEqual(self.states(), {"paper": "failed", "notes": "missing"})
+
+    def test_all_refuses_a_named_document_and_belongs_to_build_only(self):
+        self.command("build", "--all", "--document", "paper", expected=1)
+        self.command("lint", "--all", expected=1)
 
 
 if __name__ == "__main__":
-    unittest.main()
+    generate() if "--generate" in sys.argv else unittest.main()

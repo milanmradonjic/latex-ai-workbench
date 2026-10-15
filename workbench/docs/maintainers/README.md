@@ -30,6 +30,8 @@ removed from one record). The first version's pull requests and runs went with i
 - [Version 3.5.0 verification](verification-3.5.0.md): the pinned workflow actions, and what an upgrade does to a project's workflow.
 - [Version 3.6.0 verification](verification-3.6.0.md): `validation.ignore`, and what it never ignores.
 - [Version 4.8.1 verification](verification-4.8.1.md): audit repairs, source/output alias protection, graphics freshness, text integrity and bounded scans.
+- [Step 3.8 verification](verification-3.8.md): the tests regrouped by component, with every method shown unchanged and the same 541 tests passing.
+- [Where the tests are](tests-map.md): the twelve test modules, and where each of the older test files went.
 - [Version 4.10.0 verification](verification-4.10.0.md): the Git guardrails of gate G1, and 1,344 spellings of a push to the default branch tried against both agents' rules.
 - [Version 4.9.1 verification](verification-4.9.1.md): the manual after two independent readers used it, and what each reader found.
 - [Version 4.9.0 verification](verification-4.9.0.md): the doctor's stamp report, the update recipe in the skill file, and an agent other than the author following it on a copy.
@@ -93,6 +95,8 @@ through a pull request that only the owner merges.
 The agents' own permission prompts are separate: they stay as the installed rule files set them.
 
 ## Running the package's own checks
+
+The tests are in a module for each component (`tests/test_installer.py`, `test_planner.py`, `test_receipts.py`, `test_guide.py` and so on); [where the tests are](tests-map.md) says which older file each came from.
 
 ```sh
 make -C /path/to/workbench test         # installer/runtime regression checks

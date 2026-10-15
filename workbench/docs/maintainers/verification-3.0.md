@@ -56,7 +56,7 @@ Ten independent cheap testers used public guides/examples and temporary projects
 without implementation, package tests, maintainer records, or previous findings.
 Their reports and parent reproductions are retained in
 `/workspace/latex-ai-blind-round-10/`. The repository was unchanged by that round.
-The new regressions are `tests/test_blind_repairs.py`; twelve tests pass without
+The new regressions are `tests/test_blind_repairs.py` (its tests are now in `tests/test_receipts.py`, `tests/test_bibliography.py`, `tests/test_diagnostics.py` and others (see [where the tests are](tests-map.md))); twelve tests pass without
 skips. Fail-first logs are retained in `/workspace/latex-ai-blind-fixes/`.
 
 | Finding | Current structural repair | Verification |

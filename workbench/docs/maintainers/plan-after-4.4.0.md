@@ -66,7 +66,7 @@ had a cost: the 3.12 job failed on the pushes to `main` for 4.3.0 and 4.4.0, a v
 
 Each is settled before the step that depends on it.
 
-- **G1, Git guardrails, decided on 15 October 2026.** The rule files hold 148 deny and 121 ask entries for Claude Code and 43 rules for Codex, pinned to the policy by `test_workbench.py`. The
+- **G1, Git guardrails, decided on 15 October 2026.** The rule files hold 148 deny and 121 ask entries for Claude Code and 43 rules for Codex, pinned to the policy by `test_workbench.py` (its tests are now in `tests/test_planner.py`, `tests/test_installer.py`, `tests/test_bibliography.py` and others (see [where the tests are](tests-map.md))). The
   scope asked for less: ask before commit or push, no push to `main`, no merge. The owner chose the second option, with one addition about sessions:
   - **Kept:** the generated deny set (push to `main` or `master` in every spelling, merges).
   - **Shrunk:** the prompts, from every Git command that has an entry today to the commands that write history, branches or the working tree (commit, rebase, reset, cherry-pick, revert, branch, switch,

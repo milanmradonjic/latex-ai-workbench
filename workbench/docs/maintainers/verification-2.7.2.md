@@ -35,7 +35,7 @@ the same `project_check` decision; PDF collection stays inside TeX actions.
 ## Audit finding coverage
 
 IDs refer to the independent audit of 2.7.1. Each original finding has a
-fail-first regression in `tests/test_audit3_repairs.py`; the disk-move fixture
+fail-first regression in `tests/test_audit3_repairs.py` (its tests are now in `tests/test_receipts.py`, `tests/test_processes.py`, `tests/test_planner.py` and others (see [where the tests are](tests-map.md))); the disk-move fixture
 was corrected before its baseline failure was recorded.
 
 | ID | Introduced in | Repair and regression evidence |

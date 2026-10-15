@@ -6,7 +6,7 @@ with latexmk 4.88). The hosted results follow the local ones.
 
 | Check | Result |
 |---|---|
-| `tests/test_one_table_each.py` against 3.6.0 | 16 of its 18 tests failed or errored: the constants did not exist (`GENERATED_TREES`, `RECURSIVE_GOALS`, `RESERVED_PREFIX`, the suffix tables, `broken_markdown_link`), and the static checks found the copies (five modules listing the folders, `{"build", "lint", "check"}` in `bootstrap.py`, the goals typed twice in `schema.py`). The two that passed pin what must not change: every file name routes as before, and a project's own `build`, `lint` or `paper` target is not refused |
+| `tests/test_one_table_each.py` (its tests are now in `tests/test_planner.py`, `tests/test_receipts.py` and `tests/test_installer.py`) against 3.6.0 | 16 of its 18 tests failed or errored: the constants did not exist (`GENERATED_TREES`, `RECURSIVE_GOALS`, `RESERVED_PREFIX`, the suffix tables, `broken_markdown_link`), and the static checks found the copies (five modules listing the folders, `{"build", "lint", "check"}` in `bootstrap.py`, the goals typed twice in `schema.py`). The two that passed pin what must not change: every file name routes as before, and a project's own `build`, `lint` or `paper` target is not refused |
 | The same after the change | All 18 pass, among them: the six goals equal the six names 3.6.0 spelled out; each is refused as a `build_command`, and so is any `latex-ai-` name; a project's own `build`, `lint`, `paper` are not; every file name routes as 3.6.0 routed it (41 names, recorded from the old code before the change); four tests of the Markdown link check, covering fences, anchors, queries, quoted and angle-bracket targets, links that leave the project |
 | Mutation check of the new tests | Ten mutations, each caught: a goal dropped from the registry-derived set; the prefix test dropped; the old Markdown-walk, task-path and Markdown-pattern lists put back (2, 5 and 4 tests fail); `out` dropped from the installer's extras; the data suffixes left out of the manuscript table; fences not removed, and links outside the project checked, in the link check; the literal `{"build", "lint", "check"}` put back |
 | The generated-files guard | Passes with no stored copy regenerated: the Makefile, workflow and editor files are byte-identical |
@@ -16,14 +16,14 @@ with latexmk 4.88). The hosted results follow the local ones.
 | `make -C workbench test` | 448 tests, 1 skipped (`test_a10_zombie_owner_is_not_running` needs `/proc`, which macOS lacks) |
 | `make -C workbench portability` | 87 of 87 |
 | `latex-ai-init audit` in the reference, `make latex-ai-bib-check`, `make check` | The installation is current; both checks pass |
-| The import graph | `schema` now imports `commands`, which imports only `core`; `tests/test_architecture.py` allows that and no more, and there is still no cycle |
+| The import graph | `schema` now imports `commands`, which imports only `core`; `tests/test_architecture.py` (now in `tests/test_architecture.py`) allows that and no more, and there is still no cycle |
 
 ## Where behaviour changes, and was not exercised on real projects
 
 These follow from using one list and are listed in the release notes. None showed in the comparisons above, because no scratch
 project had a folder of those names where it matters: the Markdown walk skips `site-packages` and `dist-packages`; `markdown.files`
 patterns and task paths are refused when they start in a folder that is now on the list; the installer's walk skips
-`__pycache__`, `site-packages` and `dist-packages`. Each is covered by a test in `test_one_table_each.py`.
+`__pycache__`, `site-packages` and `dist-packages`. Each is covered by a test in `test_one_table_each.py` (its tests are now in `tests/test_planner.py`, `tests/test_receipts.py` and `tests/test_installer.py`).
 
 ## Hosted verification
 

@@ -6,7 +6,7 @@ and Biber 2.21). The hosted results of the pull request follow once it has run.
 
 | Check | Result |
 |---|---|
-| `tests/test_scope_4_2_0.py` against 4.1.0 | Fails: the handbook, its copies and the `guide-html` command are all still there, the guide still takes a topic, and a project's Makefile still exports `TOPIC` |
+| `tests/test_scope_4_2_0.py` (its tests are now in `tests/test_scope.py` and `tests/test_guide.py`) against 4.1.0 | Fails: the handbook, its copies and the `guide-html` command are all still there, the guide still takes a topic, and a project's Makefile still exports `TOPIC` |
 | The same after the change | All 4 pass. Four mutations (`guide-html` back, `handbook.py` a runtime file again, the manual past 60 lines, `TOPIC` exported again) are each caught |
 | The rewritten guide tests | 14 tests of orientation pass: the manual shows the project's documents and states, names the commands that work in the project (`make latex-ai-build` where the Makefile keeps its own `build`), says so when names differ, names no command that does not exist, drops the document commands in a project without LaTeX, and reads and writes nothing |
 | `make -C workbench test` | 363 tests, 1 skipped (`test_a10_zombie_owner_is_not_running` needs `/proc`, which macOS lacks) |

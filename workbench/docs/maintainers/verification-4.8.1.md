@@ -11,7 +11,7 @@ latexmk 4.83, ChkTeX 1.7.8 and pdfTeX from TeX Live 2023/Debian.
 
 ## Regression evidence
 
-`tests/test_scope_4_8_1.py` contains 27 tests. Against the frozen 4.8.0 source,
+`tests/test_scope_4_8_1.py` (its tests are now in `tests/test_receipts.py`, `tests/test_planner.py`, `tests/test_bibliography.py` and others (see [where the tests are](tests-map.md))) contains 27 tests. Against the frozen 4.8.0 source,
 24 fail (73 assertion failures across subcases); the three controls for actual
 generated auxiliaries, mere filename mentions and output command arguments pass.
 All 27 pass after the repairs. Each new test also catches one deliberate

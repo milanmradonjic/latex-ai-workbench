@@ -6,7 +6,7 @@ carries it.
 
 | Check | Result |
 |---|---|
-| `tests/test_repairs_3_0_4.py` against 3.0.3 | All 3 tests failed: the policy text was absent, and there were no `deny` / `forbidden` rules |
+| `tests/test_repairs_3_0_4.py` (now in `tests/test_agent_rules.py`) against 3.0.3 | All 3 tests failed: the policy text was absent, and there were no `deny` / `forbidden` rules |
 | `test_agents_cannot_merge_pull_requests_themselves`, added after review of the first commit of the pull request | Failed on that commit: no merge rules, and the policy lacked the "only the owner merges" sentence; passes now |
 | The same tests after the change | Pass |
 | `make -C workbench test` | 369 passed, 21 skipped (20 need TeX; 1 needs the real GNU Make 3.81) |

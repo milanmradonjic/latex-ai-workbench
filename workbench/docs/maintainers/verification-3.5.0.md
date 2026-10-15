@@ -8,7 +8,7 @@ first on `PATH`, TeX Live with latexmk 4.88). Hosted CI must be checked on the p
 |---|---|
 | Each pinned commit against GitHub | For `actions/checkout` v7 (`3d3c42e…`, 2026-07-17), `actions/upload-artifact` v7 (`cf430e0…`, 2026-10-07) and `xu-cheng/texlive-action` v3 (`22c0432…`, 2026-04-02), and `actions/setup-python` v6 (`ece7cb0…`, 2026-06-23): the commit exists in that action's repository, and the repository's tag list gives this commit for the tag |
 | The same commits against what CI used | The "Download action repository" lines of the hosted runs of 3.4.1 record the same four commits, so pinning leaves what runs unchanged |
-| `tests/test_repairs_3_5_0.py` against 3.4.0 | All 5 fail: 13 generated workflows contain unpinned actions, no pin is in the expected form, `pin_actions` does not exist, this repository's three workflows are unpinned, and there is no Dependabot file |
+| `tests/test_repairs_3_5_0.py` (now in `tests/test_architecture.py`) against 3.4.0 | All 5 fail: 13 generated workflows contain unpinned actions, no pin is in the expected form, `pin_actions` does not exist, this repository's three workflows are unpinned, and there is no Dependabot file |
 | The same tests after the change | All 5 pass |
 | The generated-files guard | Failed first on all 13 stored workflows; after regenerating, only `uses:` lines differ (29 of texlive-action, 13 of checkout, 11 of upload-artifact; each replaced by its pinned form). No other line of any stored copy changed |
 | This repository's workflows | Every `uses:` of the three is pinned. `latex.yml` came from `upgrade-reference`, `schema3-acceptance.yml` from `tests/schema3_workflow.py --generate`, `workbench-python.yml` by hand; none of them has a changed line that is not a `uses:` line |
