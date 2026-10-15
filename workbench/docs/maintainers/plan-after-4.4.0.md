@@ -122,7 +122,9 @@ Each step is one release and one pull request.
   keeps the newest 6, and a manual one that is never deleted), so that a clock that jumps forward can no longer delete the history; the clock now only decides when a snapshot is taken.
 - **3.7 The doctor's stamp report, and the update recipe in the skill file.** `make doctor` reports the project's stamp, the template's and which generated files
   differ; the recipe moves into the skill file, as the scope says. **Done when** an agent other than the author has followed the recipe on a copy, and its diff and
-  `make check` result are in the verification record.
+  `make check` result are in the verification record. **Done — 15 October 2026**,
+  [pull request #14](https://github.com/milanmradonjic/latex-ai-workbench/pull/14), workbench 4.9.0: the doctor prints the stamp and, given a release's folder
+  (`LATEX_AI_TEMPLATE`), runs that release's own `diff` (the owner chose this over a project-side-only report); the recipe is the "Update" section of the skill file.
 - **3.8 Tests regrouped by component.** Receipts, planner, installer and guide, with each test's origin kept in its docstring and the test names cited in the records
   updated. This is the old Phase 7, and it comes last because it renames files the records cite.
 
