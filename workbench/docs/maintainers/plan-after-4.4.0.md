@@ -77,10 +77,13 @@ Each is settled before the step that depends on it.
     rebase, amending a pushed commit, force-push) stays the owner's every time, and the deny set stays the mechanical backstop. Changing the agents' permission rules needs the owner's approval each time.
   - **To do, when the files are changed:** a test of equivalent command spellings in both agents' rules: `git push origin feature:main` only prompts today. Not yet scheduled as a step.
   - **Still open:** whether the record-merge exception (`merge_record_pr.py`) stays. It is unchanged until the owner decides.
-- **G2, changed-file routing.** The planner routes lightweight checks, affected documents, bibliography, package tests and a conservative fallback. Decide three
-  things. Workflow YAML is ordinary text in the code but a protected build control in `validation.md`. Figure scripts get syntax checks only, so they must be declared in
-  `validation.manuscript_inputs`, and the manual should say so. A project without Git always falls back to a full check; revisit that once snapshots exist, if the full
-  check is too slow there.
+- **G2, changed-file routing, closed on 15 October 2026.** The planner routes lightweight checks, affected documents, bibliography, package tests and a conservative fallback. Its three open points
+  came to little once tried on an example:
+  - **Workflow YAML** is routed as ordinary text, and `docs/validation.md` said `validation.ignore` can never exclude "the workflows". That was left from before 4.1, when the workbench wrote workflows; it
+    now never writes one. Running the full check after a workflow edit would not test the workflow, which runs only on GitHub, where CI is the check. The code stays, and the words came out of the docs.
+  - **Figure scripts** get the file checks only, unless the document's `build_command` names the script (then it is already a build input, as tried on a project) or it is declared in
+    `validation.manuscript_inputs`. `docs/validation.md` now says so. The manual (`make guide`) is not changed: it belongs to G3.
+  - **A project without Git** always falls back to a full check; the latest snapshot as the planner's base stays under "Only on evidence", for if the full check proves too slow.
 - **G3, the manual.** Ratify the 44-line draft (`make guide`, capped at 60 lines by a test); choose how project notes grow, since the manual lives in code; and have a
   reader other than its author follow it.
 - **G4, decided on 14 October 2026:** no biber. See step 3.4.
