@@ -58,6 +58,9 @@ declare additional project-relative globs in the optional configuration:
 
 These patterns can add manuscript checks; they cannot exempt build inputs.
 
+A script that a document's `build_command` names (`["python3", "figures/plot.py"]`) is already routed as a build input. A script that the build runs some other way, from a Makefile
+rule, from `latexmkrc` or from another script, is not seen: a change to it gets the file checks and no manuscript check, so declare it here if the paper depends on what it makes.
+
 Conversely, paths that are never part of the manuscript build, such as a folder of notes with figures, would still
 be treated conservatively: a `.png`, `.pdf` or `.csv` anywhere, or a file the planner cannot classify, selects the
 manuscript checks. Declare those paths under `validation.ignore`:
@@ -71,7 +74,7 @@ manuscript checks. Declare those paths under `validation.ignore`:
 Patterns are project-relative globs, validated like `manuscript_inputs` (no `..`, no absolute path), and `*` also
 matches across folders, so `docs/*` and `docs/**` cover the same paths. An ignored path gets the file checks and
 nothing from the manuscript build. Three kinds of path are never ignored, whatever is declared: what the build reads
-(its dependencies and `manuscript_inputs`), build and configuration files (a `Makefile`, `latexmkrc`, the workflows,
+(its dependencies and `manuscript_inputs`), build and configuration files (a `Makefile`, `latexmkrc`,
 `.latex-ai/`, the editor settings), and the agent's policy files (`AGENTS.md`, `CLAUDE.md`, `.claude/`). The planner
 does not narrow routing from build records: an ignored folder that a `\graphicspath` reads is a mistake the
 dependency scan will not always see, so ignore only what the manuscript does not use.

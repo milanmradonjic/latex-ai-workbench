@@ -101,9 +101,10 @@ the per-document targets. The full version stays available as the first commit o
   every day and the first snapshot of each calendar week is taken, the newest 6 kept) and `frequent` (a launchd job every 30 minutes; a snapshot is taken only when files changed, the newest 60 kept). Retention is by count, so the
   clock never decides what is deleted. Setting up the launchd jobs is the owner's step; the docs give the files, untested.
 - **No biber** (14 October 2026): the engine is `pdflatex` and the bibliography backend is `none` or `bibtex`; a project that needs more declares a `build_command`.
+- **Changed-file routing** (15 October 2026, gate G2): no change to the planner. `docs/validation.md` no longer says that workflows are protected from `validation.ignore` (they were, when the workbench wrote them), and says that a figure script is a build input only when the `build_command` names it or `manuscript_inputs` declares it.
 - **Git guardrails** (15 October 2026, gate G1): the deny set stays; the prompts shrink to commands that write history, branches or the working tree, and commit and push keep theirs in the generated files. In a workbench session the agent's own commits and pushes to a topic branch need no prompt once the task's work is done (text in `AGENTS.md`, not a rule). [The plan](plan-after-4.4.0.md#gates-the-owners-decisions) has the detail.
 
 ## Not yet decided
 
-Whether the record-merge exception stays (the rest of the Git guardrails is decided, above); what the planner for changed files still routes (workflow files and figure scripts in particular); and what the minimal
+Whether the record-merge exception stays (the rest of the Git guardrails is decided, above); and what the minimal
 manual contains and how project notes grow. [The plan after 4.4.0](plan-after-4.4.0.md#gates-the-owners-decisions) states each as a gate, with the options.
