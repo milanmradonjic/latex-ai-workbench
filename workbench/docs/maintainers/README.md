@@ -20,6 +20,7 @@ The repository was recreated on 13 October 2026 from the same tree, with its his
 removed from one record). The first version's pull requests and runs went with it, so pull request numbers here start again at 1; the hosted results of
 4.0.0 to 4.4.0 that ran there are given in the records as plain text.
 
+- [Level 2 validation plan](plan-level-2-validation.md): file checks or full project checks, archive conventions, and staged implementation; specification complete, runtime unchanged.
 - [Version 5.0.0 verification](verification-5.0.0.md): explicit configuration, LaTeX-only projects, fixed commands, and retained safety.
 - [Plan after 4.10.2](plan-after-4.10.2.md): LaTeX-only projects, explicit installation, and fixed commands; no migration support.
 - [Plan after 4.4.0](plan-after-4.4.0.md): the remaining reductions in steps, with the owner's gates.
