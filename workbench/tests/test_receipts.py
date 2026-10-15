@@ -1566,5 +1566,73 @@ class WorkbenchTests(unittest.TestCase):
         self.assertEqual(run.call_count, 1)
 
 
+class ReadTheLog(ProjectCase):
+    """Workbench 4.10.1, after the readers of the manual used it: a failure whose details are in the compiler's log says where the log is,
+    and a message that TeX wrapped in its log is given whole.
+
+    Origin: workbench 4.10.1 (the reader findings recorded in verification-4.9.1.md).
+    """
+
+    def fixture(self, log, code=0):
+        """A project whose stand-in compiler writes this log and exits with this code."""
+        (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}x\\end{document}\n")
+        self.configure()
+        self.install("init", "--skip-editor")
+        self.compiler(log, code)
+
+    def compiler(self, log, code=0):
+        (self.project / "builder.py").write_text(
+            "import sys\n"
+            "from pathlib import Path\n"
+            "out = Path('outputs'); out.mkdir(exist_ok=True)\n"
+            "(out / 'main.pdf').write_bytes(b'%PDF-fixture')\n"
+            f"(out / 'main.log').write_text({log!r})\n"
+            "(out / 'main.fls').write_text('PWD ' + str(Path.cwd()) + '\\nINPUT main.tex\\n')\n"
+            f"sys.exit({code})\n")
+
+    def tex_failing(self, log):
+        """A project built by the default `latexmk`, which here is a stand-in that writes this log and fails."""
+        (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}x\\end{document}\n")
+        self.configure({"paper": {"root": "main.tex", "lint": {"enabled": False}, "output_dir": "outputs"}})
+        self.install("init", "--skip-editor")
+        shim = self.root / "bin"
+        shim.mkdir()
+        (shim / "latexmk").write_text(
+            f"#!{sys.executable}\n"
+            "import pathlib, sys\n"
+            "args = sys.argv[1:]\n"
+            "out = pathlib.Path(next(a.split('=', 1)[1] for a in args if a.startswith('-outdir=')))\n"
+            "out.mkdir(parents=True, exist_ok=True)\n"
+            f"(out / (pathlib.Path(args[-1]).stem + '.log')).write_text({log!r})\n"
+            "sys.exit(1)\n")
+        (shim / "latexmk").chmod(0o755)
+        self.env["PATH"] = f"{shim}:{self.env['PATH']}"
+
+    def test_an_undefined_reference_says_where_the_log_is_and_what_to_run(self):
+        self.fixture("LaTeX Warning: Reference `fig:one' on page 1 undefined on input line 3.\nLaTeX Warning: There were undefined references.\n")
+        result = self.command("build", expected=1)
+        self.assertIn("Unresolved manuscript integrity errors", result.stderr)
+        hint = next(line for line in result.stderr.splitlines() if line.startswith("Hint:"))
+        self.assertIn("outputs/main.log", hint)
+        self.assertIn("document-check", hint)
+
+    def test_a_message_that_tex_wrapped_at_79_characters_is_given_whole(self):
+        message = "./main.tex:8: LaTeX Error: \\begin{itemize} on input line 4 ended by \\end{document}."
+        first, rest = message[:79], message[79:]
+        self.assertEqual(len(first), 79)
+        self.tex_failing(first + "\n" + rest + "\nl.8 \\end{document}\n")
+        result = self.command("build", expected=1)
+        self.assertIn(message, result.stderr)
+        self.assertNotIn("l.8", next(line for line in result.stderr.splitlines() if line.startswith("ERROR")))
+
+    def test_a_short_message_is_not_joined_with_the_line_after_it(self):
+        self.tex_failing("! Undefined control sequence.\nl.3 \\undefinedfixturemacro\n")
+        result = self.command("build", expected=1)
+        error = next(line for line in result.stderr.splitlines() if line.startswith("ERROR"))
+        self.assertIn("Undefined control sequence.", error)
+        self.assertNotIn("l.3", error)
+        self.assertIn("outputs/main.log", result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

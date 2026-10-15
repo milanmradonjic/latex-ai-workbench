@@ -3,6 +3,15 @@
 Workbench 4 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 4.10.1 — three messages the manual's readers found wanting
+
+Three of the findings the two readers of the manual left outside its wording, listed in [the 4.9.1 record](verification-4.9.1.md), were fixed on the owner's word; the others stay. [The record](verification-4.10.1.md) has the checks. No command, option, file or receipt changed.
+
+- **An undefined reference or citation now has a Hint.** The error "Unresolved manuscript integrity errors" was the only build failure without one; it now says `the full log is outputs/main.log; correct the source, then run make document-check DOC=NAME`, as a compiler error already did.
+- **A TeX message that the log wrapped is given whole.** TeX wraps its log at 79 characters, and the first error line was printed as it stood, so a long message ended mid-word (`... ended by \end{docume`). The continuation is joined while a line is exactly 79 characters long; a short message is never joined with the line after it.
+- **`status` names the log of a failed document:** `read its log: outputs/main.log`, only for a failed document and only when the log is there.
+- **Unchanged:** every other action's output, the generated Makefile and editor files, receipts and snapshots. No migration is needed; refresh the runtime as [upgrading](../upgrading.md) describes.
+
 ## 4.10.0 — the Git guardrails of gate G1
 
 Gate G1 of [the plan after 4.4.0](plan-after-4.4.0.md), as the owner decided it on 15 October 2026. The [verification record](verification-4.10.0.md) has the checks. The runtime and the Makefile did not change; the agents' rule files and one sentence of the policy did.

@@ -776,6 +776,19 @@ def compile_document(project, config, force=False):
             raise compiler_error(project, config, stem, error, before_log) from error
 
 
+LOG_LINE = 79  # TeX wraps its log at this many characters (max_print_line), so a long message goes on in the next line
+
+
+def log_location(project, log):
+    return log.relative_to(project.resolve()).as_posix() if log.is_relative_to(project.resolve()) else str(log)
+
+
+def read_the_log(project, config, log):
+    """The Hint of a failure whose details are in the compiler's log: where it is, and what to run once the source is right."""
+    rerun = document_command(project, config, "document-check") if config.get("name") else "make check"
+    return f"the full log is {log_location(project, log)}; correct the source, then run {rerun}"
+
+
 def compiler_error(project, config, stem, error, before_log):
     """Lead with the first TeX error from this run's log rather than the compiler command line."""
     log = Path(str(stem) + ".log")
@@ -785,18 +798,22 @@ def compiler_error(project, config, stem, error, before_log):
         if output_identities(project, config)[".log"] == before_log:
             raise OSError("this invocation did not change its log")
         changed = True
-        for line in log.read_text(encoding="utf-8", errors="replace").splitlines():
+        lines = log.read_text(encoding="utf-8", errors="replace").splitlines()
+        for number, line in enumerate(lines):
             if re.match(r"^(?:\S.*?:\d+: |! )", line):
-                first = line.strip()
+                first = line
+                while len(lines[number]) == LOG_LINE and number + 1 < len(lines):
+                    number += 1
+                    first += lines[number]
+                first = first.strip()
                 break
     except OSError:
         pass
-    rerun = document_command(project, config, "document-check") if config.get("name") else "make check"
-    where = log.relative_to(project.resolve()).as_posix() if log.is_relative_to(project.resolve()) else str(log)
     if first is None:
-        log_hint = f" or {where}" if changed else ""
+        log_hint = f" or {log_location(project, log)}" if changed else ""
+        rerun = document_command(project, config, "document-check") if config.get("name") else "make check"
         return WorkbenchError(str(error), hint=f"read the compiler output above{log_hint}, correct the source, then run {rerun}")
-    return WorkbenchError(f"{config['root']}: {first}", hint=f"the full log is {where}; correct the source, then run {rerun}")
+    return WorkbenchError(f"{config['root']}: {first}", hint=read_the_log(project, config, log))
 
 
 FATAL_LOG = (
@@ -840,7 +857,7 @@ def verify(project, config, check_receipt=True, report=True):
         for warning in dict.fromkeys(warnings):
             print("WARNING: " + warning)
     if fatal:
-        raise WorkbenchError("Unresolved manuscript integrity errors:\n" + "\n".join(dict.fromkeys(fatal)))
+        raise WorkbenchError("Unresolved manuscript integrity errors:\n" + "\n".join(dict.fromkeys(fatal)), hint=read_the_log(project, config, log))
     pdf = stem.parent / (stem.name + ".pdf")
     if not pdf.is_file() or not pdf.read_bytes().startswith(b"%PDF-"):
         raise WorkbenchError(f"Missing or invalid PDF: {pdf}")
