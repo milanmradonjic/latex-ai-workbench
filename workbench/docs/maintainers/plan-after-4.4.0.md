@@ -143,6 +143,8 @@ Each step is one release and one pull request.
   (`LATEX_AI_TEMPLATE`), runs that release's own `diff` (the owner chose this over a project-side-only report); the recipe is the "Update" section of the skill file.
 - **3.8 Tests regrouped by component.** Receipts, planner, installer and guide, with each test's origin kept in its docstring and the test names cited in the records
   updated. This is the old Phase 7, and it comes last because it renames files the records cite.
+  **Done — 15 October 2026**, [pull request #20](https://github.com/milanmradonjic/latex-ai-workbench/pull/20), no release (nothing the installer vendors or generates changed): the 541 tests are in twelve modules, one for each component, each class naming the file and
+  release it came from; [where the tests are](tests-map.md) lists them; [the record](verification-3.8.md) shows every method unchanged.
 
 After each release, update the scope's progress and this plan, and record the measured line count. Do not promise savings that were not measured.
 
