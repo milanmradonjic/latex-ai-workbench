@@ -40,23 +40,31 @@ Make commands have fixed names from the generated template. `make build DOC=name
 builds one document; bare `make` builds the default and `make all` builds every document.
 Local overrides of documented commands are the project's responsibility.
 
-Choose validation according to what changed. Ordinary documentation, notes and
-unrelated files belong in this repository and do not require a manuscript build.
-`make validate` checks changed files, runs workbench tests when relevant, and
-invokes `make check` for manuscript inputs, potential figures, build/configuration
-changes or uncertain inputs (with schema-4 named documents: the affected documents'
-checks, or `make check` when the project's Makefile has its own check rule). Policy changes need structure checks and semantic
-review; unrelated code also needs its own relevant tests. A Markdown or code
-file consumed by LaTeX is a manuscript input. `make validation-plan` explains
-the selection; missing comparison history conservatively selects full checks.
+Choose validation according to what changed. `make validation-plan` explains one
+of two levels: file checks, or file checks followed by `make check` for every
+LaTeX document. `make validate` executes that selection. Ordinary Markdown, JSON,
+Python and notes receive file checks; run task-specific tests for calculations
+and unrelated code. Results enter the manuscript through deliberate TeX edits or
+updated figures, which select full validation. Configured build scripts, Makefiles,
+project/runtime/build settings, editor integration and lint baselines also select
+full validation. Agent policy changes need structure checks and semantic review.
+
+Directories named exactly `archive` or `baseline`, at any depth, contain historical
+reference material: their files receive lightweight checks regardless of extension.
+Revision `.diff` and `.patch` files receive text-integrity checks. Move historical
+files outside those directories before making them active build inputs. Routing
+uses these conventions and does not discover arbitrary manuscript dependencies.
+
 Use `LATEX_AI_BASE=<revision> make validate` to include already committed changes.
-`make check` performs full document validation;
-schema 4 checks every declared root. Document build/export commands accept
-`DOC=name`; without it they use the default. Included TeX fragments are inputs
-to their consuming documents, not independent build targets.
-A project's own build command may
-still regenerate files it depends on; that is part of the build. The workbench does not
-establish scientific validity: inspect assumptions, units and tolerances yourself.
+Missing comparison history selects full validation. A failed/interrupted build
+also selects the complete project until rebuilt successfully. `make check` checks
+every declared root. Explicit `make document-check DOC=name` checks one document;
+build, lint and export commands also accept `DOC=name`. Included TeX fragments
+remain inputs, not independent documents. Build dependency tracking and verified
+receipts remain active regardless of routing. A project's own build command may
+regenerate files it depends on; that is part of its explicit build contract.
+Workbench does not establish scientific validity: inspect assumptions, units and
+tolerances yourself. Compilation must not silently expand into research work.
 
 After edits inspect `git diff` and `git status`, and report selected validation,
 results, relevant warnings, and unresolved issues. Diagnose

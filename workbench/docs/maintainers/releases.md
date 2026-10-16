@@ -1,7 +1,33 @@
 # Maintaining a release, and what each release changed
 
-Workbench 5 is the supported development line. Entries for earlier releases are
+Workbench 6 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
+
+## 6.0.0 — file checks or full project validation
+
+The [Level 2 plan](plan-level-2-validation.md) defines the agreed workflow and
+acceptance cases; [verification](verification-6.0.0.md) records the evidence.
+This is a major release because routing and its public settings change.
+
+- `make validate` runs file checks, followed by one `make check` for all documents
+  when full validation is selected. `make validation-plan` explains the level,
+  paths and reasons. Explicit document commands remain available.
+- Ordinary Markdown/JSON/Python get file checks. Active TeX, bibliography, figures,
+  build controls and unclassified paths select Full. Configured builders and lint
+  baselines are recognised even when deleted.
+- Exact `archive` and `baseline` directory components are historical at any depth;
+  their contents get file checks regardless of extension. Revision `.diff`/`.patch`
+  files get text-integrity checks without parsing embedded code. Historical files
+  must move before becoming active inputs.
+- Remove per-document dependency routing, Makefile inspection for validation,
+  package-test scheduling and the project-level `validation` object. Removed
+  settings fail with a hint. Schema 4 and document `inputs` remain.
+- Keep read-only Git comparison and explicit scope, missing-history fallback,
+  failed-build recovery, full build dependency tracking, receipts, safe exports,
+  locks, snapshots and agent guardrails. Native/custom builds retain their contract.
+- Package unit/portability checks remain explicit Make and hosted CI commands.
+  Updating an installed runtime follows [upgrading](../upgrading.md); project policy
+  and guidance are edited deliberately. No old routing compatibility is provided.
 
 ## 5.0.0 — explicit LaTeX projects and fixed commands
 
@@ -852,8 +878,8 @@ Validation results and environment limits are recorded in
 configuration/manifest protocol. Increment the release for changed templates,
 installer behavior or validation. Use semantic versions: bug fix patch,
 compatible new capability minor, incompatible workflow/schema major. A new
-schema requires explicit scope, fixtures, and documentation. Workbench 3
-accepts only schema 3; do not restore old-release conversion paths or silently
+schema requires explicit scope, fixtures, and documentation. Workbench 6
+accepts only schema 4; do not restore old-release conversion paths or silently
 reinterpret unsupported configurations.
 
 Before distributing a release, run safety/merge unit tests and real compiler

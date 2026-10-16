@@ -4,7 +4,6 @@ import argparse
 import contextlib
 import io
 import ast
-import fnmatch
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -22,7 +21,7 @@ import diagnostics
 import guide
 import processes
 import snapshot
-from core import CONFIG, GENERATED_TREES, VERSION, RUNTIME_FILES, WorkbenchError, atomic_write, damaged_text, environment_root, git_read_env, input_identity, operation_lock, line_buffered, local_path, run, path_name, tracked_name, effective_config, validation_actions, validation_argv, VALIDATION_ACTIONS, CAPTURE_COMMANDS, read_tex
+from core import CONFIG, GENERATED_TREES, VERSION, WorkbenchError, atomic_write, damaged_text, environment_root, git_read_env, operation_lock, line_buffered, local_path, run, path_name, tracked_name, effective_config, CAPTURE_COMMANDS, read_tex
 from schema import document_settings, load_config, required_tools, resolve, specifications
 
 
@@ -168,25 +167,6 @@ def why_no_changes(error, base):
     return text
 
 
-def manuscript_dependencies(project, config):
-    import latex
-    return latex.manuscript_dependencies(project, document_settings(config))
-
-
-def package_dir(project, config):
-    """Directory of the workbench distribution this project hosts, or None.
-
-    ``validation.package`` names it (null turns package routing off). Without that setting
-    ``workbench`` counts only when it carries the distribution's own entry point, so an
-    unrelated directory of that name with a Makefile is not mistaken for it.
-    """
-    validation = config.get("validation", {})
-    if "package" in validation:
-        name = validation["package"]
-        return PurePosixPath(name).as_posix() if name and (project / name / "Makefile").is_file() else None
-    return "workbench" if (project / "workbench/Makefile").is_file() and (project / "workbench/latex-ai-init").is_file() else None
-
-
 # What the planner routes by suffix. A suffix is named once: the data formats are in the manuscript table (a CSV may feed a
 # figure) and, being text, in what the file checks read; none is in the table of ordinary documents.
 DATA_SUFFIXES = frozenset({".csv", ".tsv"})
@@ -194,103 +174,51 @@ TEX_SUFFIXES = frozenset({".tex", ".bib", ".sty", ".cls", ".bst", ".bbx", ".cbx"
 MANUSCRIPT_SUFFIXES = TEX_SUFFIXES | frozenset({".png", ".jpg", ".jpeg",
                                  ".pdf", ".svg", ".eps", ".ps", ".webp", ".tif", ".tiff"}) | DATA_SUFFIXES
 DOCUMENT_SUFFIXES = frozenset({".md", ".markdown", ".txt", ".rst", ".adoc", ".json", ".yaml", ".yml", ".toml", ".py"})
-CHECKED_SUFFIXES = DOCUMENT_SUFFIXES | DATA_SUFFIXES | {".rules", ".tex", ".bib"}
-
-
-def matches(name, patterns):
-    """Whether a project-relative name matches any of the declared globs (``./docs/*`` and ``docs/*`` are the same)."""
-    return any(fnmatch.fnmatchcase(name, Path(pattern).as_posix()) for pattern in patterns)
+PATCH_SUFFIXES = frozenset({".diff", ".patch"})
+CHECKED_SUFFIXES = DOCUMENT_SUFFIXES | DATA_SUFFIXES | TEX_SUFFIXES | PATCH_SUFFIXES | {".rules"}
 
 
 def validation_plan(project, config, paths=None, base=None):
-    config = effective_config(config)
-    validation = config.get("validation", {})
-    has_bibliography = any(target.view.bibliography["files"] or target.view.bibliography.get("export") for target in specifications(config))
+    """Files, or files followed by the complete project check; no dependency routing."""
     fallback = None
     if paths is None:
         paths, fallback = changed_files(project, base)
     paths = sorted({tracked_name(project, name) for name in paths})
-    dependencies = set()
-    from_documents = {}
-    from documents import dependency_index
-    from_documents = dependency_index(project, config, paths)
-    dependencies = set().union(*from_documents.values())
-    dependency_ids = {input_identity(project, name) for name in dependencies}
-    directory = package_dir(project, config)
-    package = bool(directory)
-    runtime_files = {f"{directory}/{name}" for name in RUNTIME_FILES} if package else set()
-    templates, skills = (f"{directory}/templates/", f"{directory}/skills/") if package else ("\0", "\0")
-    plan = {"paths": paths, "files": bool(paths), "policy": False, "package": directory,
-            "unit": False, "portability": False, "manuscript": False,
-            "fallback": fallback, "reasons": {}, "bibliography": False}
+    targets = specifications(effective_config(config))
+    from latex import command_files
+    controls = set()
+    for target in targets:
+        controls.update(command_files(project, target.view, authored=True, existing=False))
+        controls.add(Path(target.view["lint"]["baseline"]).as_posix())
+    reasons, full, policy = {}, bool(fallback), bool(fallback)
     for name in paths:
-        suffix = Path(name).suffix.lower()
-        control = (Path(name).name in {"Makefile", "makefile", "GNUmakefile", "latexmkrc", ".latexmkrc", ".chktexrc", ".chktex-baseline.json"}
-                   or name == CONFIG or name.startswith((".latex-ai/", ".vscode/", templates))
-                   or name in runtime_files)
-        policy = (Path(name).name in {"AGENTS.md", "CLAUDE.md", "SKILL.md"}
-                  or name.startswith((".claude/", ".codex/", skills)))
-        declared = input_identity(project, name) in dependency_ids or matches(name, validation.get("manuscript_inputs", []))
-        ignored = matches(name, validation.get("ignore", []))  # but never what the build reads or the owner declared: those come first
-        if control:
-            plan.update(manuscript=True, unit=package, portability=package, policy=True, bibliography=has_bibliography)
+        path = PurePosixPath(name)
+        suffix = path.suffix.lower()
+        if set(path.parts[:-1]) & {"archive", "baseline"}:
+            reason = "historical archive/baseline: file checks only"
+        elif suffix in PATCH_SUFFIXES:
+            reason = "revision patch: text integrity only"
+        elif (path.name in {"Makefile", "makefile", "GNUmakefile", "latexmkrc", ".latexmkrc", ".chktexrc", ".chktex-baseline.json"}
+              or name == CONFIG or name.startswith((".latex-ai/", ".vscode/")) or name in controls):
+            full = True
             reason = "build/configuration: full validation"
-        elif declared or (not ignored and suffix in MANUSCRIPT_SUFFIXES):
-            plan["manuscript"] = True
-            reason = "manuscript input or potential figure"
-        elif policy:
-            plan["policy"] = True
+        elif path.name in {"AGENTS.md", "CLAUDE.md", "SKILL.md"} or name.startswith((".claude/", ".codex/")):
+            policy = True
             reason = "agent policy: file/structure checks and semantic review"
-        elif ignored:
-            reason = "ignored by validation.ignore: file checks only"
-        elif package and name.startswith(directory + "/") and suffix == ".py":
-            plan["unit"] = package
-            plan["portability"] |= name == f"{directory}/tests/portability.py"
-            reason = "workbench Python: regression tests"
-        elif suffix in DOCUMENT_SUFFIXES or Path(name).name in {".gitignore", "LICENSE"}:
+        elif suffix in DOCUMENT_SUFFIXES or path.name in {".gitignore", "LICENSE"}:
             reason = "ordinary documentation/data/code: file checks; use task-specific tests when relevant"
         else:
-            plan["manuscript"] = True
-            reason = "unclassified input: conservative manuscript validation"
-        plan["reasons"][name] = reason
-    bib = config.get("bibliography", {})
-    names = set(bib.get("files", []))
-    if bib.get("export"):
-        names.add(bib["export"]["path"])
-    for target in specifications(config):  # a document's own declared bibliography files
-        names.update(target.view.get("bibliography", {}).get("files", []))
-    if {path_name(project, name) for name in names} & set(paths):
-        plan["bibliography"] = True
-    if fallback:
-        plan.update(manuscript=True, unit=package, portability=package, policy=True, bibliography=has_bibliography)
-    selected_documents = set()
-    document_reasons = {}
-    # A document whose last build failed stays selected until it builds, even when its
-    # sources are back to the committed text and nothing appears changed.
+            full = True
+            reason = ("manuscript input or potential figure" if suffix in MANUSCRIPT_SUFFIXES
+                      else "unclassified input: conservative manuscript validation")
+        reasons[name] = reason
     from documents import failed
-    for name in failed(project, config):
-        plan["manuscript"] = True
-        selected_documents.add(name)
-        document_reasons.setdefault(name, []).append("its last build failed or was interrupted")
-    if plan["manuscript"]:
-        identities = {name: {input_identity(project, value) for value in inputs} for name, inputs in from_documents.items()}
-        for path in paths:
-            if plan["reasons"][path] == "manuscript input or potential figure":
-                affected = {name for name, inputs in identities.items() if input_identity(project, path) in inputs}
-                if not affected:
-                    affected = set(from_documents)
-                selected_documents.update(affected)
-                for name in affected:
-                    document_reasons.setdefault(name, []).append(path)
-        if fallback or any(reason in {"build/configuration: full validation", "unclassified input: conservative manuscript validation"} for reason in plan["reasons"].values()):
-            selected_documents = set(from_documents)
-            for name in selected_documents:
-                document_reasons.setdefault(name, []).append("shared policy or uncertain inputs: full document coverage")
-    plan["documents"] = sorted(selected_documents)
-    plan["document_reasons"] = document_reasons
-    plan["project_check"] = bool(plan["manuscript"] and guide.project_check_rule(project))
-    plan["actions"] = validation_actions(plan)
-    return plan
+    failed_documents = failed(project, config)
+    full |= bool(failed_documents)
+    return {"level": "full" if full else "files", "paths": paths,
+            "policy": policy, "fallback": fallback, "reasons": reasons,
+            "documents": sorted(target.name for target in targets) if full else [],
+            "failed_documents": failed_documents, "actions": ["full"] if full else []}
 
 
 def broken_markdown_link(project, path, text):
@@ -358,31 +286,9 @@ def validate_changes(project, plan, files_only=False):
     if os.environ.get("LATEX_AI_VALIDATE_ACTIVE") == str(project):
         raise WorkbenchError("Recursive validation: make check must not depend on make validate")
     env = {**os.environ, "LATEX_AI_VALIDATE_ACTIVE": str(project), "PYTHONDONTWRITEBYTECODE": "1"}
-    for action in validation_actions(plan):
-        if action == "bibliography":
-            bibliography_checks(project, load_config(project))
-        elif action == "full" and load_config(project):
-            if plan.get("project_check"):
-                # The project's own check rule may run anything; selecting documents would skip it.
-                print("NOTE: this project's Makefile has its own check rule; running make check so that it is not skipped")
-                run(validation_argv("full", plan["package"] or "workbench"), project, env)
-                continue
-            results, failures = [], []
-            for name in plan.get("documents", []):
-                try:
-                    run(["make", "document-check", "DOC=" + name], project, env)
-                except EXPECTED as error:
-                    failures.append(f"{name}: {describe(error)}")
-                    results.append({"id": name, "status": "failed", "error": describe(error)})
-                else:
-                    results.append({"id": name, "status": "passed"})
-            if failures:
-                error = WorkbenchError("Selected document checks failed:\n" + "\n".join(failures))
-                error.documents = results
-                raise error
-        else:
-            run(validation_argv(action, plan["package"] or "workbench"), project, env)
-    if "full" not in validation_actions(plan):
+    if plan["level"] == "full":
+        run(["make", "check"], project, env)
+    else:
         print("No manuscript build selected")
 
 
@@ -582,19 +488,17 @@ def selected_checks(project, config, args):
     if args.json:
         print(json.dumps(plan, indent=2))
     else:
-        selected = ", ".join(key for key in ("files", "policy", "unit", "portability", "manuscript", "bibliography") if plan[key])
-        print("Selected checks: " + (selected or "none (no changes; use make check for a full manuscript check)"))
+        print("Validation level: " + plan["level"] + (" (make check: all documents)" if plan["level"] == "full" else " (no manuscript build)"))
         for name, reason in plan["reasons"].items():
             print(f"  {name}: {reason}")
         if plan["documents"]:
             print("Documents: " + ", ".join(plan["documents"]))
-            for name in plan["documents"]:
-                reasons = plan["document_reasons"].get(name, [])
-                print(f"  {name}: " + "; ".join(reasons[:3]) + (f"; and {len(reasons) - 3} more" if len(reasons) > 3 else ""))
+        if plan["failed_documents"]:
+            print("NOTE: last build failed or was interrupted: " + ", ".join(plan["failed_documents"]))
         if plan["fallback"]:
             print("NOTE: " + plan["fallback"])
         if os.environ.get("DOC"):
-            print(f"NOTE: DOC={os.environ['DOC']} is ignored here: documents are selected from the changed files. "
+            print(f"NOTE: DOC={os.environ['DOC']} is ignored here: full validation checks every document. "
                   f"To check one document use make {guide.command_name(project, 'document-check') or 'document-check'} DOC={os.environ['DOC']}")
     return plan
 

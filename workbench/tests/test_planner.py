@@ -129,10 +129,6 @@ ROUTING = dict(
 SOURCE_4_8_1 = '\\documentclass{article}\n\\begin{document}Fixture.\\end{document}\n'
 
 
-IGNORED = "ignored by validation.ignore: file checks only"
-
-
-LEFT_ALONE = ("docs/figure.png", "docs/table.csv", "docs/blob.xyz", "docs/deeper/still/plot.pdf")
 
 
 TEX_workbench = "\\documentclass{article}\n\\begin{document}\nHello.\n\\end{document}\n"
@@ -237,7 +233,7 @@ class Audit3Repairs(unittest.TestCase):
             '\t@echo "check: generated-check" > $@\n'
             '\t@echo "generated-check: ; touch generated-check-ran" >> $@\n')
         plan=json.loads(self.command('plan','--files','note.tex','--json').stdout)
-        self.assertTrue(plan['project_check'],plan)
+        self.assertEqual(plan['actions'], ['full'])
         self.command('validate','--files','note.tex')
         self.assertTrue((self.project/'generated-check-ran').is_file())
 
@@ -293,18 +289,18 @@ class DocumentLifecycleTests(unittest.TestCase):
         result = self.command("validate", "--files", "notes/main.tex")
         self.assertTrue((self.project / "project-tests-ran").exists(), result.stdout + result.stderr)
 
-    def test_schema_three_validate_stays_selective_without_a_project_check_rule(self):
+    def test_schema_three_validate_checks_every_document(self):
         self.named()
         self.install("init")
         (self.project / "main.tex").write_text("BROKEN\n")
-        self.command("validate", "--files", "notes/main.tex")
-        self.assertFalse((self.project / ".latex-ai/artifacts/documents/paper/build-receipt.json").exists())
+        self.command("validate", "--files", "notes/main.tex", expected=1)
+        self.assertTrue((self.project / ".latex-ai/artifacts/documents/paper/build-receipt.json").exists())
 
     def test_plan_lists_selected_documents_for_people(self):
         self.named()
         self.install("init")
         output = self.command("plan", "--files", "notes/main.tex").stdout
-        self.assertIn("Documents: note", output)
+        self.assertIn("Documents: note, paper", output)
 
 
 class DocumentTests(unittest.TestCase):
@@ -356,11 +352,11 @@ class DocumentTests(unittest.TestCase):
         self.assertEqual([row["status"] for row in report["result"]["documents"]], ["failed", "passed"])
         self.assertIn("paper", report["stderr"])
 
-    def test_note_change_selects_only_its_document(self):
+    def test_note_change_selects_every_document(self):
         config = self.configuration()
         plan = runtime.validation_plan(self.project, config, ["notes/main.tex"])
-        self.assertEqual(plan["documents"], ["note"])
-        self.assertTrue(plan["manuscript"])
+        self.assertEqual(plan["documents"], ["note", "paper"])
+        self.assertTrue((plan["level"] == "full"))
         self.assertEqual(runtime.validation_plan(self.project, config, ["notes/readme.md"])["documents"], [])
 
     def test_shared_and_deleted_fragments_select_all_consumers(self):
@@ -373,12 +369,12 @@ class DocumentTests(unittest.TestCase):
         (self.project / "shared.tex").unlink()
         self.assertEqual(runtime.validation_plan(self.project, config, ["shared.tex"])["documents"], ["note", "paper"])
 
-    def test_hard_link_alias_selects_the_declared_document_input(self):
+    def test_ordinary_files_do_not_use_alias_dependency_routing(self):
         config = self.configuration()
         (self.project / "resource.md").write_text("Resource\n")
         os.link(self.project / "resource.md", self.project / "alias.md")
         config["documents"]["paper"]["inputs"] = ["resource.md"]
-        self.assertEqual(runtime.validation_plan(self.project, config, ["alias.md"])["documents"], ["paper"])
+        self.assertEqual(runtime.validation_plan(self.project, config, ["alias.md"])["documents"], [])
 
     def test_uncertain_tex_and_build_policy_select_all_documents(self):
         config = self.configuration()
@@ -386,18 +382,18 @@ class DocumentTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(runtime.validation_plan(self.project, config, [path])["documents"], ["note", "paper"])
 
-    def test_selected_validation_does_not_build_unrelated_paper(self):
+    def test_full_validation_also_checks_other_documents(self):
         self.configuration()
         self.install("init")
         (self.project / "main.tex").write_text("BROKEN\n")
-        self.command("validate", "--files", "notes/main.tex")
-        self.assertFalse((self.project / ".latex-ai/artifacts/documents/paper/build-receipt.json").exists())
+        self.command("validate", "--files", "notes/main.tex", expected=1)
+        self.assertTrue((self.project / ".latex-ai/artifacts/documents/paper/build-receipt.json").exists())
         self.assertTrue((self.project / ".latex-ai/artifacts/documents/note/build-receipt.json").exists())
 
-    def test_deleted_explicit_input_selects_target_before_first_build(self):
+    def test_deleted_declared_input_is_still_rejected_by_build(self):
         config = self.configuration()
         config["documents"]["note"]["inputs"] = ["notes/context.md"]
-        self.assertEqual(runtime.validation_plan(self.project, config, ["notes/context.md"])["documents"], ["note"])
+        self.assertEqual(runtime.validation_plan(self.project, config, ["notes/context.md"])["documents"], [])
         (self.project / core.CONFIG).write_text(json.dumps(config))
         self.install("init")
         result = self.command("build", "--document", "note", expected=1)
@@ -409,8 +405,8 @@ class DocumentTests(unittest.TestCase):
         for path in ("main.tex", "notes/main.tex"):
             (self.project / path).write_text("BROKEN\n")
         report = json.loads(self.command("validate", "--files", "unknown.tex", "--json", expected=1).stdout)
-        self.assertEqual({row["id"] for row in report["result"]["documents"]}, {"paper", "note"})
-        self.assertTrue(all(row["status"] == "failed" for row in report["result"]["documents"]))
+        for name in ("paper", "note"):
+            self.assertIn(f"Document {name} failed", report["stdout"] + report["stderr"])
 
 
 class ModuleTests(unittest.TestCase):
@@ -519,7 +515,7 @@ class PlannerSuffixes(ProjectCase):
         self.assertTrue(runtime.DATA_SUFFIXES <= runtime.MANUSCRIPT_SUFFIXES)
         self.assertFalse(runtime.DATA_SUFFIXES & runtime.DOCUMENT_SUFFIXES)
         self.assertEqual(runtime.CHECKED_SUFFIXES,
-                         {".md", ".markdown", ".txt", ".rst", ".adoc", ".json", ".yaml", ".yml", ".toml", ".py", ".rules", ".tex", ".bib", ".csv", ".tsv"})
+                         runtime.DOCUMENT_SUFFIXES | runtime.DATA_SUFFIXES | runtime.TEX_SUFFIXES | {".rules", ".diff", ".patch"})
         literals = [members for members in set_literals(PACKAGE / "runtime.py") if members & {".csv", ".tsv"}]
         self.assertEqual(literals, [{".csv", ".tsv"}], "a suffix list in runtime.py repeats the data suffixes")
 
@@ -573,7 +569,7 @@ class Repairs(ProjectCase):
         self.linked_project()
         self.command("build")
         plan = runtime.validation_plan(self.project, schema.load_config(self.project), ["shared/plot.txt"])
-        self.assertEqual(plan["documents"], ["paper"])
+        self.assertEqual(plan["documents"], [])
 
     def test_every_installed_runtime_file_is_a_full_validation_trigger(self):
         everything = self.configure()
@@ -589,8 +585,8 @@ class Repairs(ProjectCase):
         config = schema.load_config(self.project)
         for name in sorted(core.RUNTIME_FILES):
             with self.subTest(name):
-                plan = runtime.validation_plan(self.project, config, [f"workbench/{name}"])
-                self.assertTrue(plan["manuscript"] and plan["unit"] and plan["portability"], plan["reasons"])
+                plan = runtime.validation_plan(self.project, config, [f".latex-ai/{name}"])
+                self.assertEqual(plan["level"], "full", plan["reasons"])
 
     def test_plan_says_when_a_document_selector_is_ignored(self):
         self.configure()
@@ -649,15 +645,10 @@ class AuditRepairs(ProjectCase):
         makefile.write_text(makefile.read_text().replace('check:\n\t@$(PYTHON) .latex-ai/workbench.py check\n',
             '.RECIPEPREFIX := >\ncheck:\n> @touch custom-check-ran\n.RECIPEPREFIX :=\n'))
         plan = json.loads(self.command('plan', '--files', 'main.tex', '--json').stdout)
-        self.assertTrue(plan['project_check'])
+        self.assertEqual(plan['actions'], ['full'])
         self.command('validate', '--files', 'main.tex')
         self.assertTrue((self.project / 'custom-check-ran').is_file())
 
-    def test_f4_computed_recipeprefix_is_conservative(self):
-        for assignment in ('.RECIPEPREFIX = $(PREFIX)', '.RECIPEPREFIX :=', 'export .RECIPEPREFIX ?= >'):
-            with self.subTest(assignment=assignment):
-                (self.project / 'Makefile').write_text(assignment + '\ncheck:\n> @false\n')
-                self.assertTrue(guide.project_check_rule(self.project))
 
     def test_f5_full_check_rejects_conflicts_without_a_compiler_failure(self):
         (self.project / 'main.tex').write_text(SOURCE_4_8_1.replace('Fixture.', '<<<<<<< HEAD\nOld\n=======\nNew\n>>>>>>> topic\n'))
@@ -692,90 +683,8 @@ class AuditRepairs(ProjectCase):
             self.assertEqual(runtime.project_files(self.project), names)
         self.assertEqual(check.call_count, 1)
 
-    def test_o2_planning_scans_each_document_once(self):
-        (self.project / 'notes.tex').write_text(SOURCE_4_8_1)
-        config = self.configure(documents_={'paper': {'root': 'main.tex'}, 'notes': {'root': 'notes.tex'}})
-        with patch.object(latex, 'manuscript_dependencies', wraps=latex.manuscript_dependencies) as scan:
-            runtime.validation_plan(self.project, config, ['main.tex'])
-        self.assertEqual(scan.call_count, 2)
 
 
-class ValidationIgnore(ProjectCase):
-
-    """Origin: tests/test_validation_ignore.py."""
-
-    def setUp(self):
-        super().setUp()
-        (self.project / "main.tex").write_text("\\documentclass{article}\n\\begin{document}\\input{docs/part.tex}\\end{document}\n")
-        (self.project / "docs").mkdir()
-        (self.project / "docs" / "part.tex").write_text("Part.\n")
-
-    def plan(self, *names, ignore=None, **validation):
-        if ignore is not None:
-            validation["ignore"] = ignore
-        config = self.configure(**({"validation": validation} if validation else {}))
-        schema.validate_config(self.project, config)
-        return runtime.validation_plan(self.project, runtime.load_config(self.project), list(names))
-
-    def test_without_the_setting_these_paths_reach_the_manuscript_build(self):
-        for name in LEFT_ALONE:
-            with self.subTest(name=name):
-                self.assertTrue(self.plan(name)["manuscript"])
-
-    def test_ignored_paths_are_not_routed_to_the_manuscript_build(self):
-        for name in LEFT_ALONE:
-            with self.subTest(name=name):
-                plan = self.plan(name, ignore=["docs/**"])
-                self.assertFalse(plan["manuscript"])
-                self.assertEqual(plan["reasons"][name], IGNORED)
-                self.assertTrue(plan["files"], "an ignored file still gets the file checks")
-
-    def test_other_paths_keep_their_routing(self):
-        plan = self.plan("figures/plot.png", "docs/figure.png", ignore=["docs/**"])
-        self.assertTrue(plan["manuscript"])
-        self.assertNotEqual(plan["reasons"]["figures/plot.png"], IGNORED)
-        self.assertEqual(plan["reasons"]["docs/figure.png"], IGNORED)
-
-    def test_a_path_the_build_reads_is_never_ignored(self):
-        plan = self.plan("docs/part.tex", ignore=["docs/**"])
-        self.assertTrue(plan["manuscript"])
-        self.assertNotEqual(plan["reasons"]["docs/part.tex"], IGNORED)
-
-    def test_a_declared_manuscript_input_is_never_ignored(self):
-        plan = self.plan("docs/generated.json", ignore=["docs/**"], manuscript_inputs=["docs/generated.*"])
-        self.assertTrue(plan["manuscript"])
-        self.assertNotEqual(plan["reasons"]["docs/generated.json"], IGNORED)
-
-    def test_build_configuration_and_policy_files_are_never_ignored(self):
-        for name, key in (("docs/Makefile", "manuscript"), ("docs/latexmkrc", "manuscript"), ("docs/AGENTS.md", "policy"),
-                          (".latex-ai/guide.py", "manuscript")):
-            with self.subTest(name=name):
-                plan = self.plan(name, ignore=["docs/**", ".latex-ai/**"])
-                self.assertNotEqual(plan["reasons"][name], IGNORED)
-                self.assertTrue(plan[key])
-
-    def test_a_leading_dot_slash_does_not_stop_a_pattern_from_matching(self):
-        plan = self.plan("docs/figure.png", ignore=["./docs/*"])
-        self.assertEqual(plan["reasons"]["docs/figure.png"], IGNORED)
-
-    def test_a_manuscript_input_with_a_leading_dot_slash_still_routes_to_the_manuscript(self):
-        plan = self.plan("docs/generated.json", manuscript_inputs=["./docs/*.json"])
-        self.assertTrue(plan["manuscript"])
-
-    def test_a_pattern_that_matches_nothing_changes_nothing(self):
-        for ignore in ([], ["elsewhere/**"]):
-            with self.subTest(ignore=ignore):
-                self.assertEqual(self.plan("docs/figure.png", ignore=ignore)["reasons"], self.plan("docs/figure.png")["reasons"])
-
-    def test_the_patterns_are_validated_like_manuscript_inputs(self):
-        for bad in ("docs/**", ["../x/*"], ["/abs/*"], ["bad\nname"], [""], [1], [None]):
-            with self.subTest(ignore=bad), self.assertRaises(runtime.WorkbenchError) as raised:
-                self.plan("docs/figure.png", ignore=bad)
-            self.assertIn("validation.ignore", str(raised.exception))
-
-    def test_other_validation_keys_are_still_rejected(self):
-        with self.assertRaises(runtime.WorkbenchError):
-            self.plan("docs/figure.png", ignores=["docs/**"])
 
 
 class WorkbenchTests(unittest.TestCase):
@@ -811,7 +720,7 @@ class WorkbenchTests(unittest.TestCase):
         (self.project / "helper.py").write_text("value = 1\n")
         (self.project / "notes.json").write_text('{"note": true}\n')
         plan = self.selection("README.md", "helper.py", "notes.json", "notes.yaml")
-        self.assertFalse(plan["manuscript"] or plan["unit"] or plan["portability"])
+        self.assertFalse(plan["level"] == "full")
         before = self.snapshot()
         with patch.object(rt, "run", side_effect=AssertionError("Build tool invoked")), contextlib.redirect_stdout(io.StringIO()):
             rt.validate_changes(self.project, plan)
@@ -821,73 +730,38 @@ class WorkbenchTests(unittest.TestCase):
         self.init()
         plan = self.selection("AGENTS.md", "CLAUDE.md", ".claude/settings.json", "workbench/skills/latex-ai-workbench/SKILL.md")
         self.assertTrue(plan["policy"])
-        self.assertFalse(plan["manuscript"])
+        self.assertFalse((plan["level"] == "full"))
         with patch.object(rt, "run", side_effect=AssertionError("Build tool invoked")), contextlib.redirect_stdout(io.StringIO()):
             rt.validate_changes(self.project, plan)
         (self.project / "CLAUDE.md").write_text("Competing policy\n")
         with self.assertRaisesRegex(rt.WorkbenchError, "delegate"):
             rt.file_checks(self.project, plan)
 
-    def test_workbench_python_selects_regressions_and_build_controls_select_full(self):
+    def test_package_sources_do_not_schedule_package_tests(self):
         self.init()
         (self.project / "workbench").mkdir()
-        (self.project / "workbench/Makefile").write_text("test:\n\ttrue\n")
-        (self.project / "workbench/latex-ai-init").write_text("#!/usr/bin/env python3\n")  # the distribution's entry point
-        for name in ("workbench/tests/test_workbench.py", "workbench/utility.py"):
-            plan = self.selection(name)
-            self.assertTrue(plan["unit"])
-            self.assertFalse(plan["manuscript"] or plan["portability"])
-        for name in ("Makefile", rt.CONFIG, "workbench/runtime.py", "workbench/bootstrap.py"):
-            plan = self.selection(name)
-            self.assertTrue(plan["manuscript"] and plan["unit"] and plan["portability"])
-
-    def test_hosted_distribution_is_recognised_by_its_entry_point_or_configuration(self):
-        self.init()
-        config = rt.load_config(self.project)
-
-        def plan(*names, cfg=None):
-            return rt.validation_plan(self.project, cfg or config, list(names))
-        # An unrelated directory that happens to be called workbench and has a Makefile is not the distribution.
-        (self.project / "workbench").mkdir()
-        (self.project / "workbench/Makefile").write_text("test:\n\ttrue\n")
-        for name in ("workbench/analysis.py", "workbench/runtime.py", "workbench/templates/AGENTS.md"):
-            with self.subTest(unrelated=name):
-                found = plan(name)
-                self.assertFalse(found["unit"] or found["portability"] or found["manuscript"])
-                self.assertIsNone(found["package"])
+        (self.project / "workbench/Makefile").write_text("test:\n\tfalse\n")
         (self.project / "workbench/latex-ai-init").write_text("#!/usr/bin/env python3\n")
-        self.assertEqual(plan("workbench/analysis.py")["package"], "workbench")
-        self.assertTrue(plan("workbench/analysis.py")["unit"])
-        self.assertTrue(plan("workbench/runtime.py")["manuscript"])
-        # validation.package relocates it, and null switches package routing off.
-        (self.project / "tools/kit").mkdir(parents=True)
-        (self.project / "tools/kit/Makefile").write_text("test:\n\ttrue\n")
-        relocated = {**config, "validation": {"package": "tools/kit"}}
-        schema.validate_config(self.project, relocated)
-        self.assertEqual(plan("tools/kit/analysis.py", cfg=relocated)["package"], "tools/kit")
-        self.assertTrue(plan("tools/kit/analysis.py", cfg=relocated)["unit"])
-        self.assertTrue(plan("tools/kit/templates/AGENTS.md", cfg=relocated)["manuscript"])
-        self.assertTrue(plan("tools/kit/skills/latex-ai-workbench/SKILL.md", cfg=relocated)["policy"])
-        self.assertFalse(plan("workbench/analysis.py", cfg=relocated)["unit"])
-        disabled = {**config, "validation": {"package": None}}
-        schema.validate_config(self.project, disabled)
-        self.assertFalse(plan("workbench/analysis.py", cfg=disabled)["unit"])
-        for bad in ("../kit", "/abs/kit", "", 7):
-            with self.subTest(bad=bad), self.assertRaises(rt.WorkbenchError):
-                schema.validate_config(self.project, {**config, "validation": {"package": bad}})
+        for name in ("workbench/runtime.py", "workbench/tests/test_workbench.py"):
+            plan = self.selection(name)
+            self.assertEqual(plan["level"], "files")
+            with patch.object(rt, "run", side_effect=AssertionError("nested package invoked")), contextlib.redirect_stdout(io.StringIO()):
+                rt.validate_changes(self.project, plan)
+        self.assertEqual(self.selection("Makefile")["level"], "full")
+
 
     def test_tex_bib_and_unknown_inputs_select_manuscript(self):
         self.init()
         for name in ("paper.tex", "references.bib", "figures/plot.svg", "custom.buildinput"):
             with self.subTest(name=name):
-                self.assertTrue(self.selection(name)["manuscript"])
+                self.assertTrue((self.selection(name)["level"] == "full"))
 
-    def test_included_and_deleted_markdown_is_a_manuscript_dependency(self):
+    def test_ordinary_files_keep_fixed_routing_even_if_tex_mentions_them(self):
         self.init()
         (self.project / "paper.tex").write_text(TEX_workbench.replace("Hello.", "\\input{notes.md}\n\\lstinputlisting{helper.py}"))
         for name in ("notes.md", "helper.py"):
             with self.subTest(name=name):
-                self.assertTrue(self.selection(name)["manuscript"])
+                self.assertFalse(self.selection(name)["level"] == "full")
 
     def test_files_named_in_braces_are_inputs_without_a_recorder_file(self):
         self.init()
@@ -898,22 +772,22 @@ class WorkbenchTests(unittest.TestCase):
         self.assertFalse(Path(str(stem) + ".fls").exists())  # CI checkouts never have the recorder file
         for name in ("data/results.txt", "data/table.json", "data/result file.txt", "data/quoted name.txt"):  # none exists, so deletion is covered too
             with self.subTest(name=name):
-                self.assertTrue(self.selection(name)["manuscript"])
+                self.assertIn(name, latex.manuscript_dependencies(self.project, schema.document_settings(rt.load_config(self.project))))
         for name in ("README.md", "data/unreferenced.txt", "data/result file two.txt", "notes/other.md", "analysis.json"):
             with self.subTest(name=name):
-                self.assertFalse(self.selection(name)["manuscript"])
+                self.assertNotIn(name, latex.manuscript_dependencies(self.project, schema.document_settings(rt.load_config(self.project))))
 
     def test_recorder_dependencies_and_custom_build_scripts_are_recognized(self):
         self.init()
-        self.assertFalse(self.selection("data/values.txt")["manuscript"])
+        self.assertFalse((self.selection("data/values.txt")["level"] == "full"))
         stem = latex.output_paths(self.project, schema.document_settings(rt.load_config(self.project)))[2]
         stem.parent.mkdir(parents=True, exist_ok=True)
         Path(str(stem) + ".fls").write_text(f"PWD {self.project}\nINPUT data/values.txt\nINPUT /external/package.tex\n")
-        self.assertTrue(self.selection("data/values.txt")["manuscript"])
+        self.assertFalse(self.selection("data/values.txt")["level"] == "full")
         (self.project / "helper.py").write_text("print('build')\n")
         config = rt.load_config(self.project)
         config["documents"]["manuscript"]["build_command"] = ["python3", "helper.py"]
-        self.assertTrue(rt.validation_plan(self.project, config, ["helper.py"])["manuscript"])
+        self.assertTrue((rt.validation_plan(self.project, config, ["helper.py"])["level"] == "full"))
 
     def test_git_discovery_includes_all_working_changes_without_mutation(self):
         index = self.project / "fake-index"
@@ -936,7 +810,7 @@ class WorkbenchTests(unittest.TestCase):
         for base in ("missing", "0" * 40, ""):
             with patch.object(rt.subprocess, "run", side_effect=lambda *args, **kwargs: failed if "diff" in args[0] else listed):
                 plan = rt.validation_plan(self.project, rt.load_config(self.project), base=base)
-            self.assertTrue(plan["manuscript"])
+            self.assertTrue((plan["level"] == "full"))
             self.assertIn("full validation", plan["fallback"])
 
     @unittest.skipUnless(shutil.which("git"), "needs git")
@@ -1021,22 +895,7 @@ class WorkbenchTests(unittest.TestCase):
         with self.assertRaises(rt.WorkbenchError):
             self.selection("../notes.md")
 
-    def test_declared_custom_inputs_override_documentation_classification(self):
-        self.init()
-        config = rt.load_config(self.project)
-        config["validation"] = {"manuscript_inputs": ["analysis/*.json", "generated/*.md"]}
-        schema.validate_config(self.project, config)
-        for name in ("analysis/results.json", "generated/result.md"):
-            self.assertTrue(rt.validation_plan(self.project, config, [name])["manuscript"])
-        self.assertFalse(rt.validation_plan(self.project, config, ["notes.md"])["manuscript"])
 
-    def test_invalid_custom_input_patterns_are_rejected(self):
-        self.init()
-        config = rt.load_config(self.project)
-        for patterns in ("*.md", ["../*.md"], ["/external/*.md"], ["bad\nname"]):
-            config["validation"] = {"manuscript_inputs": patterns}
-            with self.subTest(patterns=patterns), self.assertRaises(rt.WorkbenchError):
-                schema.validate_config(self.project, config)
 
     def test_lightweight_checks_catch_real_file_errors(self):
         self.init()
@@ -1095,7 +954,7 @@ class WorkbenchTests(unittest.TestCase):
         plan = self.selection(rt.CONFIG)
         with patch.object(rt, "run") as run, contextlib.redirect_stdout(io.StringIO()):
             rt.validate_changes(self.project, plan)
-        self.assertEqual([item.args[0] for item in run.call_args_list], [["make", "-C", "workbench", "test"], ["make", "-C", "workbench", "portability"], ["make", "document-check", "DOC=manuscript"]])
+        self.assertEqual([item.args[0] for item in run.call_args_list], [["make", "check"]])
         with patch.object(rt, "run", side_effect=AssertionError("Build tool invoked")), contextlib.redirect_stdout(io.StringIO()):
             rt.validate_changes(self.project, plan, files_only=True)
 

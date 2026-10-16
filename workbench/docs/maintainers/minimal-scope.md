@@ -16,7 +16,7 @@ record: it is the brief for removing it in small steps, each with its tests (see
 | Stale-PDF records | Kept: a record proves a PDF was built from the current sources. |
 | Build locks | Kept (14 October 2026): a second build is refused while one runs, status reports a running build as running, and a build killed hard whose compiler lives on still blocks the next one. |
 | Lint | ChkTeX, with the baseline that accepts today's warnings and fails on new ones. |
-| Checks | `make check`; a command that validates only what changed, with `validation.ignore`; bibliography checks tied to a Zotero export; build errors parsed from the log into short diagnostics, if that stays cheap. |
+| Checks | `make check`; file checks or full document validation under the [Level 2 contract](plan-level-2-validation.md); bibliography checks tied to a Zotero export; build errors parsed from the log into short diagnostics, if that stays cheap. |
 | Support | `status`, `doctor`, `issue` (a local report of a suspected defect in the tool); a minimal, project-oriented manual that can grow with the project. |
 | Snapshots | A rolling backup of a project, see below. |
 | Updates | By an agent, following a recipe, with a diff for the owner to read, see below. |

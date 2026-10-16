@@ -16,7 +16,7 @@ that exist in this project, and `make guide` is a short manual for it. Do not ed
 | Another build is active | Status lists its owner PID and live compiler groups. Wait, or inspect only your own build as described below. |
 | Installed runtime belongs to another project | Run from that runtime's project root or pass its `--project` path. For another project, use that project's runtime. |
 | `runtime` refuses a file | It was edited, or the record does not know it. Read `latex-ai-init diff . --diff`, restore the file from version control, or pass `--force`. Never delete the record to get past it. |
-| Unsupported configuration schema | Workbench 5 accepts schema 4 only. Preserve authored files and prepare a reviewed current configuration; there is no migration flag. |
+| Unsupported configuration schema | Workbench 6 accepts schema 4 only. Preserve authored files and prepare a reviewed current configuration; there is no migration flag. |
 | Internal error or false success | Capture `make issue ISSUE_NOTE="observed ... expected ..."` and report it; distrust the affected verdict. |
 
 For custom builders, check `output_dir` and that the command writes both PDF and

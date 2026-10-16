@@ -157,7 +157,7 @@ class ArchitectureTests(unittest.TestCase):
     def test_explicit_build_inputs_are_not_hidden_by_generated_suffixes(self):
         (self.project / "main.tex").write_text("source")
         (self.project / "data.log").write_text("one")
-        config = {'schema_version': 4, 'default_document': 'manuscript', 'documents': {'manuscript': {'root': 'main.tex', 'output_dir': '.'}}, 'validation': {'manuscript_inputs': ['data.log']}}
+        config = {'schema_version': 4, 'default_document': 'manuscript', 'documents': {'manuscript': {'root': 'main.tex', 'output_dir': '.', 'inputs': ['data.log']}}}
         before = latex.build_inputs(self.project, schema.document_settings(config))
         (self.project / "data.log").write_text("two")
         self.assertNotEqual(before, latex.build_inputs(self.project, schema.document_settings(config)))

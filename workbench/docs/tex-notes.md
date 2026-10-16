@@ -72,15 +72,14 @@ that static traversal or the compiler recorder cannot discover.
 
 ## Validation and integrations
 
-`make validation-plan` lists affected document IDs and the reasons for each. Editing an
-input checks every consuming document; unrelated Markdown does not build TeX.
-A document whose last build failed stays selected until it builds.
-Deleted declared inputs remain selected. Unknown TeX/resources and shared build
-policy conservatively select all documents. `make validate` executes
-that selection and identifies failed documents, leading with the first TeX
-error from the compiler log. When the project's Makefile has its own `check`
-rule, it runs `make check` instead so that rule is not skipped. It never runs
-scientific tasks implicitly.
+`make validation-plan` explains file checks or full validation. Full validation
+runs the project's `make check` once and checks every declared document. Ordinary
+Markdown/JSON/Python, historical archive/baseline directories, and revision patches
+receive lightweight checks. A failed/interrupted build selects the full project
+until it succeeds. Routing does not scan source or recorder dependencies; build
+receipts and declared inputs still track actual build freshness. Use explicit
+`make document-check DOC=name` when you deliberately want one document. See
+[validation](validation.md) for the fixed rules and comparison scope.
 
 Builds are serialized because custom recipes can affect shared files. The
 compiler runs in its own process group, recorded as part of the build's

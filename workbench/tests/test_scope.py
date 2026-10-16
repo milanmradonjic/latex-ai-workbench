@@ -126,7 +126,7 @@ class Scope(unittest.TestCase):
         self.assertFalse({"research.py", "task_graph.py", "markdown.py"} & set(core.RUNTIME_FILES))
 
     def test_the_plan_and_the_validation_actions_no_longer_know_research_or_markdown(self):
-        self.assertEqual(set(core.VALIDATION_ACTIONS), {"unit", "bibliography", "portability", "full"})
+        self.assertFalse(hasattr(core, "VALIDATION_ACTIONS"))
         plan = runtime.validation_plan(PACKAGE, {'schema_version': 4}, ["notes.md"])
         self.assertFalse({"research", "research_modules", "markdown"} & set(plan))
 

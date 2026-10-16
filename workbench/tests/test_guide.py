@@ -580,7 +580,7 @@ class Manual(ProjectCase):
 
     def test_validation_plan_is_said_to_select_everything_without_git_and_does(self):
         self.paper()
-        self.assertIn("nothing runs; without Git, all of them", self.guide())
+        self.assertIn("nothing runs; without Git, full validation", self.guide())
         self.assertIn("full validation selected", self.command("plan").stdout)
 
     def test_the_manual_stays_short_and_narrow_for_the_richest_project(self):

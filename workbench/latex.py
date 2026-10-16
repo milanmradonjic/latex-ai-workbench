@@ -316,8 +316,8 @@ def declared_inputs(project, config):
     return names
 
 
-def command_files(project, config, authored=False):
-    """Command file candidates, or only executable/script inputs when output intent matters."""
+def command_files(project, config, authored=False, existing=True):
+    """Recognised command files. Planning can include deleted candidates without resolving links."""
     root, names = project.resolve(), set()
     command = config.get("build_command") or []
     script = 1
@@ -357,8 +357,8 @@ def command_files(project, config, authored=False):
         if authored and index and index != script and not makefile:
             continue
         if not argument.startswith("-") or makefile or index in {0, script}:
-            resource = (root / argument).resolve()
-            if resource.is_relative_to(root) and resource.is_file():
+            resource = (root / argument).resolve() if existing else Path(os.path.abspath(root / argument))
+            if resource.is_relative_to(root) and (not existing or resource.is_file()):
                 names.add(resource.relative_to(root).as_posix())
     return names
 

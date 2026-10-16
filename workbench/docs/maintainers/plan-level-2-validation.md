@@ -1,8 +1,10 @@
 # Level 2 validation routing
 
-Status: Step 1 complete (specification only), 15 October 2026. Runtime behavior
-is unchanged. Resume at Step 2. This plan supersedes the earlier plan's retained
-selective-routing requirement only in the areas described here.
+Status: implemented for Workbench 6.0.0, 16 October 2026. The specification was
+completed on 15 October; Steps 2–5 are implemented and locally verified. See the
+[verification record](verification-6.0.0.md) and the implementation PR's checks
+for hosted results. This plan supersedes the earlier selective-routing contract
+only in the areas described here.
 
 ## Workflow and scope
 
@@ -154,9 +156,9 @@ Do not update or execute the Dipolar project's research pipeline as part of the
 package change. Updating its installed integration after the release is a separate
 owner-authorized task.
 
-## Resume in a later session
+## Follow-up
 
-Read this plan and the repository's `AGENTS.md`, inspect status and existing diffs,
-then start Step 2. Step 1 added only this specification and its maintainer-index
-link. No runtime, configuration schema, generated reference, workflow, or research
-project was changed. The planning files may still be uncommitted; preserve them.
+Implementation and local verification are complete. Review the implementation
+PR and its hosted checks before the owner merges. Updating a research project's
+installed integration is a separate owner-authorized task. The Dipolar project
+continues to use its existing 5.0.0 installation until such an update is requested.

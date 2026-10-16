@@ -56,9 +56,10 @@ make validation-plan
 make validate
 ```
 
-Documentation-only edits can skip compilation. Files consumed by a manuscript,
-build settings, and uncertain inputs still select manuscript checks. Without a Git repository and comparison
-history, validation conservatively selects all checks. Run `make check` before
+Ordinary Markdown/JSON/Python edits receive file checks. Active TeX, figures,
+bibliography, build controls, and uncertain inputs select full document checks.
+Historical archive/baseline directories and revision patches stay file-only.
+Without a Git repository and comparison history, validation selects full checks. Run `make check` before
 sharing. Inspect `git diff`; existing project/session approvals govern Git writes.
 
 ## When something fails

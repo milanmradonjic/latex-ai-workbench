@@ -1,6 +1,6 @@
 # Project configuration
 
-Workbench 5 supports **configuration schema 4 only**. Every project declares at least
+Workbench 6 supports **configuration schema 4 only**. Every project declares at least
 one LaTeX document. `.latex-ai.json` is project-owned UTF-8 JSON, prepared before
 installation. Unknown fields and unsupported schemas fail clearly; no migration is
 provided. `latex-ai-init diff . --diff` previews generated-file differences.
@@ -57,9 +57,6 @@ Projects without LaTeX documents are unsupported. Bibliography checks remain opt
 | `bibliography.files` | Shared `.bib` inputs, including paths assembled through macros. |
 | `bibliography.export` | `null`, or `{path, required, format}` for a local Zotero export. |
 | `integrations.editor` | Opt into generated editor tasks. |
-| `validation.manuscript_inputs` | Extra project-relative globs for shared indirect dependencies. |
-| `validation.ignore` | Project-relative globs, for example `docs/**`, for paths that are never routed to the manuscript build. See [validation](validation.md). |
-| `validation.package` | Distribution directory for its own tests; default `workbench`, `null` disables package routing. |
 
 `export.required: true` rejects missing or empty exports. The format is `bibtex`, for
 Zotero's Better BibTeX. Builds use local files and
@@ -97,6 +94,10 @@ Installer previews and JSON reports include the default document's resolved engi
 bibliography backend, output directory, and lint policy. All choices come from configuration.
 `bib-check` without `DOC` checks all document bibliographies, and with `DOC` only
 that document; its successful output names the actual files checked.
+
+The former project-level `validation` settings are refused. Routing uses the fixed
+[file/full rules](validation.md); document `inputs` still declare dependencies for
+build freshness, without changing those routing rules.
 
 ## Accepting existing style warnings
 

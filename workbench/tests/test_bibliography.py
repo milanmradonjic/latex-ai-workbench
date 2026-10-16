@@ -185,7 +185,7 @@ class DocumentLifecycleTests(unittest.TestCase):
         self.assertIn("Duplicate bibliography key", self.command("bib-check", expected=1).stderr)
         self.assertIn("Duplicate bibliography key", self.make("bib-check", "DOC=note", expected=2).stderr)
         self.make("bib-check", "DOC=paper")
-        self.assertTrue(runtime.validation_plan(self.project, config, ["notes/note.bib"])["bibliography"])
+        self.assertTrue(runtime.validation_plan(self.project, config, ["notes/note.bib"])["level"] == "full")
 
 
 class DocumentTests(unittest.TestCase):

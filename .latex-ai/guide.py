@@ -1,67 +1,12 @@
 """Orientation commands: ``help`` lists what this project can do, ``status`` says where it stands.
 
 Both are read-only. Commands come from the fixed registry; configured documents and paths personalize the output.
-The small Make reader is retained only for conservative validation of projects with custom check rules.
 """
-import re
 from pathlib import Path
 
 from commands import COMMANDS  # the registry derives every name shown to readers
-from core import MAKEFILES, VERSION, WorkbenchError, document_paths
+from core import VERSION, WorkbenchError, document_paths
 from schema import STATES, specifications
-
-
-CHECKED = ("files", "policy", "unit", "portability", "manuscript", "bibliography")
-
-
-RULE = re.compile(r"^([^\s#:=$%][^:=#$%]*?)\s*::?(?![:=])", re.M)  # a rule line: its targets, before the colon
-CONDITIONALS = {"ifeq", "ifneq", "ifdef", "ifndef", "else", "endif"}
-WRAPPER = re.compile(r"^[+@-]*\s*(?:\$\(PYTHON\)|python(?:3(?:\.\d+)?)?)\s+(?:-[A-Za-z]+\s+)*\.latex-ai/workbench\.py\s+check\s*$")
-
-
-def active_makefile(project):
-    """Name of the file GNU Make reads in this directory, or None.
-
-    Actual directory entries are compared first: on a case-insensitive filesystem ``makefile`` and
-    ``Makefile`` are one file, and the spelling on disk is the one that was written.
-    """
-    try:
-        present = {path.name for path in project.iterdir()}
-    except OSError:
-        return None
-    return next((name for name in MAKEFILES if name in present), None) or next((name for name in MAKEFILES if (project / name).is_file()), None)
-
-
-def makefile_text(project):
-    name = active_makefile(project)
-    try:
-        return (project / name).read_text(encoding="utf-8") if name else ""
-    except (OSError, ValueError):
-        return ""
-
-
-def project_check_rule(project):
-    """Whether the Makefile gives ``check`` anything beyond what the installer wrote: prerequisites, an inline recipe, a recipe
-    other than the workbench's own, a second rule that adds any of those, or an include or eval that might define one. ``validate`` then runs
-    ``make check`` rather than select documents, so that the project's own check is never skipped. When in doubt, True."""
-    text = makefile_text(project)
-    if ".RECIPEPREFIX" in text or re.search(r"^\s*-?s?include\s", text, re.M) or "$(eval" in text or "${eval" in text or re.search(r"^[^\s#:=]*\$[^:=#]*::?(?![:=])", text, re.M):
-        return True  # a target or an include that is computed may be check
-    lines = text.replace("\\\n", " ").splitlines()
-    for index, line in enumerate(lines):
-        match = RULE.match(line)
-        if not match or "check" not in match.group(1).split():
-            continue
-        prerequisites, *inline = line[match.end():].split("#", 1)[0].split(";", 1)
-        if match.group(1).split() != ["check"] or prerequisites.strip() or inline:
-            return True
-        for follow in lines[index + 1:]:
-            if follow.startswith("\t"):
-                if not WRAPPER.fullmatch(follow[1:].split("#", 1)[0].strip()):
-                    return True
-            elif follow.strip() and not follow.lstrip().startswith("#") and follow.split()[0] not in CONDITIONALS:
-                break  # a conditional does not end a rule's recipe in GNU Make; anything else does
-    return False
 
 
 def available(project, config=None):
@@ -141,9 +86,11 @@ def manual_text(project, config, problem, documents=None):
     lines += ["", "The everyday loop",
               *line("status", "where things stand, and what to do next"),
               "  Edit your files.",
-              *line("validation-plan", "which checks your change needs (nothing runs; without Git, all of them)"),
-              *line("validate", "run only those checks"),
+              *line("validation-plan", "file or full validation (nothing runs; without Git, full validation)"),
+              *line("validate", "file checks, then make check for every document when full validation is selected"),
               *line("check", "the full check, before you share the work (build, references, citations and, if on, lint)")]
+    lines += ["  Files: ordinary Markdown/JSON/Python and historical archive/baseline directories; .diff/.patch get text-integrity checks.",
+              "  Full: TeX, figures, bibliography or build controls; make check covers every document. See docs/validation.md."]
     if names.get("snapshot") or names.get("snapshots"):
         lines += ["", "Before a risky change (an upgrade, a large edit, an agent let loose on the files)",
                   *line("snapshot", "keep a copy of every file, uncommitted ones too, outside the project (needs Git installed; the project need not use it)", 'SNAPSHOT_NOTE="why"'),
@@ -215,10 +162,10 @@ def status_text(project, config, problem, installed, git, plan, plan_error, docu
     elif not plan["paths"]:
         row("Changes", "none since the last commit")
     else:
-        selected = ", ".join(key for key in CHECKED if plan[key]) or "none"
+        selected = plan["level"]
         row("Changes", f"{len(plan['paths'])} file(s); the checks they need: {selected}")
         if names["validate"]:
-            validate_step.append(f"make {names['validate']}" + ("   (builds the affected documents and runs the checks these changes need)" if plan["manuscript"] else ""))
+            validate_step.append(f"make {names['validate']}" + ("   (checks every declared document)" if plan["level"] == "full" else ""))
     if documents:
         # Receipt state is independent of Git: a failed build stays pending after its sources are restored.
         counts = {}

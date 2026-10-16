@@ -211,7 +211,7 @@ class ModuleTests(unittest.TestCase):
         # A defect that makes the plan uncomputable must not stop the report that is meant to capture it.
         self.example()
         with (self.project / ".latex-ai/documents.py").open("a") as stream:
-            stream.write("\ndef dependency_index(project, config, paths=None):\n    raise KeyError('checks')\n")
+            stream.write("\ndef failed(project, config):\n    raise KeyError('checks')\n")
         crash = self.command("plan", "--files", "main.tex", expected=rt.INTERNAL_FAULT)
         self.assertIn("INTERNAL ERROR: KeyError: 'checks'", crash.stderr)
         done = self.command("issue", "--files", "main.tex", "--note", "plan crashed")

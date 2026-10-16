@@ -594,7 +594,7 @@ class Repairs(ProjectCase):
             edit(config)
             with self.subTest(label), self.assertRaises(core.WorkbenchError) as caught:
                 schema.validate_config(self.project, config)
-            self.assertRegex(str(caught.exception), r"rooot|documnts|moduls|cii|pth|manuscript_input", label)
+            self.assertRegex(str(caught.exception), r"rooot|documnts|moduls|cii|pth|validation", label)
 
     def test_invalid_schema_hint_says_what_to_do(self):
         with self.assertRaises(core.WorkbenchError) as caught:
@@ -1068,18 +1068,13 @@ class ProjectMake(ProjectCase):
 
     def test_validate_still_runs_the_project_s_own_check(self):
         (self.project / "main.tex").write_text(SOURCE_4_3_0)
+        self.builder()
         self.configure()
         self.install('init', editor=False)
-        makefile = self.project / "Makefile"
-        template = makefile.read_text()
-        self.assertFalse(guide.project_check_rule(self.project), "the Makefile as init wrote it has no check of the project's")
-        for label, extra in (("a prerequisite", "\ncheck: my-tests\nmy-tests:\n\t@true\n"), ("a second recipe", "\ncheck::\n\t@echo mine\n"),
-                             ("an include", "\n-include extra.mk\n")):
-            with self.subTest(label):
-                makefile.write_text(template + extra)
-                self.assertTrue(guide.project_check_rule(self.project))
-        makefile.write_text(template + "\n.PHONY: figures\nfigures:\n\t@true\n")
-        self.assertFalse(guide.project_check_rule(self.project), "a target that is not check does not make validate conservative")
+        with (self.project / 'Makefile').open('a') as stream:
+            stream.write('\ncheck: local-tests\nlocal-tests:\n\t@echo checked >> local-count\n')
+        self.command('validate', '--files', 'main.tex')
+        self.assertEqual((self.project / 'local-count').read_text(), 'checked\n')
 
 
 class RuntimeApartFromProjectFiles(ProjectCase):
@@ -1138,9 +1133,9 @@ class RuntimeApartFromProjectFiles(ProjectCase):
         self.assertIn("-# edited", text)
 
     def test_the_schema_errors_name_the_current_workbench(self):
-        with self.assertRaisesRegex(core.WorkbenchError, r"^Workbench 5 supports only project configuration schema 4 \(this file declares 2\)"):
+        with self.assertRaisesRegex(core.WorkbenchError, r"^Workbench 6 supports only project configuration schema 4 \(this file declares 2\)"):
             schema.validate_config(self.project, {'schema_version': 2})
-        with self.assertRaisesRegex(core.WorkbenchError, r"^Workbench 5 supports only project configuration schema 4$"):
+        with self.assertRaisesRegex(core.WorkbenchError, r"^Workbench 6 supports only project configuration schema 4$"):
             schema.document_settings({'schema_version': 2})
 
 
