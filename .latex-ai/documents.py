@@ -1,25 +1,9 @@
-"""What the declared LaTeX documents are doing: dependency routing, build states and failed builds.
+"""What the declared LaTeX documents are doing: build states and failed builds.
 
 The documents themselves (specifications, resolution, validation) are in ``schema``; this module needs the LaTeX
 backend and is installed with it.
 """
-import fnmatch
-from pathlib import Path
-
 from schema import specifications
-
-
-def dependency_index(project, config, changed=()):
-    from latex import manuscript_dependencies
-    result = {}
-    for target in specifications(config):
-        view = target.view
-        names = manuscript_dependencies(project, view)
-        for name in changed:
-            if any(fnmatch.fnmatchcase(name, Path(pattern).as_posix()) for pattern in view.get("validation", {}).get("manuscript_inputs", [])):
-                names.add(name)
-        result[target.name] = names
-    return result
 
 
 def report(project, config):

@@ -11,7 +11,7 @@ Run commands from the project root. `make help` lists the fixed interface.
 | See where things stand and what to do next | `make status` (a stale document lists what changed) | [quickstart](quickstart.md) |
 | Check that my tools are installed | `make doctor` | [installing](installing.md) |
 | Check everything before sharing | `make check` | [daily use](daily-use.md) |
-| Check only what I changed | `make validate` (preview: `make validation-plan`) | [validation](validation.md) |
+| Select file or full checks for my changes | `make validate` (preview: `make validation-plan`) | [validation](validation.md) |
 | Build the PDF | `make build` (`make lint`, `make bib-check`, `make pdf-artifact`) | [daily use](daily-use.md) |
 | Build one named document, or every document | `make build DOC=NAME`, `make all` | [TeX notes](tex-notes.md) |
 | Add another LaTeX document (notes, a supplement) | add it under `documents` in `.latex-ai.json` | [TeX notes](tex-notes.md) |

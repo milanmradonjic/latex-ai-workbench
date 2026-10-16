@@ -23,16 +23,25 @@ desktop applications, or changing Git state.
 - For normal manuscript edits, follow the workflow below. Load the other
   references only when needed.
 
-For notes, documentation, policy or unrelated code, choose validation by changed
-files. Ordinary non-LaTeX files belong alongside the manuscript; editing them
-does not require a manuscript build. Preview with `make validation-plan`, then
-use `make validate` and any task-specific code/format tests. Check the reported
-selection against actual dependencies. Included Markdown/code, figures/data,
-build configuration and uncertain inputs need manuscript checks. Policy changes
-also need semantic review; structural validation cannot prove safe permissions.
-For committed review changes use `LATEX_AI_BASE=<verified revision>`; for a full
-manuscript check use `make check`. Read the package's
-[validation guide](../../docs/validation.md) for comparison behavior.
+Use `make validation-plan` to explain file checks or full project validation,
+then `make validate` to execute it. Ordinary Markdown, JSON, Python and notes
+receive file checks; test calculations and unrelated code separately. TeX,
+bibliography, figures, configured builders and build settings select `make check`
+for every document. Policy changes also require semantic review.
+
+Directories named exactly `archive` or `baseline`, at any depth, hold historical
+material and get file checks regardless of extension. `.diff` and `.patch` get
+text-integrity checks. Move historical files before making them active inputs.
+Routing does not inspect manuscript dependencies. Build freshness and export
+still use full dependency tracking and receipts. Transfer research results
+explicitly into TeX or figure files; do not turn document checks into automatic
+numerical or figure-regeneration pipelines. Preserve the project's declared
+custom builder contract.
+
+For committed reviews use `LATEX_AI_BASE=<verified revision>`; missing history
+or a failed/interrupted build selects the complete project. Package tests and
+compiler portability are explicit maintainer Make/CI commands. See the
+[validation guide](../../docs/validation.md).
 
 ## Named documents
 

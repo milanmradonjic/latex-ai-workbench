@@ -2,14 +2,14 @@
 
 A project kit for AI-assisted LaTeX manuscripts. It gives a paper, or several documents in one
 project, one set of commands (`make check`, `make validate`,
-`make status`), runs only the checks your changes need, keeps PDFs honest about being stale, and
+`make status`), selects file checks or full document checks, keeps PDFs honest about being stale, and
 gives AI coding agents clear rules, including never changing Git without your approval. It needs
 Python 3.10+ and `make`; native builds need a TeX toolchain. Zotero, an editor and API keys are optional.
 
 Git is optional. Without it, installation and checks work, and validation selects
 all project checks because there is no change history to compare.
 
-Workbench 5 is the supported development line, with schema-4 configuration only.
+Workbench 6 is the supported development line, with schema-4 configuration only.
 Earlier experimental releases are retired from support; their historical records
 remain available without adding compatibility code to this runtime.
 
@@ -53,7 +53,7 @@ The whole `workbench/` directory is relocatable: keep it together, because the i
 sibling templates and backends. Installed projects need only their configuration, the vendored
 runtime in `.latex-ai/` and its installation record; builds do not depend on where the distribution lives.
 
-Workbench 5 uses one explicit project configuration (schema 4) and one named-document
+Workbench 6 uses one explicit project configuration (schema 4) and one named-document
 execution path. Old Workbench project schemas and migration flags are unsupported.
 Each TeX document has its own receipt and PDF export; see the
 [mixed notes example](examples/tex-notes/README.md).

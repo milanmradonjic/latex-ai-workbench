@@ -51,9 +51,9 @@ ACTIONS = (
     Action("check", document=True, targets=(
         Target("check", "Everyday", "Build, verify and lint every declared document"),)),
     Action("validate", targets=(
-        Target("validate", "Everyday", "Run only the checks your changed files need"),)),
+        Target("validate", "Everyday", "Run file checks, then check every document when full validation is selected"),)),
     Action("plan", native_json=True, targets=(
-        Target("validation-plan", "Everyday", "Preview which checks that would be, without running anything"),)),
+        Target("validation-plan", "Everyday", "Explain file or full validation without running checks"),)),
     Action("status", standalone=True, targets=(
         Target("status", "Everyday", "Where the project stands and what to do next"),)),
     Action("doctor", targets=(

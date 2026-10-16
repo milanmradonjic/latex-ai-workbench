@@ -14,7 +14,7 @@ import tempfile
 import time
 import processes
 
-VERSION = "5.0.0"
+VERSION = "6.0.0"
 CONFIG = ".latex-ai.json"
 # Trees that are never project sources: version control, workbench state, environments, caches and installed packages. Every
 # walk and every check of a declared path agrees on them; the installer adds the folders it alone leaves out.
@@ -337,8 +337,8 @@ def effective_config(config):
     return result
 
 
-# Every file of the distribution whose change affects installed projects: the planner treats a change to
-# one as a build/configuration change. runtime_sources (below) is the subset a given project receives.
+# Distribution runtime and installer sources. runtime_sources below selects the files
+# vendored in every project; distribution tests are run explicitly by Make and CI.
 RUNTIME_FILES = ("runtime.py", "commands.py", "schema.py", "core.py", "latex.py", "documents.py", "diagnostics.py",
                  "guide.py", "processes.py", "output_transaction.py", "snapshot.py",
                  "bootstrap.py", "latex-ai-init")
@@ -348,23 +348,3 @@ def runtime_sources(config):
     """Every project receives the same standalone LaTeX runtime."""
     return {name: ("workbench.py" if name == "runtime.py" else name)
             for name in RUNTIME_FILES if name not in {"bootstrap.py", "latex-ai-init"}}
-
-
-# The checks `validate` can run, in their order. Which of them a change needs is decided once, in validation_actions.
-VALIDATION_ACTIONS = {
-    "unit": {"label": "Test workbench", "argv": ("make", "-C", "{package}", "test")},
-    "bibliography": {"label": "Check bibliography", "argv": ("make", "bib-check")},
-    "portability": {"label": "Test compiler portability", "argv": ("make", "-C", "{package}", "portability")},
-    "full": {"label": "Check project", "argv": ("make", "check")},
-}
-
-
-def validation_argv(name, package="workbench"):
-    return [word.replace("{package}", package) for word in VALIDATION_ACTIONS[name]["argv"]]
-
-
-def validation_actions(plan):
-    full = bool(plan["manuscript"] or plan["fallback"])
-    # A project-wide make check covers the bibliography check, so it is selected on its own only without a full check.
-    return [name for name in VALIDATION_ACTIONS
-            if (full if name == "full" else plan.get(name, False) and (name in {"unit", "portability"} or not full))]

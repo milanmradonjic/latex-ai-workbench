@@ -63,7 +63,7 @@ from test_support import ProjectCase, isolate_environment, prepare_config
 
 
 # One configuration that sets every key a document or the shared settings can carry.
-EVERY_KEY = {'schema_version': 4, 'default_document': 'paper', 'defaults': {'engine': 'pdflatex', 'backend': 'bibtex', 'lint': {'enabled': True, 'args': ['-n8']}, 'output_dir': 'out'}, 'documents': {'paper': {'root': 'main.tex', 'inputs': ['data/*.csv'], 'bibliography_files': ['extra.bib']}, 'note': {'root': 'notes/note.tex', 'engine': 'pdflatex', 'backend': 'none', 'build_command': ['make', 'note'], 'output_dir': 'note-out', 'lint': {'enabled': False, 'baseline': 'note.baseline.json'}}}, 'bibliography': {'files': ['refs.bib'], 'export': {'path': 'refs.bib', 'required': True, 'format': 'bibtex'}}, 'integrations': {'editor': False}, 'validation': {'manuscript_inputs': ['figures/*.pdf'], 'package': None}}
+EVERY_KEY = {'schema_version': 4, 'default_document': 'paper', 'defaults': {'engine': 'pdflatex', 'backend': 'bibtex', 'lint': {'enabled': True, 'args': ['-n8']}, 'output_dir': 'out'}, 'documents': {'paper': {'root': 'main.tex', 'inputs': ['data/*.csv'], 'bibliography_files': ['extra.bib']}, 'note': {'root': 'notes/note.tex', 'engine': 'pdflatex', 'backend': 'none', 'build_command': ['make', 'note'], 'output_dir': 'note-out', 'lint': {'enabled': False, 'baseline': 'note.baseline.json'}}}, 'bibliography': {'files': ['refs.bib'], 'export': {'path': 'refs.bib', 'required': True, 'format': 'bibtex'}}, 'integrations': {'editor': False}}
 
 
 CONFIGURATIONS = {**dict(FIXTURES), "every-key": EVERY_KEY}
@@ -157,7 +157,7 @@ class ViewTypes(unittest.TestCase):
         self.assertEqual(view.lint["enabled"], False)
         self.assertEqual(view.bibliography["backend"], "none")
         self.assertEqual(list(self.view("paper").inputs), ["data/*.csv"])
-        self.assertEqual(view.validation["manuscript_inputs"], ["figures/*.pdf"])
+        self.assertEqual(self.view("paper").validation["manuscript_inputs"], ["data/*.csv"])
 
     def test_to_json_and_deep_copies_are_plain_mutable_data(self):
         view = self.view()

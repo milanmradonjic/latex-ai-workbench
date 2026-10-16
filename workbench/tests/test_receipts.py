@@ -426,7 +426,7 @@ class BlindRepairTests(unittest.TestCase):
                     self.assertNotIn("tex/nested/tex/nested/paper.tex", receipt["inputs"])
                     Path(str(latex.output_paths(project, view)[2]) + ".fls").unlink()
                     self.assertEqual(documents.report(project, config)[0]["state"], "current")
-                    self.assertIn(name, documents.dependency_index(project, config)["paper"])
+                    self.assertIn(name, latex.manuscript_dependencies(project, view))
                     (project / name).write_text("Changed hidden source.\n")
                     self.assertEqual(documents.report(project, config)[0]["state"], "stale")
                     self.command("make", "build", cwd=project)
@@ -640,9 +640,9 @@ class DocumentLifecycleTests(unittest.TestCase):
         note.write_text(SOURCE_blind_repairs)
         self.assertEqual(self.states(), {"paper": "current", "note": "failed"})
         plan = runtime.validation_plan(self.project, config, [])
-        self.assertEqual(plan["documents"], ["note"])
-        self.assertIn("last build failed", plan["document_reasons"]["note"][0])
-        self.assertTrue(plan["manuscript"])
+        self.assertEqual(plan["documents"], ["note", "paper"])
+        self.assertEqual(plan["failed_documents"], ["note"])
+        self.assertTrue((plan["level"] == "full"))
         status = self.command("status", "--files").stdout
         self.assertNotIn("Nothing pending", status)
         self.assertIn("DOC=note", status)
@@ -754,7 +754,7 @@ class DocumentTests(unittest.TestCase):
         before = self.snapshot()
         self.command("documents", "--json")
         report = json.loads(self.command("plan", "--files", "notes/main.tex", "--json").stdout)
-        self.assertEqual(report["documents"], ["note"])
+        self.assertEqual(report["documents"], ["note", "paper"])
         self.assertEqual(self.snapshot(), before)
 
     def test_two_same_stem_documents_have_independent_receipts_and_exports(self):
@@ -897,7 +897,7 @@ class ModuleTests(unittest.TestCase):
         self.assertIn("2 accepted warning(s) no longer occur", text)
         self.assertIsNone(lint([])[0])
         plan = rt.validation_plan(self.project, config, paths=[".chktex-baseline.json"])
-        self.assertTrue(plan["manuscript"])  # changing the baseline is a change to what is checked
+        self.assertTrue((plan["level"] == "full"))  # changing the baseline is a change to what is checked
         policy = (boot.PACKAGE / "templates/AGENTS.md").read_text()
         self.assertIn("make lint-baseline", policy)
         self.assertRegex(policy, r"(?s)baseline.*owner")
@@ -1595,7 +1595,7 @@ class SimplificationTests(unittest.TestCase):
         self.assertEqual(documents.report(self.project, config)[0]["state"], "current")
         stem = latex.output_paths(self.project, schema.document_settings(config))[2]
         Path(str(stem) + ".fls").unlink()
-        self.assertIn("hidden.tex", documents.dependency_index(self.project, config)["paper"])
+        self.assertIn("hidden.tex", latex.manuscript_dependencies(self.project, schema.document_settings(config)))
         self.assertEqual(documents.report(self.project, config)[0]["state"], "current")
         (self.project / "hidden.tex").write_text("Changed hidden source.\n")
         self.assertEqual(documents.report(self.project, config)[0]["state"], "stale")
@@ -1609,7 +1609,7 @@ class SimplificationTests(unittest.TestCase):
         path.write_text(json.dumps({"schema_version": latex.RECEIPT_SCHEMA, "status": "verified",
             "identity": latex.build_identity(self.project, config), "inputs": {"../outside": None}, "outputs": {}}))
         self.assertEqual(documents.report(self.project, config)[0]["state"], "stale")
-        documents.dependency_index(self.project, config)
+        latex.manuscript_dependencies(self.project, schema.document_settings(config))
 
 
 class WorkbenchTests(unittest.TestCase):

@@ -86,28 +86,10 @@ def project_pattern(pattern):
 
 
 def check_validation(project, validation):
-    """Project validation declarations, independent of document selection."""
-    if not isinstance(validation, dict):
-        raise WorkbenchError("validation must be an object")
-    unknown_keys(validation, {"manuscript_inputs", "ignore", "package"}, "validation")
-    for key, label, example in (("manuscript_inputs", "manuscript input", "data/*.csv"), ("ignore", "ignore", "docs/**")):
-        patterns = validation.get(key, [])
-        if not isinstance(patterns, list):
-            raise WorkbenchError(f"validation.{key} must be a list of project-relative glob patterns")
-        for pattern in patterns:
-            if not project_pattern(pattern):
-                raise WorkbenchError(f"Invalid {label} pattern in validation.{key}: {pattern!r}",
-                                     hint=f"use a project-relative glob without '..', for example \"{example}\"")
-    package = validation.get("package")
-    if package is not None:
-        # The path is placed in generated shell and YAML, so keep to characters that need no escaping
-        # beyond quoting, and never the project root (routing prefixes are directory-relative).
-        if (not isinstance(package, str) or not re.fullmatch(r"[A-Za-z0-9._/ -]+", package) or package != package.strip()
-                or package.startswith("-") or ".." in Path(package).parts):
-            raise WorkbenchError("validation.package must be null or a project-relative directory using letters, digits, space and . _ - /")
-        local_path(project, package)
-        if Path(package).parts in ((), (".",)) or PurePosixPath(package).as_posix() == ".":
-            raise WorkbenchError("validation.package must be a subdirectory, not the project root")
+    """Validate the internal build-input representation; public routing settings are gone."""
+    patterns = validation.get("manuscript_inputs", [])
+    if not isinstance(patterns, list) or any(not project_pattern(pattern) for pattern in patterns):
+        raise WorkbenchError("Document inputs must be a list of project-relative glob patterns without '..'")
 
 
 def validate_document_settings(project, config, planned_sources=None):
@@ -139,9 +121,8 @@ def validate_document_settings(project, config, planned_sources=None):
 
 
 def validate_common(project, view):
-    # Shared bibliography and validation declarations are checked before resolving documents.
+    # Shared bibliography declarations are checked before resolving documents.
     check_bibliography(project, view.get("bibliography", {}))
-    check_validation(project, view.get("validation", {}))
 
 
 def _refuse(self, *arguments, **keywords):
@@ -271,8 +252,7 @@ def specifications(config):
         bib["files"] = list(dict.fromkeys([*bib.get("files", []), *settings.pop("bibliography_files", [])]))
         bib["backend"] = settings.pop("backend")
         inputs = settings["inputs"]
-        validation = copy.deepcopy(config.get("validation", {}))
-        validation["manuscript_inputs"] = [*validation.get("manuscript_inputs", []), *inputs]
+        validation = {"manuscript_inputs": list(inputs)}
         view = {"name": name, **settings, "bibliography": bib, "validation": validation}
         result.append(Document(name, json.dumps(view, sort_keys=True), default=name == default))
     return tuple(sorted(result, key=lambda document: (not document.default, document.name)))
@@ -294,7 +274,7 @@ def document_settings(config, document=None):
     if "schema_version" not in config:
         raise TypeError("document_settings resolves a project configuration; use an existing view as it is")
     if config["schema_version"] != 4:
-        raise WorkbenchError("Workbench 5 supports only project configuration schema 4")
+        raise WorkbenchError("Workbench 6 supports only project configuration schema 4")
     return resolve(config, document).view
 
 
@@ -344,8 +324,7 @@ def validate_documents(project, config, planned_sources=None):
             raise WorkbenchError(f"bibliography_files must be a list: {name}")
         for filename in fields.get("bibliography_files", []):
             local_path(project, filename)
-    validate_common(project, {"bibliography": config.get("bibliography", {}),
-                              "validation": config.get("validation", {})})
+    validate_common(project, {"bibliography": config.get("bibliography", {})})
     roots, outputs = set(), set()
     exports = {path_identity(project, f".latex-ai/artifacts/documents/{name}/document.pdf") for name in targets}
     root_ids = {path_identity(project, fields['root']) for fields in targets.values()}
@@ -371,9 +350,12 @@ def validate_config(project, config, planned_sources=None):
     if not isinstance(config, dict):
         raise WorkbenchError("Configuration must be a JSON object")
     if config.get("schema_version") != 4:
-        raise WorkbenchError(f"Workbench 5 supports only project configuration schema 4 (this file declares {config.get('schema_version')!r})",
+        raise WorkbenchError(f"Workbench 6 supports only project configuration schema 4 (this file declares {config.get('schema_version')!r})",
                              hint=f"prepare {CONFIG} using examples/minimal/.latex-ai.json in the workbench package")
-    unknown_keys(config, {"schema_version", "default_document", "defaults", "documents", "bibliography", "integrations", "validation"}, "project configuration")
+    if "validation" in config:
+        raise WorkbenchError("The validation configuration was removed in Workbench 6",
+                             hint="remove validation; routing uses fixed file rules, and document inputs still declare custom build dependencies")
+    unknown_keys(config, {"schema_version", "default_document", "defaults", "documents", "bibliography", "integrations"}, "project configuration")
     bibliography = config.get("bibliography", {})
     if not isinstance(bibliography, dict):
         raise WorkbenchError("bibliography must be an object")
