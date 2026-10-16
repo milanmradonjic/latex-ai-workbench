@@ -1,5 +1,8 @@
 # Daily project work
 
+The [workflow diagrams](workflow.md) show the daily loop and how validation fits
+between research, manuscript edits, review, and PDF export.
+
 Read AGENTS and config, then start with `make status`. If you cannot place something,
 `make guide` prints a short manual for this project. Edit authored files,
 preview the selected checks, and validate:
