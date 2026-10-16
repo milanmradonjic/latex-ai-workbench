@@ -16,6 +16,8 @@ For everyday notes, documentation, policy, code and manuscript edits, use
 `make validation-plan` to preview relevant checks and `make validate` to run
 them. Ordinary documentation-only work skips the manuscript build. See the
 [change-aware validation guide](workbench/docs/validation.md).
+The [workflow diagrams](workbench/docs/workflow.md) show the research pipeline,
+daily loop, and validation decision.
 The [TeX notes guide](workbench/docs/tex-notes.md) covers independent note documents
 and several documents in one project (schema 4).
 

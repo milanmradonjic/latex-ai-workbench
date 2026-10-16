@@ -27,6 +27,9 @@ Daily commands: `make status`, `make build`, `make check`, `make validation-plan
 and `make validate`. Preview selected checks after editing, then validate; run
 a full check before sharing. Use `make build DOC=name` for one document and `make all` for every document.
 
+See the [workflow diagrams](docs/workflow.md) for the research pipeline, daily loop,
+and file/full validation decision.
+
 - [Quickstart](docs/quickstart.md): install, first check, daily loop, when something fails.
 - [I want to…](docs/tasks.md): find the command for what you are trying to do.
 - In a project, `make guide` prints a short manual written with that project's own documents and command names.

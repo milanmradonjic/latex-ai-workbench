@@ -1,5 +1,8 @@
 # File or full validation
 
+See the [graphical workflow and decision tree](workflow.md#what-validation-selects)
+for an overview of the two levels.
+
 After a task, use the canonical project interface:
 
 ```sh
