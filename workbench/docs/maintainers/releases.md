@@ -3,6 +3,18 @@
 Workbench 6 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 6.1.1 — the remaining audit items
+
+The last three findings of the 6.0.0 audit; [verification](verification-6.1.1.md) has the checks. No routing,
+setting, command or generated file changes.
+
+- **A missing root says how to follow a rename.** Renaming or moving a declared root makes every command stop at the
+  configuration, as before; the hint now says to set `documents.NAME.root` to the new path.
+- **`make status` names a custom builder.** A document built by its `build_command` reads `custom build_command`
+  where an engine was printed. `documents` and `status --json` rows gain `builder` (`latexmk` or `build_command`).
+- **The LuaLaTeX and XeLaTeX tests skip** when `fontspec` or `luaotfload` is missing, instead of failing on a
+  partial TeX installation.
+
 ## 6.1.0 — audit repairs: archives, configured paths and validation without Git
 
 The [audit of 6.0.0](verification-6.1.0.md) found these; each has a regression test that failed first.

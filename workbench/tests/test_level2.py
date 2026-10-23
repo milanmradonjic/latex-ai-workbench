@@ -9,6 +9,8 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import core
+import documents
+import guide
 import latex
 import runtime
 import schema
@@ -96,6 +98,21 @@ class Level2Routing(ProjectCase):
             runtime.selected_checks(self.project, self.config, args)
         self.assertIn('DOC=paper is ignored here', output.getvalue())
         self.assertNotIn('full validation checks every document', output.getvalue())
+
+    def test_a_missing_root_says_how_to_follow_a_rename(self):
+        (self.project / 'supplement.tex').rename(self.project / 'appendix.tex')
+        with self.assertRaises(core.WorkbenchError) as raised:
+            schema.load_config(self.project)
+        self.assertIn('supplement.tex', str(raised.exception))
+        self.assertIn('renamed or moved it, set documents.supplement.root', raised.exception.hint)
+
+    def test_status_names_a_custom_builder_instead_of_the_engine(self):
+        self.config['documents']['supplement']['build_command'] = ['python3', 'build.py']
+        (self.project / core.CONFIG).write_text(__import__('json').dumps(self.config))
+        rows = {row['id']: row for row in documents.report(self.project, schema.load_config(self.project))}
+        self.assertEqual((rows['paper']['builder'], rows['supplement']['builder']), ('latexmk', 'build_command'))
+        self.assertIn('main.tex, pdflatex', guide.document_summary(rows['paper']))
+        self.assertIn('supplement.tex, custom build_command', guide.document_summary(rows['supplement']))
 
     def test_archived_policy_does_not_check_active_policy(self):
         plan = self.plan('archive/CLAUDE.md', 'revision/archive/.claude/settings.json')

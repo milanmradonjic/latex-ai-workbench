@@ -118,6 +118,12 @@ def manual_text(project, config, problem, documents=None):
     return "\n".join(lines)
 
 
+def document_summary(document):
+    """A status row's explanation: what the state means, the root, and what builds it (a custom command has no engine of ours)."""
+    builder = "custom build_command" if document.get("builder") == "build_command" else document["engine"]
+    return f"{STATES.get(document['state'], document['state'])}; {document['root']}, {builder}"
+
+
 def status_text(project, config, problem, installed, git, plan, plan_error, documents=None):
     names = available(project, config)
     lines = [f"LaTeX AI Workbench {VERSION}: status of {project.name}", ""]
@@ -176,7 +182,7 @@ def status_text(project, config, problem, installed, git, plan, plan_error, docu
         missing = []
         for document in documents:
             state = document["state"]
-            lines.append(f"               {document['id']}: {state} ({STATES.get(state, state)}; {document['root']}, {document['engine']})")
+            lines.append(f"               {document['id']}: {state} ({document_summary(document)})")
             lines += [f"                 {reason}" for reason in document.get("reasons", ())]
             if state == "failed":
                 log = failed_log(project, config, document["id"])

@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import re
 import shutil
+import subprocess
 import sys
 import unittest
 
@@ -171,6 +172,13 @@ class MultipleDocuments(ExplicitProjectCase):
         result = self.command("validate", "--files", "main.tex")
         self.assertTrue((self.project / "local-check-ran").is_file(), result.stdout)
 
+def tex_files(*names):
+    """Whether the TeX installation has every named file: a lualatex binary alone may lack its font loader."""
+    if not shutil.which("kpsewhich"):
+        return False
+    return all(subprocess.run(["kpsewhich", name], capture_output=True, text=True).stdout.strip() for name in names)
+
+
 class AlternativeCompilers(ExplicitProjectCase):
     def compile(self, flag, source, bibliography=False):
         config = self.config()
@@ -186,11 +194,12 @@ class AlternativeCompilers(ExplicitProjectCase):
         self.run_command("make", "pdf-artifact")
         self.assertTrue((self.project / ".latex-ai/artifacts/documents/paper/document.pdf").is_file())
 
-    @unittest.skipUnless(shutil.which("latexmk") and shutil.which("lualatex"), "latexmk and LuaLaTeX required")
+    @unittest.skipUnless(shutil.which("latexmk") and shutil.which("lualatex") and tex_files("fontspec.sty", "luaotfload-main.lua"),
+                         "latexmk and LuaLaTeX with fontspec and luaotfload required")
     def test_explicit_lualatex_command(self):
         self.compile("-lualatex", "\\documentclass{article}\n\\usepackage{fontspec}\n\\begin{document}Fixture.\\end{document}\n")
 
-    @unittest.skipUnless(shutil.which("latexmk") and shutil.which("xelatex"), "latexmk and XeLaTeX required")
+    @unittest.skipUnless(shutil.which("latexmk") and shutil.which("xelatex") and tex_files("fontspec.sty"), "latexmk and XeLaTeX with fontspec required")
     def test_explicit_xelatex_command(self):
         self.compile("-xelatex", "\\documentclass{article}\n\\usepackage{fontspec}\n\\begin{document}Fixture.\\end{document}\n")
 
