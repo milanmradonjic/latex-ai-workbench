@@ -64,7 +64,7 @@ non-exempt changed path requires it.
 flowchart TD
     scope["Changed paths<br/>Git comparison or explicit file scope"] --> recovery{"Automatic comparison unavailable,<br/>or a previous build failed/interrupted?"}
     recovery -->|Yes| full["FULL<br/>File checks, then make check once<br/>Every declared document"]
-    recovery -->|No| classify["Classify all changed paths<br/>Archive/baseline and patches are file-only"]
+    recovery -->|No| classify["Classify all changed paths<br/>Archives and patches are file-only;<br/>configured paths stay active"]
     classify --> trigger{"Any active TeX/bib/figure/data,<br/>build control, or unclassified path?"}
     trigger -->|Yes| full
     trigger -->|No| files["FILES<br/>Lightweight file and policy checks<br/>No manuscript build"]
@@ -78,9 +78,9 @@ flowchart TD
     class full complete
 ```
 
-- Historical directories are named exactly `archive` or `baseline`, at any depth.
-  Their contents remain file-only regardless of extension. Move a historical file
-  outside those directories before making it an active build input. `.diff` and
+- Historical directories are named exactly `archive`, at any depth. Their contents
+  remain file-only regardless of extension, except paths `.latex-ai.json` names.
+  Copy or move a historical file out before making it an active build input. `.diff` and
   `.patch` files receive text-integrity checks without interpreting embedded code.
 - Ordinary Markdown/JSON/Python changes get file checks. Configured builders,
   lint baselines, Makefiles, project/runtime settings, and editor integration are
@@ -89,8 +89,8 @@ flowchart TD
   Without Git/history, automatic selection uses Full; explicit `--files` scope
   remains available. See [comparison and recovery](validation.md#comparison-and-recovery).
 - Full validation covers every declared document, including projects with shared
-  outputs or cross-references. Current receipts can avoid recompilation; reference
-  verification and configured lint still run. Numerical tests and visual review
+  outputs or cross-references. latexmk recompiles only what changed; a configured
+  `build_command` runs in full each time. Reference verification and lint still run. Numerical tests and visual review
   remain task-specific work.
 
 A **current build** means its inputs and outputs match its receipt. It does not

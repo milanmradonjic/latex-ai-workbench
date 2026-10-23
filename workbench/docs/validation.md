@@ -15,14 +15,16 @@ make check            # explicitly check every declared document
 and applicable policy structure. **Full** runs those checks and invokes `make check`
 once. The project owns that command, so its additional checks run too. Full checks
 cover all named documents; use `make document-check DOC=name` for an explicit
-single-document check. Current receipts can reuse outputs without recompilation;
-reference verification and configured lint still run.
+single-document check. Each document's build runs again: latexmk recompiles only
+what changed, while a configured `build_command` runs in full every time (keep it
+incremental if it is expensive). Reference verification and configured lint run too.
 
 ## Fixed routing rules
 
 | Changed path | Level |
 |---|---|
-| Inside an `archive` or `baseline` directory at any depth | Files, regardless of extension |
+| A path `.latex-ai.json` names: a document root, bibliography file or export, lint baseline, or recognised build-command file | Full, wherever it lives |
+| Inside an `archive` directory at any depth | Files, regardless of extension |
 | `.diff` or `.patch` | Files; text integrity only |
 | Active build controls | Full |
 | Agent policy, permissions, or skills | Files plus policy structure and agent/human semantic review |
@@ -30,11 +32,14 @@ reference verification and configured lint still run.
 | TeX, bibliography, classes/styles, potential figures, CSV/TSV data | Full |
 | Unclassified paths | Full |
 
-Archive/baseline names are exact, case-sensitive directory components. Thus
-`revision/baseline/old.tex` and `archive/Makefile` get file checks, while
-`archive-old/main.tex` and `Archive/main.tex` select Full. Archives are historical
-reference material by convention. Move a historical file outside those directories
-before making it an active build input; the planner does not prove it is unused.
+`archive` is an exact, case-sensitive directory component. Thus
+`revision/archive/old.tex` and `archive/Makefile` get file checks, while
+`archive-old/main.tex`, `Archive/main.tex` and `revision/baseline/old.tex` select
+Full. Archives are historical reference material by convention. Copy or move a
+historical file out of the archive before making it an active build input; the
+planner does not prove an unnamed file is unused. A path the configuration names
+is active even inside an archive, so a lint baseline in `lint/archive/` is still
+checked. (Workbench 6.0 also exempted `baseline` directories; 6.1 does not.)
 
 Active build controls include Makefiles, `.latex-ai.json`, latexmk/ChkTeX
 configuration, configured lint baselines, the vendored `.latex-ai/` runtime,
@@ -69,7 +74,9 @@ Queries leave history, references and the index contents unchanged. Git diff use
 a throwaway index copy. With a split index, Git may refresh the shared index's
 modification time, but its contents stay unchanged.
 
-Missing Git/history or an invalid/all-zero base selects Full with an explanation.
+Missing Git/history or an invalid/all-zero base selects Full with an explanation,
+and the file checks then read every project file (Git's listing where there is a
+repository, otherwise a walk that skips generated trees and environments).
 A clean comparison selects no manuscript check. A previous failed/interrupted build
 selects Full until it succeeds, even when the source has been reverted. A mixture
 of file-only and full-triggering changes selects Full. `DOC` does not narrow a

@@ -58,7 +58,7 @@ make validate
 
 Ordinary Markdown/JSON/Python edits receive file checks. Active TeX, figures,
 bibliography, build controls, and uncertain inputs select full document checks.
-Historical archive/baseline directories and revision patches stay file-only.
+Historical `archive` directories and revision patches stay file-only.
 Without a Git repository and comparison history, validation selects full checks. Run `make check` before
 sharing. Inspect `git diff`; existing project/session approvals govern Git writes.
 

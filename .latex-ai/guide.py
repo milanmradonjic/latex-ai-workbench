@@ -89,7 +89,7 @@ def manual_text(project, config, problem, documents=None):
               *line("validation-plan", "file or full validation (nothing runs; without Git, full validation)"),
               *line("validate", "file checks, then make check for every document when full validation is selected"),
               *line("check", "the full check, before you share the work (build, references, citations and, if on, lint)")]
-    lines += ["  Files: ordinary Markdown/JSON/Python and historical archive/baseline directories; .diff/.patch get text-integrity checks.",
+    lines += ["  Files: ordinary Markdown/JSON/Python and historical archive directories; .diff/.patch get text-integrity checks.",
               "  Full: TeX, figures, bibliography or build controls; make check covers every document. See docs/validation.md."]
     if names.get("snapshot") or names.get("snapshots"):
         lines += ["", "Before a risky change (an upgrade, a large edit, an agent let loose on the files)",
