@@ -74,7 +74,7 @@ that static traversal or the compiler recorder cannot discover.
 
 `make validation-plan` explains file checks or full validation. Full validation
 runs the project's `make check` once and checks every declared document. Ordinary
-Markdown/JSON/Python, historical archive/baseline directories, and revision patches
+Markdown/JSON/Python, historical `archive` directories, and revision patches
 receive lightweight checks. A failed/interrupted build selects the full project
 until it succeeds. Routing does not scan source or recorder dependencies; build
 receipts and declared inputs still track actual build freshness. Use explicit

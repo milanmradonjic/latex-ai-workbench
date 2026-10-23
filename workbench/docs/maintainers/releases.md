@@ -3,6 +3,29 @@
 Workbench 6 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 6.1.0 — audit repairs: archives, configured paths and validation without Git
+
+The [audit of 6.0.0](verification-6.1.0.md) found these; each has a regression test that failed first.
+A minor release: routing changes in the conservative direction only (more paths select Full), and no
+setting, command or generated file changes.
+
+- **Without Git, the file checks read every project file.** 6.0.0 selected Full but gave the file checks
+  an empty list, so broken JSON, Python or Markdown links passed. The fallback now uses Git's listing where
+  there is a repository and otherwise walks the project, skipping generated trees and environments.
+- **Paths named in `.latex-ai.json` are always active.** Document roots, bibliography files and the export,
+  lint baselines and recognised build-command files select Full even inside an `archive` directory; before,
+  a lint baseline in a `baseline/` folder was silently exempt.
+- **Only `archive` directories are historical.** `baseline` is no longer an exempt name: it collided with
+  ChkTeX's lint baseline. Files in `baseline/` folders now get Full validation; move historical material
+  into an `archive/` directory to keep it file-only.
+- **Docs:** a configured `build_command` runs in full on every `make check`; only latexmk skips unchanged
+  work. The validation and workflow pages no longer say receipts avoid recompilation.
+- **Messages:** the no-Git file-check line says it covered every project file; the `DOC` note no longer
+  claims full validation when the files level is selected. Leftover code from the removed non-LaTeX mode
+  is reused (the project walk) or removed (an unset `full` flag).
+- Refresh installed runtimes by the [update recipe](../upgrading.md); edit `AGENTS.md` by hand to take over
+  the archive paragraph (`latex-ai-init diff` shows it).
+
 ## 6.0.0 — file checks or full project validation
 
 The [Level 2 plan](plan-level-2-validation.md) defines the agreed workflow and

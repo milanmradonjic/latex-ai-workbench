@@ -49,11 +49,13 @@ updated figures, which select full validation. Configured build scripts, Makefil
 project/runtime/build settings, editor integration and lint baselines also select
 full validation. Agent policy changes need structure checks and semantic review.
 
-Directories named exactly `archive` or `baseline`, at any depth, contain historical
-reference material: their files receive lightweight checks regardless of extension.
-Revision `.diff` and `.patch` files receive text-integrity checks. Move historical
-files outside those directories before making them active build inputs. Routing
-uses these conventions and does not discover arbitrary manuscript dependencies.
+Directories named exactly `archive`, at any depth, contain historical reference
+material: their files receive lightweight checks regardless of extension, except
+paths that `.latex-ai.json` names (roots, bibliography files, lint baselines,
+build scripts), which stay active wherever they live. Revision `.diff` and `.patch`
+files receive text-integrity checks. Copy or move a historical file out of an
+archive before making it an active build input. Routing uses these conventions
+and does not discover arbitrary manuscript dependencies.
 
 Use `LATEX_AI_BASE=<revision> make validate` to include already committed changes.
 Missing comparison history selects full validation. A failed/interrupted build

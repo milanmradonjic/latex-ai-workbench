@@ -29,9 +29,10 @@ receive file checks; test calculations and unrelated code separately. TeX,
 bibliography, figures, configured builders and build settings select `make check`
 for every document. Policy changes also require semantic review.
 
-Directories named exactly `archive` or `baseline`, at any depth, hold historical
-material and get file checks regardless of extension. `.diff` and `.patch` get
-text-integrity checks. Move historical files before making them active inputs.
+Directories named exactly `archive`, at any depth, hold historical material and
+get file checks regardless of extension; a path `.latex-ai.json` names stays active.
+`.diff` and `.patch` get text-integrity checks. Copy or move historical files out
+before making them active inputs.
 Routing does not inspect manuscript dependencies. Build freshness and export
 still use full dependency tracking and receipts. Transfer research results
 explicitly into TeX or figure files; do not turn document checks into automatic

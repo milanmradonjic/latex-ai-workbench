@@ -20,6 +20,7 @@ The repository was recreated on 13 October 2026 from the same tree, with its his
 removed from one record). The first version's pull requests and runs went with it, so pull request numbers here start again at 1; the hosted results of
 4.0.0 to 4.4.0 that ran there are given in the records as plain text.
 
+- [Version 6.1.0 verification](verification-6.1.0.md): audit repairs for archives, configured paths and validation without Git.
 - [Version 6.0.0 verification](verification-6.0.0.md): two validation levels, historical material exemptions, and retained build protections.
 - [Level 2 validation plan](plan-level-2-validation.md): file checks or full project checks, archive conventions, and the completed implementation stages.
 - [Version 5.0.0 verification](verification-5.0.0.md): explicit configuration, LaTeX-only projects, fixed commands, and retained safety.

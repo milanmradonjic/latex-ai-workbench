@@ -147,12 +147,8 @@ def changed_files(project, base=None):
         names += git("ls-files", "--others", "--exclude-standard", "-z")
         return sorted(set(names)), None
     except (OSError, WorkbenchError) as error:
-        # Missing history must not silently turn a build change into docs-only.
-        try:
-            names = git("ls-files", "-z") + git("ls-files", "--others", "--exclude-standard", "-z")
-        except (OSError, WorkbenchError):
-            names = []
-        return sorted(set(names)), f"Change discovery unavailable; full validation selected: {why_no_changes(error, base)}"
+        # Missing history must not silently turn a build change into docs-only, nor leave the file checks nothing to read.
+        return sorted(set(project_files(project))), f"Change discovery unavailable; full validation selected: {why_no_changes(error, base)}"
 
 
 def why_no_changes(error, base):
@@ -186,20 +182,26 @@ def validation_plan(project, config, paths=None, base=None):
     paths = sorted({tracked_name(project, name) for name in paths})
     targets = specifications(effective_config(config))
     from latex import command_files
-    controls = set()
+    declared = set()  # what the configuration names is active wherever it lives, even inside an archive directory
     for target in targets:
-        controls.update(command_files(project, target.view, authored=True, existing=False))
-        controls.add(Path(target.view["lint"]["baseline"]).as_posix())
+        bibliography = target.view.get("bibliography") or {}
+        export = bibliography.get("export") or {}
+        declared.update(command_files(project, target.view, authored=True, existing=False))
+        declared.update(Path(name).as_posix() for name in (target.view["lint"]["baseline"], target.view["root"],
+                                                           *bibliography.get("files", []), *([export["path"]] if export.get("path") else [])))
     reasons, full, policy = {}, bool(fallback), bool(fallback)
     for name in paths:
         path = PurePosixPath(name)
         suffix = path.suffix.lower()
-        if set(path.parts[:-1]) & {"archive", "baseline"}:
-            reason = "historical archive/baseline: file checks only"
+        if name in declared:
+            full = True
+            reason = f"declared in {CONFIG}: full validation"
+        elif "archive" in path.parts[:-1]:
+            reason = "historical archive: file checks only"
         elif suffix in PATCH_SUFFIXES:
             reason = "revision patch: text integrity only"
         elif (path.name in {"Makefile", "makefile", "GNUmakefile", "latexmkrc", ".latexmkrc", ".chktexrc", ".chktex-baseline.json"}
-              or name == CONFIG or name.startswith((".latex-ai/", ".vscode/")) or name in controls):
+              or name == CONFIG or name.startswith((".latex-ai/", ".vscode/"))):
             full = True
             reason = "build/configuration: full validation"
         elif path.name in {"AGENTS.md", "CLAUDE.md", "SKILL.md"} or name.startswith((".claude/", ".codex/")):
@@ -274,9 +276,9 @@ def file_checks(project, plan):
                 raise WorkbenchError(f"Missing canonical policy/delegation file: {name}")
         if "AGENTS.md" not in (project / "CLAUDE.md").read_text():
             raise WorkbenchError("CLAUDE.md must delegate to AGENTS.md")
-        print("Policy structure checked" + ("" if plan.get("full") else "; review policy/permission semantics in the diff"))
+        print("Policy structure checked; review policy/permission semantics in the diff")
     print("Manuscript text integrity checks passed" if integrity_only else
-          ("File checks passed for every project file" if plan.get("full") else "Changed-file checks passed") + " (JSON/Python syntax, text conflicts, local Markdown links)")
+          ("File checks passed for every project file" if plan.get("fallback") else "Changed-file checks passed") + " (JSON/Python syntax, text conflicts, local Markdown links)")
 
 
 def validate_changes(project, plan, files_only=False):
@@ -498,7 +500,7 @@ def selected_checks(project, config, args):
         if plan["fallback"]:
             print("NOTE: " + plan["fallback"])
         if os.environ.get("DOC"):
-            print(f"NOTE: DOC={os.environ['DOC']} is ignored here: full validation checks every document. "
+            print(f"NOTE: DOC={os.environ['DOC']} is ignored here: validation selects by changed files, and a full one checks every document. "
                   f"To check one document use make {guide.command_name(project, 'document-check') or 'document-check'} DOC={os.environ['DOC']}")
     return plan
 
