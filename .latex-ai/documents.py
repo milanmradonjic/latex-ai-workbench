@@ -13,6 +13,7 @@ def report(project, config):
         view = target.view
         receipt = read_receipt(project, view)
         row = {"id": target.name, "root": view["root"], "engine": view["engine"],
+               "builder": "build_command" if view.get("build_command") else "latexmk",
                "default": target.default, "state": receipt_state(project, view, receipt)}
         if row["state"] == "running":
             row["ownership"] = build_ownership(receipt)

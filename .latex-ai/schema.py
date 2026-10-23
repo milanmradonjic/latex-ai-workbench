@@ -102,7 +102,8 @@ def validate_document_settings(project, config, planned_sources=None):
     root = local_path(project, config["root"])
     if root.suffix != ".tex" or not (root.is_file() or path_name(project, config["root"]) in (planned_sources or {})):
         raise WorkbenchError(f"Root TeX document does not exist: {root}",
-                             hint="create the .tex source first, or declare an existing project-relative root in .latex-ai.json")
+                             hint=f"if you renamed or moved it, set documents.{config['name']}.root in .latex-ai.json to its new path; "
+                                  "otherwise create the .tex source first, or declare an existing project-relative root there")
     check_choice(config.get("engine"), ENGINES, "engine", ENGINE_HINT)
     # Whitespace is safe in subprocess argv, but latexmk/TeX cannot reliably
     # handle every special filename. Refuse rather than silently misbuild.
