@@ -3,6 +3,30 @@
 Workbench 6 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 6.3.0 — snapshots selected at setup, off by default
+
+The optional boolean `snapshots` project setting defaults to `false`. Select it
+when preparing `.latex-ai.json`; the installer reports the choice without
+creating stores or timers. Git-managed projects normally leave it off.
+
+Disabled projects omit snapshot commands from help/guide output. Calling either
+command, including a timer tier, fails before any store is accessed. Existing
+history remains intact. To continue using snapshots after upgrading, explicitly
+set `"snapshots": true`; a valid opt-in can also back up projects with missing
+TeX roots before installation or repair. Malformed/missing configuration does
+not enable the feature.
+
+The backend, runtime file set, fixed Make targets, retention rules, and restore
+format remain shared and unchanged. Git is a required tool only for projects
+that enable snapshots. The flag is not part of document build identity;
+declared-input hashing remains unchanged.
+Guidance now uses Git history for ordinary recovery and removes mandatory backup
+steps before edits or upgrades. No schema bump or automatic timer management.
+
+Refresh runtimes through the [update recipe](../upgrading.md), deliberately adopt
+the optional-snapshot paragraph in project-owned `AGENTS.md`, and select the flag
+in the project configuration. See [verification](verification-6.3.0.md).
+
 ## 6.2.1 — Git checkpoints across successive edit requests
 
 Generated policy, the operating skill, and workflow guidance now inspect Git at

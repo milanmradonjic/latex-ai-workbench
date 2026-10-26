@@ -12,7 +12,7 @@ import re
 
 from commands import RECURSIVE_GOALS
 from core import (BACKENDS, CONFIG, ENGINES, EXPORT_FORMATS, WorkbenchError, document_paths, integrations, local_path, make_goals,
-                  path_identity, path_name, read_json, OUTPUT_SUFFIXES)
+                  path_identity, path_name, read_json, snapshots_enabled, OUTPUT_SUFFIXES)
 
 DEFAULTS = {"engine": "pdflatex", "backend": "none", "lint": {"enabled": True, "args": []},
             "output_dir": None, "build_command": None, "inputs": [], "bibliography_files": []}
@@ -281,6 +281,8 @@ def document_settings(config, document=None):
 
 def required_tools(config):
     tools = ["make"]
+    if snapshots_enabled(config):
+        tools.append("git")
     for target in specifications(config):
         tex = target.view
         command = tex.get("build_command")
@@ -356,7 +358,8 @@ def validate_config(project, config, planned_sources=None):
     if "validation" in config:
         raise WorkbenchError("The validation configuration was removed in Workbench 6",
                              hint="remove validation; routing uses fixed file rules, and document inputs still declare custom build dependencies")
-    unknown_keys(config, {"schema_version", "default_document", "defaults", "documents", "bibliography", "integrations"}, "project configuration")
+    unknown_keys(config, {"schema_version", "default_document", "defaults", "documents", "bibliography", "integrations", "snapshots"}, "project configuration")
+    snapshots_enabled(config)
     bibliography = config.get("bibliography", {})
     if not isinstance(bibliography, dict):
         raise WorkbenchError("bibliography must be an object")

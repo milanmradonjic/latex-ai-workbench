@@ -1236,11 +1236,11 @@ class Recipe(unittest.TestCase):
     def recipe(self):
         return re.search(r"^## Update\n(.*?)(?=^## |\Z)", SKILL.read_text(encoding="utf-8"), re.S | re.M)[1]
 
-    def test_the_skill_holds_the_whole_recipe_in_order_and_starts_with_a_snapshot(self):
+    def test_the_skill_holds_the_whole_recipe_with_git_recovery_and_optional_snapshots(self):
         text = self.recipe()
         steps = dict(re.findall(r"^(\d)\. (.*?)(?=^\d\. |^Never delete|\Z)", text, re.S | re.M))
         self.assertEqual(sorted(steps), list("1234567"))
-        for number, words in {"1": ["make snapshot"], "2": ["make doctor", "releases.md"], "3": ["latex-ai-init diff", "LATEX_AI_TEMPLATE"], "4": ["latex-ai-init runtime", "--dry-run"],
+        for number, words in {"1": ["Git history", "optional", "make snapshot"], "2": ["make doctor", "releases.md"], "3": ["latex-ai-init diff", "LATEX_AI_TEMPLATE"], "4": ["latex-ai-init runtime", "--dry-run"],
                               "5": ["AGENTS.md", "stricter"], "6": [".latex-ai.json"], "7": ["make doctor LATEX_AI_TEMPLATE", "make check", "git diff"]}.items():
             for word in words:
                 self.assertIn(word, steps[number], f"step {number} lacks {word}")

@@ -6,6 +6,11 @@ root and its default document. Bibliography checking and editor integration are
 optional settings within that project. Non-LaTeX and standalone bibliography
 projects are unsupported.
 
+Choose snapshots when preparing the configuration. Use `"snapshots": false`
+(the default) for the normal Git workflow, or `true` only for an explicitly
+requested additional working-copy backup. The installer reports the choice;
+it never creates snapshot stores or installs timers.
+
 ## Explicit configuration
 
 Use [the minimal example](../examples/minimal/.latex-ai.json) or the

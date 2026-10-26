@@ -13,7 +13,8 @@ Prepare `.latex-ai.json` using [the minimal example](../examples/minimal/.latex-
   "schema_version": 4,
   "default_document": "manuscript",
   "documents": {"manuscript": {"root": "main.tex"}},
-  "integrations": {"editor": false}
+  "integrations": {"editor": false},
+  "snapshots": false
 }
 ```
 

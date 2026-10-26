@@ -17,6 +17,13 @@ desktop applications, or changing Git state.
 
 ## Route by task
 
+Choose snapshots once during project setup in `.latex-ai.json`, defaulting to
+`"snapshots": false`. For a Git-managed project, use its existing history for
+version recovery. Ordinary edits and upgrades need neither snapshots nor new
+commits. Suggest an approved checkpoint only when the task warrants one, and
+use the optional snapshot backend only for an explicitly opted-in project.
+Do not add backup steps or timers as routine agent work.
+
 - For setup, review or update, read [installation procedures](references/installation.md).
 - For independent or cross-model review, worktree coordination, or preparing
   human approval, read [review procedures](references/review.md).

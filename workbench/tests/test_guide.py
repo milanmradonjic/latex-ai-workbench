@@ -534,6 +534,7 @@ class Manual(ProjectCase):
 
     def test_the_snapshot_lines_say_git_is_needed_and_what_to_replace_in_the_command(self):
         self.paper()
+        self.edit_config(lambda config: config.update(snapshots=True))
         text = self.guide()
         self.assertIn("needs Git installed; the project need not use it", text)
         self.assertIn("write a file's path where it says FILE", text)
@@ -542,6 +543,7 @@ class Manual(ProjectCase):
 
     def test_a_snapshot_keeps_uncommitted_files_as_the_manual_says(self):
         self.paper()
+        self.edit_config(lambda config: config.update(snapshots=True))
         self.assertIn("keep a copy of every file, uncommitted ones too, outside the project", self.guide())
         for arguments in (["init", "-q"], ["add", "-A"], ["commit", "-q", "-m", "first"]):
             subprocess.run(["git", *arguments], cwd=self.project, env={**fixture_env(), **IDENTITY}, check=True, capture_output=True)

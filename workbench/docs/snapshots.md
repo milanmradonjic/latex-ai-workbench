@@ -1,7 +1,25 @@
 # Snapshots
 
+Snapshots are **optional and off by default**. Choose once when preparing the
+project's `.latex-ai.json`: `"snapshots": false` uses the normal Git workflow;
+`"snapshots": true` opts into an additional backup of eligible working files,
+including uncommitted, untracked, and ignored files. Git integration alone does
+not save uncommitted work, but ordinary edits and upgrades require neither a
+snapshot nor a new commit. A Git-managed project normally leaves snapshots off.
+
+Disabled projects omit snapshot commands from `make help` and `make guide`.
+The fixed Makefile still contains their entry points; invoking one reports that
+snapshots are disabled before touching any store. Setting the flag to false
+does not delete existing stores. Re-enable it deliberately to list or use them.
+The installer reports the choice but creates no stores or timers. Timers below
+are an additional manual opt-in for a project that has enabled snapshots.
+
+The opt-in gate reads only this flag, so recovery can work with missing TeX roots.
+Missing or malformed configuration cannot opt in. The backend and storage layout
+are shared across projects; this setting introduces no installation profiles.
+
 A snapshot is a copy of every file of the project, kept outside it, so that a bad edit, a bad update or an agent's mistake can be undone, whether or not the project is in Git.
-`make snapshot` takes one by hand: before an update ([updating](upgrading.md)), a migration ([migrating](installing.md)), a large edit, or an agent let loose on the files.
+For an opted-in project, `make snapshot` takes one by hand when wanted.
 `SNAPSHOT_NOTE="before the rewrite of section 3" make snapshot` gives it a label (put the assignment before `make`, as here, if the label has a `$` in it: after `make`, Make reads `$` itself).
 `make snapshots` lists the snapshots and prints the command that restores from one.
 
@@ -154,4 +172,5 @@ Full Disk Access, for the Python you named). A snapshot that cannot read a folde
 ## Needs
 
 Git on the `PATH` (the snapshots are Git repositories). The repositories use an identity of their own and none of your Git settings, hooks or templates.
-A project without the Makefile targets (anything from before 4.7) can still be snapshotted by the new release before it is updated: `python3 /path/to/workbench/runtime.py snapshot --project /path/to/project`.
+A project without the Makefile targets can use the distribution directly after
+opting in through its configuration: `python3 /path/to/workbench/runtime.py snapshot --project /path/to/project`.

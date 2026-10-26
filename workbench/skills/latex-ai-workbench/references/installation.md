@@ -19,6 +19,10 @@ Use schema 4 with at least one named document, its root, and an explicit default
 Inspect local files to choose settings; the installer does not infer them. Multiple
 documents remain supported. Declare bibliography files, custom argv build commands,
 output directories, lint settings, and editor preference in the configuration.
+Choose snapshots once during setup and record `"snapshots": false` by default.
+For a project already using Git, keep that default unless the user wants a
+separate working-copy backup. Set `true` only for an explicit opt-in; do not
+create timers or ask again during ordinary edits and upgrades.
 Do not ask the owner to resolve ordinary choices evident from the authorized project.
 
 `init` refuses an installation record and any conflicting generated destination.
@@ -65,8 +69,12 @@ A project is updated by following this recipe, and an update never ends without 
 Only schema-4 projects are supported; an older schema is refused with a hint, and nothing is converted. Locate the new release's folder (the one with `latex-ai-init`, the templates and the runtime
 together) first; it is called `/path/to/new-workbench` below.
 
-1. **Be able to undo.** `make snapshot SNAPSHOT_NOTE="before updating to X"` keeps a copy of every file outside the project, with or without Git ([snapshots](../../../docs/snapshots.md)
-   says how to restore from it). A clean `git status`, or the work committed on a branch, is a second way back.
+1. **Consider recovery.** Use the project's Git history as the usual recovery
+   mechanism. Ordinary edits and upgrades do not require a snapshot or a new
+   commit. If a large change warrants a checkpoint, obtain approval for a Git
+   commit under the project's policy. `make snapshot` is an optional alternative
+   only when `"snapshots": true` was selected ([snapshots](../../../docs/snapshots.md)).
+   Preserve existing uncommitted work; Git integration alone does not save it.
 2. **Read what changed.** The project's stamp is the version in `.latex-ai/installation.json`: `make status` shows it against the vendored runtime's, and `make doctor` prints it, with the runtime
    files edited or missing. Read the [release notes](../../../docs/maintainers/releases.md) for every release after that version, up to the new one: they name the generated files that changed and the settings
    that were removed. A removed setting is refused by name, with a hint.

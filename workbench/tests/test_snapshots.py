@@ -56,6 +56,7 @@ import bootstrap
 import commands
 import core
 import snapshot
+import schema
 from test_support import ProjectCase, fixture_env
 
 
@@ -144,6 +145,12 @@ class Case(ProjectCase):
         self.addCleanup(patcher.stop)
         self.base = self.root / "snapshots"
         (self.project / "main.tex").write_text(SOURCE)
+
+    def install(self, *args, **choices):
+        result = super().install(*args, **choices)
+        if args and args[0] == 'init' and result.returncode == 0:
+            self.edit_config(lambda config: config.update(snapshots=True))
+        return result
 
     def take(self, day=0, hour=12, note="", tier="manual", **options):
         with contextlib.redirect_stdout(io.StringIO()) as output:
@@ -444,6 +451,7 @@ class Hardening(Case):
     """
 
     def test_snapshots_taken_at_the_same_time_each_hold_every_file(self):
+        self.configure(snapshots=True)
         for number in range(600):
             (self.project / f"f{number}.txt").write_text(str(number))
         command = [sys.executable, "-B", str(PACKAGE / "runtime.py"), "snapshot", "--project", str(self.project)]
@@ -453,7 +461,7 @@ class Hardening(Case):
             self.assertEqual(run.returncode, 0, output)
         for repository in (path for path in self.store().iterdir() if (path / "HEAD").is_file()):
             for commit in git(repository, "for-each-ref", "--format=%(objectname)", "refs/snapshots/").decode().split():
-                self.assertEqual(len(names(repository, commit)), 601, "a snapshot that is missing files")
+                self.assertEqual(len(names(repository, commit)), 602, "a snapshot that is missing files")
 
     def test_a_second_snapshot_that_cannot_get_the_lock_says_so_and_writes_nothing(self):
         self.take()
@@ -577,8 +585,8 @@ class Commands(Case):
         self.assertIn("make snapshot", self.run_command("make", "snapshots").stdout)
         self.assertFalse(self.snapshots.exists())
 
-    def test_both_work_when_the_configuration_is_broken(self):
-        (self.project / core.CONFIG).write_text("{broken")
+    def test_both_work_with_opt_in_when_document_configuration_is_broken(self):
+        (self.project / core.CONFIG).write_text(json.dumps({'snapshots': True, 'documents': {}}))
         self.run_command("make", "snapshot")
         self.assertIn("snapshot", self.run_command("make", "snapshots").stdout)
 
@@ -606,11 +614,91 @@ class BeforeInstall(Case):
     """
 
     def test_the_distribution_snapshots_a_project_with_no_workbench_and_says_what_to_run_to_list_them(self):
+        self.configure(snapshots=True)
         runtime = [sys.executable, "-B", str(PACKAGE / "runtime.py"), "--project", str(self.project)]
         made = self.run_command(*runtime[:3], "snapshot", *runtime[3:], "--note", "before migrating", cwd=self.root).stdout
         self.assertNotIn("make ", made)  # this project has no Makefile target to name
         self.assertIn("before migrating", self.run_command(*runtime[:3], "snapshots", *runtime[3:], cwd=self.root).stdout)
-        self.assertEqual(sorted(path.name for path in self.project.iterdir()), ["main.tex"])
+        self.assertEqual(sorted(path.name for path in self.project.iterdir()), [".latex-ai.json", "main.tex"])
+
+
+class OptionalSnapshots(ProjectCase):
+    def setUp(self):
+        super().setUp()
+        (self.project / 'main.tex').write_text(SOURCE)
+
+    def configure_choice(self, **settings):
+        self.configure(**settings)
+        self.install('init')
+
+    def test_omitted_or_false_choice_blocks_every_snapshot_tier_without_creating_stores(self):
+        self.configure_choice()
+        store = Path(self.env['HOME']) / '.snapshots'
+        for settings in ({}, {'snapshots': False}):
+            self.edit_config(lambda config: (config.pop('snapshots', None), config.update(settings)))
+            for tier in ('manual', 'frequent', 'weekly'):
+                with self.subTest(settings=settings, tier=tier):
+                    result = self.command('snapshot', '--tier', tier, expected=1)
+                    self.assertIn('Snapshots are disabled', result.stderr)
+                    self.assertFalse(store.exists())
+            self.command('snapshots', expected=1)
+            self.assertFalse(store.exists())
+            self.assertNotIn('make snapshot', self.command('guide').stdout)
+            self.assertNotIn('make snapshot', self.command('help').stdout)
+
+    def test_explicit_opt_in_enables_commands_and_disabling_keeps_existing_history(self):
+        self.configure_choice(snapshots=True)
+        self.command('snapshot')
+        self.assertIn('make snapshot', self.command('guide').stdout)
+        self.assertIn('make snapshot', self.command('help').stdout)
+        store = Path(self.env['HOME']) / '.snapshots'
+        before = {str(path.relative_to(store)): path.read_bytes() for path in store.rglob('*') if path.is_file()}
+        self.edit_config(lambda config: config.update(snapshots=False))
+        self.command('snapshot', expected=1)
+        self.command('snapshots', expected=1)
+        after = {str(path.relative_to(store)): path.read_bytes() for path in store.rglob('*') if path.is_file()}
+        self.assertEqual(before, after)
+
+    def test_opted_in_recovery_does_not_require_valid_document_paths(self):
+        self.configure_choice(snapshots=True)
+        (self.project / 'main.tex').unlink()
+        self.command('snapshot')
+        self.command('snapshots')
+
+    def test_missing_or_malformed_configuration_cannot_opt_in(self):
+        self.configure_choice()
+        config = self.project / core.CONFIG
+        for contents in (None, '{broken', '[]', '{"snapshots": "true"}'):
+            if contents is None:
+                config.unlink(missing_ok=True)
+            else:
+                config.write_text(contents)
+            self.command('snapshot', expected=1)
+            self.assertFalse((Path(self.env['HOME']) / '.snapshots').exists())
+
+    def test_snapshot_choice_must_be_boolean_and_git_is_required_only_when_enabled(self):
+        for value in ('true', 1, None, {}, []):
+            with self.subTest(value=value), self.assertRaisesRegex(core.WorkbenchError, 'snapshots must be true or false'):
+                schema.validate_config(self.project, self.configure(snapshots=value))
+        for value in (False, True):
+            config = schema.validate_config(self.project, self.configure(snapshots=value))
+            self.assertEqual('git' in schema.required_tools(config), value)
+
+    def test_setup_reports_the_selected_choice_without_creating_stores(self):
+        for value in (False, True):
+            self.configure(snapshots=value)
+            report = json.loads(self.install('init', '--dry-run', '--json').stdout)
+            self.assertIs(report['snapshots'], value)
+            self.assertFalse(report['applied'])
+            self.assertFalse((Path(self.env['HOME']) / '.snapshots').exists())
+
+    def test_snapshot_choice_does_not_invalidate_document_receipts(self):
+        self.builder()
+        self.configure_choice(snapshots=False)
+        self.command('build')
+        self.assertEqual(self.state(), 'current')
+        self.edit_config(lambda config: config.update(snapshots=True))
+        self.assertEqual(self.state(), 'current')
 
 
 class Registered(unittest.TestCase):
@@ -636,11 +724,13 @@ class Registered(unittest.TestCase):
             with self.subTest(modules=sorted(modules)):
                 self.assertEqual(core.runtime_sources({"schema_version": 3, "modules": modules})["snapshot.py"], "snapshot.py")
 
-    def test_the_upgrade_and_migration_guides_start_with_a_snapshot(self):
+    def test_the_upgrade_guide_uses_git_and_keeps_snapshots_optional(self):
         for name in ("upgrading.md",):
             with self.subTest(guide=name):
                 first = re.search(r"^1\. (.*?)(?=^2\. )", (PACKAGE / "docs" / name).read_text(), re.S | re.M)[1]
                 self.assertRegex(first, r"make snapshot|runtime\.py snapshot --project")
+                self.assertIn("optional", first.lower())
+                self.assertIn("Git", first)
                 self.assertNotIn("planned", first)
 
 

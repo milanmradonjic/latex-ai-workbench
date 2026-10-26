@@ -8,5 +8,6 @@
   },
   "integrations": {
     "editor": false
-  }
+  },
+  "snapshots": false
 }
