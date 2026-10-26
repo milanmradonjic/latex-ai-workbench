@@ -41,8 +41,9 @@ flowchart TD
     validate --> passed{"Selected checks pass?"}
     passed -->|No| diagnose["Read diagnostics<br/>Correct the relevant files"]
     diagnose --> edit
-    passed -->|Yes| review["Review the diff, scientific reasoning,<br/>and presentation as applicable"]
+    passed -->|Yes| review["Review edits, scientific reasoning,<br/>and presentation as applicable<br/>Git checkpoint at session end or handoff"]
     review --> done["Change ready for review or delivery"]
+    done -. "Next small request in the same session" .-> edit
     review -. "Optional manuscript delivery" .-> export["Export current PDF<br/>make pdf-artifact DOC=name"]
     classDef command fill:#eff6ff,stroke:#2563eb,color:#172554
     classDef human fill:#f1f5f9,stroke:#64748b,color:#0f172a
@@ -56,6 +57,13 @@ flowchart TD
 when the preview affects a decision. Run validation at the end of the requested
 batch, before delivery or Git handoff; a single editing request ends at delivery.
 A PDF preview during an ongoing batch is not completed validation.
+
+Git inspection follows the editing session, which may span successive requests.
+Inspect branch/status and relevant diffs at its start, and review the relevant
+diff and status at its completion or Git handoff. Between those checkpoints,
+read the current target passage before patching it and refresh relevant Git
+checks when state/context changes. Completing a validation batch does not itself
+end this session. See [successive edits](daily-use.md#git-inspection-during-successive-edits).
 
 Export requires a current build receipt and verifies the PDF before copying it
 to `.latex-ai/artifacts/documents/NAME/document.pdf`. If a manuscript build is

@@ -3,16 +3,13 @@
 The [workflow diagrams](workflow.md) show the daily loop and how validation fits
 between research, manuscript edits, review, and PDF export.
 
-Read AGENTS and config, then start with `make status`. If you cannot place something,
+At session start, read AGENTS and config and use `make status`. If you cannot place something,
 `make guide` prints a short manual for this project. Edit authored files,
 and validate when the requested edits are complete:
 
 ```sh
-make status
-make validate
-git diff --check
-git diff
-git status --short --branch
+make status    # at session start
+make validate  # when the requested editing batch is complete
 ```
 
 Bare `make` builds the default document; `make all` builds every document one after another.
@@ -28,8 +25,30 @@ decision; `make validate` already explains the selected checks.
 
 For agent sessions, keep complete compiler output in a generated log, preserve
 the exit status, and report the result, relevant warnings, and failure context.
-For a small follow-up edit, use the relevant source range and diff and reuse the
-configuration already inspected in the session.
+Reuse inspected policy, configuration, and tool information until it changes or
+the context becomes unreliable. A preview is optional; do not run a separate
+build, check, or planning command immediately before `make validate` merely to
+repeat work that validation already performs. Questions need repository/tool
+inspection only when the answer depends on that state.
+
+## Git inspection during successive edits
+
+At the start of an editing session, inspect the branch, status, and relevant
+staged/unstaged diffs. The session may span several requests in the same chat;
+answering one request, previewing a PDF, or completing its validation batch does
+not automatically require a new Git checkpoint.
+Known uncommitted manuscript work does not block requested edits or require
+another inspection.
+
+Before every edit, read the current target passage and patch it narrowly. This
+protects concurrent manuscript edits without repeatedly dumping the repository
+diff. Refresh relevant Git checks when context is stale, a branch/index change is
+indicated, scope expands, unexpected changes appear, or before an approved
+Git mutation sequence. At session completion or Git handoff, inspect the relevant diff,
+`git diff --check`, and status. Keep existing user changes distinct from yours.
+The project's existing approval rules for Git mutations still apply.
+Validation may still read Git to discover changed files; this policy removes
+repeated agent inspections without changing validation's dependency on Git.
 
 Keep local notation, formatting, structure, and citation keys. Notes, Markdown,
 scripts, and other project files can be edited normally alongside the manuscript.

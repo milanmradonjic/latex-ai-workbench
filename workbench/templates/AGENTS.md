@@ -67,6 +67,11 @@ as completed validation or change the full-validation routing for TeX edits.
 Normally run `make validate` directly; use `make validation-plan` first only when
 its preview will affect a decision. Keep complete compiler output in generated
 logs and report the result, relevant warnings, and diagnostic context concisely.
+Reuse inspected policy, configuration, and tool context until it changes or
+becomes unreliable. Use a preview build only when useful; do not run a separate
+build, check, or planning command immediately before `make validate` merely to
+repeat its work. Questions require inspection only when their answer depends
+on repository or tool state.
 
 Missing comparison history selects full validation. A failed/interrupted build
 also selects the complete project until rebuilt successfully. `make check` checks
@@ -78,8 +83,10 @@ regenerate files it depends on; that is part of its explicit build contract.
 Workbench does not establish scientific validity: inspect assumptions, units and
 tolerances yourself. Compilation must not silently expand into research work.
 
-After edits inspect `git diff` and `git status`, and report selected validation,
-results, relevant warnings, and unresolved issues. Diagnose
+At editing-session completion or before a Git handoff, inspect the relevant
+diff, `git diff --check`, and status. This checkpoint is not required after each
+small edit or reply in an ongoing session. Report selected validation, results,
+relevant warnings, and unresolved issues for each request. Diagnose
 failures before modifying source; fix errors introduced by the task. Do not
 silence failures by disabling checks without an explicit design decision.
 A document's configured lint baseline lists the style warnings the owner accepted;
@@ -95,7 +102,16 @@ the same Make commands, and build exclusively from repository contents.
 
 # Git safety
 
-- Inspect branch, status, and diff before editing; preserve user changes.
+- At the start of an editing session, inspect branch, status, and relevant staged
+  and unstaged diffs; distinguish existing user changes from this work. A session
+  may span successive requests in the same chat. A new message, PDF preview, or
+  completed validation batch does not by itself require another Git checkpoint.
+  Known uncommitted work does not block requested edits or require reinspection.
+- Before each edit, read the current target passage and apply a focused patch
+  against that content to preserve concurrent edits. Refresh the relevant Git
+  inspection when context is stale, a branch/index change is indicated, scope
+  expands, unexpected changes appear, or before a sequence of approved Git mutations.
+  Preserve unrelated user changes; do not reset, restore, or clean them.
 - Git mutations that write history, branches or the working tree require explicit user approval, including committing,
   initializing/cloning repositories, writing Git configuration,
   pushing, pulling, merging, rebasing, resetting, restoring, cleaning, stashing,

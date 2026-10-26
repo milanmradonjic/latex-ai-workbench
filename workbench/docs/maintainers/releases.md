@@ -3,6 +3,23 @@
 Workbench 6 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 6.2.1 — Git checkpoints across successive edit requests
+
+Generated policy, the operating skill, and workflow guidance now inspect Git at
+editing-session boundaries and when context/state changes, rather than before
+and after each small request. A session can span requests in the same chat,
+including completed validation batches. Agents still read the current target
+passage before patching, preserve concurrent/uncommitted work, and follow the
+project's existing Git approval rules.
+
+Routine follow-ups reuse inspected configuration/tool context; preview builds
+are optional and separate build/check/planning commands should not duplicate
+`make validate`. Validation routing and completion gates remain unchanged.
+
+Take over the session-checkpoint, context-reuse, and validation paragraphs in
+project-owned `AGENTS.md` deliberately; runtime refresh alone does not edit that
+file. See [verification](verification-6.2.1.md).
+
 ## 6.2.0 — incremental custom builds and editing batches
 
 Custom builders receive `LATEX_AI_BUILD_FORCE=1` when PDF/log regeneration is
