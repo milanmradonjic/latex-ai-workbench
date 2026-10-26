@@ -665,6 +665,22 @@ class OptionalSnapshots(ProjectCase):
         self.command('snapshot')
         self.command('snapshots')
 
+    def test_opted_in_recovery_is_shown_when_document_paths_are_broken(self):
+        # help and the manual read the same flag as the commands: a missing root hides the commands that still work.
+        self.configure_choice(snapshots=True)
+        (self.project / 'main.tex').unlink()
+        for action in ('help', 'guide'):
+            with self.subTest(action=action):
+                output = self.command(action).stdout
+                self.assertIn('Configuration problem', output)
+                self.assertIn('make snapshot', output)
+        self.assertIn('snapshots', self.command('guide').stdout.split('Until then only', 1)[1].split('\n', 1)[0])
+        for contents in ('{broken', '{"snapshots": "true"}', '{"schema_version": 4, "snapshots": false, "documents": 1}'):
+            (self.project / core.CONFIG).write_text(contents)
+            for action in ('help', 'guide'):
+                with self.subTest(contents=contents, action=action):
+                    self.assertNotIn('make snapshot', self.command(action).stdout)
+
     def test_missing_or_malformed_configuration_cannot_opt_in(self):
         self.configure_choice()
         config = self.project / core.CONFIG

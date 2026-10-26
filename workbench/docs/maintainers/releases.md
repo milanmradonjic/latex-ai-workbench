@@ -3,6 +3,26 @@
 Workbench 6 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 6.3.1 — stress-test repairs
+
+A stress test of 6.3.0 against its release notes and user docs found three gaps; each has a regression
+test that failed first. Routing changes in the conservative direction only (more paths select Full); no
+setting, command or generated Makefile/editor file changes. [Verification](verification-6.3.1.md) has the checks.
+
+- **Declared document `inputs` are active paths.** A file matched by a document's `inputs` patterns now selects
+  Full wherever it lives and whatever its suffix, deleted ones included. Before, a declared `archive/table.csv`
+  or `data/params.json` got file checks only, so `make validate` passed while the document was stale.
+- **Declared paths are compared in their resolved spelling.** A baseline written `archive/../archive/x.json`, or a
+  root that is a link to `archive/main.tex`, was matched by its literal text and exempted as historical.
+- **An opted-in project keeps its snapshot commands in `make help` and `make guide` when the configuration is
+  otherwise broken.** The commands already worked there, but orientation hid them exactly when recovery matters.
+  Missing or malformed configuration still shows none. The snapshot docs say to unload timers before turning
+  the flag off.
+- The repository README points at the current verification record.
+
+Refresh runtimes through the [update recipe](../upgrading.md) and take over the one-phrase `inputs` addition to
+the archive paragraph in project-owned `AGENTS.md` deliberately (`latex-ai-init diff` shows it).
+
 ## 6.3.0 — snapshots selected at setup, off by default
 
 The optional boolean `snapshots` project setting defaults to `false`. Select it

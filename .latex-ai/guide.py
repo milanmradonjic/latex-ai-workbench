@@ -5,14 +5,23 @@ Both are read-only. Commands come from the fixed registry; configured documents 
 from pathlib import Path
 
 from commands import COMMANDS  # the registry derives every name shown to readers
-from core import VERSION, WorkbenchError, document_paths, snapshots_enabled
+from core import VERSION, WorkbenchError, document_paths, snapshots_enabled, snapshots_opted_in
 from schema import STATES, specifications
 
 
 def available(project, config=None):
-    """The supported template has one fixed name for each public command."""
+    """The supported template has one fixed name for each public command. Without a valid configuration the
+    snapshot commands are shown when the flag alone opts in, as the commands themselves decide."""
+    snapshots = snapshots_enabled(config) if config is not None else lenient_opt_in(project)
     return {command.short: command.short for command in COMMANDS
-            if command.action not in {"snapshot", "snapshots"} or snapshots_enabled(config)}
+            if command.action not in {"snapshot", "snapshots"} or snapshots}
+
+
+def lenient_opt_in(project):
+    try:
+        return snapshots_opted_in(project)
+    except (OSError, WorkbenchError):
+        return False  # orientation explains the broken configuration; it does not fail on it
 
 
 def command_name(project, short):
@@ -82,7 +91,7 @@ def manual_text(project, config, problem, documents=None):
         return [f"  make {names[short]}{(' ' + usage) if usage else ''}", f"      {text}"] if names.get(short) else []
     lines = [f"LaTeX AI Workbench {VERSION}: manual for {project.name}", ""]
     if problem:
-        lines += [f"Configuration problem: {problem[0]}", f"  To fix it: {problem[1]}", "  Until then only help, status, this manual and the issue report work.", ""]
+        lines += [f"Configuration problem: {problem[0]}", f"  To fix it: {problem[1]}", "  Until then only help, status, this manual" + (", the issue report and the snapshots work." if names.get("snapshot") else " and the issue report work."), ""]
     else:
         lines.append("LaTeX project; make check checks every declared document.")
     if documents:

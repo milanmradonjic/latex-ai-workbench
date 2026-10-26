@@ -14,8 +14,12 @@ does not delete existing stores. Re-enable it deliberately to list or use them.
 The installer reports the choice but creates no stores or timers. Timers below
 are an additional manual opt-in for a project that has enabled snapshots.
 
-The opt-in gate reads only this flag, so recovery can work with missing TeX roots.
-Missing or malformed configuration cannot opt in. The backend and storage layout
+The opt-in gate reads only this flag, so recovery can work with missing TeX roots;
+`make help` and `make guide` then still list the snapshot commands beside the
+configuration problem. Missing or malformed configuration cannot opt in.
+Turning the flag off does not stop timers you loaded: unload them first
+(`launchctl bootout`, [below](#timers-on-a-mac-launchd)), or each run logs that
+snapshots are disabled. The backend and storage layout
 are shared across projects; this setting introduces no installation profiles.
 
 A snapshot is a copy of every file of the project, kept outside it, so that a bad edit, a bad update or an agent's mistake can be undone, whether or not the project is in Git.

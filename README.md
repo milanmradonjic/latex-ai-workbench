@@ -31,7 +31,7 @@ See the [quickstart](workbench/docs/quickstart.md), the [task finder](workbench/
 [upgrade guide](workbench/docs/upgrading.md), and
 [agent operating skill](workbench/skills/latex-ai-workbench/SKILL.md).
 
-The [current verification record](workbench/docs/maintainers/verification-6.1.1.md) records local
+The [current verification record](workbench/docs/maintainers/verification-6.3.1.md) records local
 test results, preserved files and remaining human setup steps.
 
 The reference deliberately contains no example literature citations. Its

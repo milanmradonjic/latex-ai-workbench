@@ -42,7 +42,10 @@ Full. Archives are historical reference material by convention. Copy or move a
 historical file out of the archive before making it an active build input; the
 planner does not prove an unnamed file is unused. A path the configuration names
 is active even inside an archive, so a lint baseline in `lint/archive/` is still
-checked. (Workbench 6.0 also exempted `baseline` directories; 6.1 does not.)
+checked. That includes a file matched by a document's `inputs` patterns, whatever
+its suffix (a declared `data/params.json` selects Full), and a path spelled with
+`..` or reached through a link, which is compared in its resolved spelling.
+(Workbench 6.0 also exempted `baseline` directories; 6.1 does not.)
 
 Active build controls include Makefiles, `.latex-ai.json`, latexmk/ChkTeX
 configuration, configured lint baselines, the vendored `.latex-ai/` runtime,
