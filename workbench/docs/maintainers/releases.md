@@ -3,6 +3,25 @@
 Workbench 6 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 6.2.0 — incremental custom builds and editing batches
+
+Custom builders receive `LATEX_AI_BUILD_FORCE=1` when PDF/log regeneration is
+required, or `0` when a verified receipt permits reuse. A cooperating builder can
+try incremental work and regenerate untouched outputs in the same invocation,
+avoiding a protected retry. Existing builders may ignore it; Workbench still
+verifies inputs, output freshness, and references and retains its fallback.
+
+Generated `AGENTS.md`, the operating skill, and daily-use/workflow guidance now
+define optional PDF previews during an editing batch and `make validate` at its
+completion. `make validate` already prints its plan, so a separate planning
+command is optional. Agent guidance retains full logs and concise diagnostics.
+There is no command, configuration-schema, routing, or lint-baseline change.
+
+Refresh runtimes using the [update recipe](../upgrading.md) and take over the
+editing-batch paragraph in project-owned `AGENTS.md` deliberately. Makefiles,
+editor settings, and agent permission files do not change. See
+[verification](verification-6.2.0.md).
+
 ## 6.1.1 — the remaining audit items
 
 The last three findings of the 6.0.0 audit; [verification](verification-6.1.1.md) has the checks. No routing,

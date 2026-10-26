@@ -33,8 +33,11 @@ Start from the project root. Before a risky edit or upgrade, use
 ```mermaid
 flowchart TD
     inspect["Inspect<br/>make status, AGENTS.md, and config"] --> edit["Edit project files"]
-    edit --> plan["Preview<br/>make validation-plan"]
-    plan --> validate["Run<br/>make validate"]
+    edit --> validate["Batch complete<br/>make validate"]
+    edit -. "Optional PDF preview" .-> preview["make build DOC=name"]
+    preview -. "Continue the agreed batch" .-> edit
+    edit -. "Optional check preview" .-> plan["make validation-plan"]
+    plan --> validate
     validate --> passed{"Selected checks pass?"}
     passed -->|No| diagnose["Read diagnostics<br/>Correct the relevant files"]
     diagnose --> edit
@@ -44,10 +47,15 @@ flowchart TD
     classDef command fill:#eff6ff,stroke:#2563eb,color:#172554
     classDef human fill:#f1f5f9,stroke:#64748b,color:#0f172a
     classDef result fill:#f0fdf4,stroke:#16a34a,color:#14532d
-    class inspect,plan,validate,export command
+    class inspect,preview,plan,validate,export command
     class edit,diagnose,review human
     class done result
 ```
+
+`make validate` prints its own plan. Use `make validation-plan` separately only
+when the preview affects a decision. Run validation at the end of the requested
+batch, before delivery or Git handoff; a single editing request ends at delivery.
+A PDF preview during an ongoing batch is not completed validation.
 
 Export requires a current build receipt and verifies the PDF before copying it
 to `.latex-ai/artifacts/documents/NAME/document.pdf`. If a manuscript build is
@@ -90,7 +98,8 @@ flowchart TD
   remains available. See [comparison and recovery](validation.md#comparison-and-recovery).
 - Full validation covers every declared document, including projects with shared
   outputs or cross-references. latexmk recompiles only what changed; a configured
-  `build_command` runs in full each time. Reference verification and lint still run. Numerical tests and visual review
+  `build_command` is invoked each time and may implement incremental work using
+  the [freshness hint](configuration.md#build-receipts-and-recovery). Reference verification and lint still run. Numerical tests and visual review
   remain task-specific work.
 
 A **current build** means its inputs and outputs match its receipt. It does not

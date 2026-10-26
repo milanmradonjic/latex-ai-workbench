@@ -23,8 +23,9 @@ desktop applications, or changing Git state.
 - For normal manuscript edits, follow the workflow below. Load the other
   references only when needed.
 
-Use `make validation-plan` to explain file checks or full project validation,
-then `make validate` to execute it. Ordinary Markdown, JSON, Python and notes
+Normally run `make validate` directly: it explains and executes its selection.
+Use `make validation-plan` first only when the preview will affect a decision.
+Ordinary Markdown, JSON, Python and notes
 receive file checks; test calculations and unrelated code separately. TeX,
 bibliography, figures, configured builders and build settings select `make check`
 for every document. Policy changes also require semantic review.
@@ -74,8 +75,14 @@ checks all documents. Input hashes and green checks do not prove scientific vali
    assumptions, dimensions/units, signs, limiting cases, normalization and
    consistency between equations, text and figures. Deterministic build success
    is evidence of valid typesetting, not correct science.
-5. For manuscript edits, run `make check` from the project root. For other edits,
-   use the change-aware validation above. Diagnose observed output. Separate
+5. During a manuscript editing batch, use `make build DOC=name` when a PDF
+   preview is needed. Run `make validate` from the project root when the
+   requested batch is complete, before delivery or Git handoff; a single editing
+   request ends at delivery. Intermediate previews do not complete validation.
+   Capture complete compiler output in a generated log, retain the exit status,
+   and return a concise result with relevant warnings and failure context.
+   Reuse session context and inspect the relevant source range and diff for small
+   follow-up edits. Diagnose observed output. Separate
    syntax/build failures, undefined references/citations, duplicate keys/labels,
    stale rerun requests, and advisory typesetting warnings. Fix introduced
    problems; report pre-existing issues without silently broadening the task.

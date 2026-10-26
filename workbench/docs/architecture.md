@@ -32,7 +32,8 @@ and compiler identities from the same process checks used to block competing bui
 ## Daily loop
 
 Use `make status` to see missing, stale, failed, running, or current documents.
-Edit authored files, preview `make validation-plan`, and run `make validate`.
+Edit authored files and run `make validate` when the requested batch is complete.
+`make validation-plan` is an optional preview; validation prints its own plan.
 Use `make build DOC=name` for explicit compilation and `make check` for all
 documents and their checks. Public command names are fixed; document selection uses `DOC=name`.
 

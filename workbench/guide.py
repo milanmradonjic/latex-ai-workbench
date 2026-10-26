@@ -86,9 +86,10 @@ def manual_text(project, config, problem, documents=None):
     lines += ["", "The everyday loop",
               *line("status", "where things stand, and what to do next"),
               "  Edit your files.",
-              *line("validation-plan", "file or full validation (nothing runs; without Git, full validation)"),
-              *line("validate", "file checks, then make check for every document when full validation is selected"),
-              *line("check", "the full check, before you share the work (build, references, citations and, if on, lint)")]
+              *line("build", "optional PDF preview during an editing batch; this is not full validation", "DOC=NAME"),
+              *line("validate", "at batch completion, before delivery: print the plan, run file checks, then make check when full validation is selected"),
+              *line("validation-plan", "optional preview when it affects a decision (nothing runs; without Git, full validation)"),
+              *line("check", "explicitly run the full check (build, references, citations and, if on, lint)")]
     lines += ["  Files: ordinary Markdown/JSON/Python and historical archive directories; .diff/.patch get text-integrity checks.",
               "  Full: TeX, figures, bibliography or build controls; make check covers every document. See docs/validation.md."]
     if names.get("snapshot") or names.get("snapshots"):

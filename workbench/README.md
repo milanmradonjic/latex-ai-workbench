@@ -24,8 +24,9 @@ cd /path/to/project && make help
 ```
 
 Daily commands: `make status`, `make build`, `make check`, `make validation-plan`,
-and `make validate`. Preview selected checks after editing, then validate; run
-a full check before sharing. Use `make build DOC=name` for one document and `make all` for every document.
+and `make validate`. Use PDF previews while editing and validate the completed
+batch before delivery; a separate check preview is optional. Use
+`make build DOC=name` for one document and `make all` for every document.
 
 See the [workflow diagrams](docs/workflow.md) for the research pipeline, daily loop,
 and file/full validation decision.
