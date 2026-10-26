@@ -514,6 +514,44 @@ class BlindRepairTests(unittest.TestCase):
             latex.verify(self.project, view)
 
 
+class IncrementalCustomBuilds(ProjectCase):
+    def setUp(self):
+        super().setUp()
+        (self.project / "main.tex").write_text(SOURCE)
+
+    def test_force_hint_is_overwritten_for_each_compiler_invocation(self):
+        self.configure()
+        config = schema.document_settings(schema.load_config(self.project))
+        with patch.dict(os.environ, {"LATEX_AI_BUILD_FORCE": "inherited-value"}):
+            for force in (False, True, False):
+                with patch.object(latex, "run_compiler") as compiler:
+                    latex.compile_document(self.project, config, force=force)
+                environment = compiler.call_args.kwargs["env"]
+                self.assertEqual(environment["LATEX_AI_BUILD_FORCE"], "1" if force else "0")
+                self.assertEqual(environment["LATEX_AI_BUILD_ACTIVE"], "1")
+
+    def test_cooperative_builder_reuses_current_outputs_without_a_retry(self):
+        self.configure()
+        self.builder()
+        builder = self.project / "builder.py"
+        builder.write_text(
+            "import os, sys\nfrom pathlib import Path\n"
+            "with Path('invocations').open('a') as stream: stream.write(os.environ.get('LATEX_AI_BUILD_FORCE', 'missing') + '\\n')\n"
+            "if Path('outputs/main.pdf').exists() and Path('outputs/main.log').exists() and os.environ.get('LATEX_AI_BUILD_FORCE') != '1': sys.exit(0)\n"
+            + builder.read_text())
+        self.install("init")
+        self.command("build")
+        self.command("build")
+        self.assertEqual((self.project / "invocations").read_text().splitlines(), ["1", "0"])
+        self.assertEqual((self.project / "count").read_text(), "1")
+        self.edit_config(lambda data: data["documents"]["paper"]["build_command"].append("changed-identity"))
+        result = self.command("build")
+        self.assertNotIn("regenerating", result.stdout)
+        self.assertEqual((self.project / "invocations").read_text().splitlines(), ["1", "0", "1"])
+        self.assertEqual((self.project / "count").read_text(), "2")
+        self.assertEqual(self.state(), "current")
+
+
 class DocumentLifecycleTests(unittest.TestCase):
     """Origin: tests/test_document_lifecycle.py."""
 

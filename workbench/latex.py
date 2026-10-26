@@ -759,7 +759,8 @@ def execute_build(project, config):
 def compile_document(project, config, force=False):
     """One compiler path for initial execution and protected regeneration."""
     root, out, stem = output_paths(project, config)
-    env = {**os.environ, "LATEX_AI_BUILD_ACTIVE": "1"}
+    env = {**os.environ, "LATEX_AI_BUILD_ACTIVE": "1",
+           "LATEX_AI_BUILD_FORCE": "1" if force else "0"}
     if config.get("build_command"):
         run_compiler(project, config, config["build_command"], env=env)
     else:

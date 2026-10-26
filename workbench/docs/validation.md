@@ -6,8 +6,8 @@ for an overview of the two levels.
 After a task, use the canonical project interface:
 
 ```sh
-make validation-plan  # explain the level and triggering paths; execute nothing
 make validate         # run that selection
+make validation-plan  # optional: explain the level and paths without running checks
 make check            # explicitly check every declared document
 ```
 
@@ -16,8 +16,11 @@ and applicable policy structure. **Full** runs those checks and invokes `make ch
 once. The project owns that command, so its additional checks run too. Full checks
 cover all named documents; use `make document-check DOC=name` for an explicit
 single-document check. Each document's build runs again: latexmk recompiles only
-what changed, while a configured `build_command` runs in full every time (keep it
-incremental if it is expensive). Reference verification and configured lint run too.
+what changed, while a configured `build_command` is invoked every time (keep its
+work incremental if it is expensive). The [freshness hint](configuration.md#build-receipts-and-recovery)
+lets a cooperating builder distinguish permitted reuse from required regeneration.
+Reference verification and configured lint run too. `make validate` prints its
+plan, so a separate preview is normally unnecessary.
 
 ## Fixed routing rules
 

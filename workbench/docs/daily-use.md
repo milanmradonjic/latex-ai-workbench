@@ -5,11 +5,10 @@ between research, manuscript edits, review, and PDF export.
 
 Read AGENTS and config, then start with `make status`. If you cannot place something,
 `make guide` prints a short manual for this project. Edit authored files,
-preview the selected checks, and validate:
+and validate when the requested edits are complete:
 
 ```sh
 make status
-make validation-plan
 make validate
 git diff --check
 git diff
@@ -19,6 +18,18 @@ git status --short --branch
 Bare `make` builds the default document; `make all` builds every document one after another.
 Use `make build DOC=name` for a selected document. `make check` checks all declared
 documents. Command names are fixed; local overrides are the project's responsibility.
+
+During an editing batch, `make build DOC=name` updates the active PDF for preview.
+An agreed batch may contain several edits and previews; run `make validate`
+before delivering it or handing work to Git. A single editing request ends its
+batch at delivery. A successful preview does not mean lint or full validation
+passed. Use `make validation-plan` separately only when its preview affects a
+decision; `make validate` already explains the selected checks.
+
+For agent sessions, keep complete compiler output in a generated log, preserve
+the exit status, and report the result, relevant warnings, and failure context.
+For a small follow-up edit, use the relevant source range and diff and reuse the
+configuration already inspected in the session.
 
 Keep local notation, formatting, structure, and citation keys. Notes, Markdown,
 scripts, and other project files can be edited normally alongside the manuscript.

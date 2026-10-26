@@ -122,6 +122,21 @@ write both PDF and log. Incremental reuse needs a matching verified receipt;
 old or malformed receipts certify nothing. Failure or interruption invalidates
 the attempt even if the source is later restored. Export requires a current receipt.
 
+Every compiler invocation receives `LATEX_AI_BUILD_FORCE=1` when the outputs
+must be regenerated (a first/invalidated receipt or protected retry), and `0`
+when a verified receipt permits unchanged output reuse. Workbench overwrites an
+inherited value. A custom builder may first try incremental work, then force
+regeneration only if the required PDF/log were left untouched and the hint is
+`1`. The hint conveys a requirement, never proof of freshness; the builder's
+cache cannot certify a receipt. Existing builders may ignore the hint.
+
+For coupled roots, keep both documents and their shared inputs declared. A
+project-owned adapter should use incremental compilation, track the companion
+reference state actually consumed by each root, and bound convergence attempts.
+Do not force an already rebuilt selected document again. Preserve the configured
+PDF/log paths and `-synctex=1` for editor use. Test pagination changes as well as
+label changes, cold starts, missing outputs, and interrupted builds.
+
 When a custom command leaves existing outputs without a valid receipt, the
 Workbench moves them aside and runs the command once more. Per-attempt intent
 journals under `.latex-ai/artifacts/unverified/<id>/` preserve originals.

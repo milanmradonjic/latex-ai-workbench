@@ -20,6 +20,7 @@ The repository was recreated on 13 October 2026 from the same tree, with its his
 removed from one record). The first version's pull requests and runs went with it, so pull request numbers here start again at 1; the hosted results of
 4.0.0 to 4.4.0 that ran there are given in the records as plain text.
 
+- [Version 6.2.0 verification](verification-6.2.0.md): incremental custom-builder hint and explicit editing batches.
 - [Version 6.1.1 verification](verification-6.1.1.md): rename hint, custom-builder status label, alternative-engine test guards.
 - [Version 6.1.0 verification](verification-6.1.0.md): audit repairs for archives, configured paths and validation without Git.
 - [Version 6.0.0 verification](verification-6.0.0.md): two validation levels, historical material exemptions, and retained build protections.

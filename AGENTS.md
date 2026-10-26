@@ -58,6 +58,16 @@ archive before making it an active build input. Routing uses these conventions
 and does not discover arbitrary manuscript dependencies.
 
 Use `LATEX_AI_BASE=<revision> make validate` to include already committed changes.
+For a manuscript editing batch, `make build DOC=name` may update the active PDF
+between edits. Report that as a preview build. Run `make validate` when the
+requested batch is complete, before final delivery or any Git handoff; a single
+editing request ends its batch at delivery. An explicitly ongoing batch may defer
+validation between previews, but must finish with it. Do not describe a preview
+as completed validation or change the full-validation routing for TeX edits.
+Normally run `make validate` directly; use `make validation-plan` first only when
+its preview will affect a decision. Keep complete compiler output in generated
+logs and report the result, relevant warnings, and diagnostic context concisely.
+
 Missing comparison history selects full validation. A failed/interrupted build
 also selects the complete project until rebuilt successfully. `make check` checks
 every declared root. Explicit `make document-check DOC=name` checks one document;

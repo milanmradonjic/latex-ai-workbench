@@ -52,15 +52,18 @@ configuration. For one document use `make document-check DOC=name`.
 ## 4. Work, then validate
 
 ```sh
-make validation-plan
 make validate
 ```
 
 Ordinary Markdown/JSON/Python edits receive file checks. Active TeX, figures,
 bibliography, build controls, and uncertain inputs select full document checks.
 Historical `archive` directories and revision patches stay file-only.
-Without a Git repository and comparison history, validation selects full checks. Run `make check` before
-sharing. Inspect `git diff`; existing project/session approvals govern Git writes.
+Without a Git repository and comparison history, validation selects full checks.
+Use `make build DOC=name` for an optional PDF preview during an editing batch,
+then run `make validate` when the requested batch is complete, before sharing.
+`make validate` prints its own plan; use `make validation-plan` separately only
+when its preview affects a decision. Inspect `git diff`; existing project/session
+approvals govern Git writes.
 
 ## When something fails
 
