@@ -14,5 +14,6 @@
     "notebook": {
       "root": "notes/notebook.tex"
     }
-  }
+  },
+  "snapshots": false
 }

@@ -57,6 +57,12 @@ Projects without LaTeX documents are unsupported. Bibliography checks remain opt
 | `bibliography.files` | Shared `.bib` inputs, including paths assembled through macros. |
 | `bibliography.export` | `null`, or `{path, required, format}` for a local Zotero export. |
 | `integrations.editor` | Opt into generated editor tasks. |
+| `snapshots` | Boolean; `false` by default. Set `true` at setup only to opt into working-copy snapshots. |
+
+For Git-managed projects, leave snapshots off unless an additional backup of
+eligible uncommitted/untracked files is wanted. The choice controls commands and
+guidance, not document validation. Existing stores are kept when it is disabled;
+no timers or stores are created by installation. See [snapshots](snapshots.md).
 
 `export.required: true` rejects missing or empty exports. The format is `bibtex`, for
 Zotero's Better BibTeX. Builds use local files and

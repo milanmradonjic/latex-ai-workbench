@@ -5,13 +5,14 @@ Both are read-only. Commands come from the fixed registry; configured documents 
 from pathlib import Path
 
 from commands import COMMANDS  # the registry derives every name shown to readers
-from core import VERSION, WorkbenchError, document_paths
+from core import VERSION, WorkbenchError, document_paths, snapshots_enabled
 from schema import STATES, specifications
 
 
 def available(project, config=None):
     """The supported template has one fixed name for each public command."""
-    return {command.short: command.short for command in COMMANDS}
+    return {command.short: command.short for command in COMMANDS
+            if command.action not in {"snapshot", "snapshots"} or snapshots_enabled(config)}
 
 
 def command_name(project, short):
@@ -30,7 +31,10 @@ def help_text(project, config, problem):
     if problem:
         lines += ["", f"Configuration problem: {problem[0]}", f"  To fix it: {problem[1]}"]
     groups = {}
+    names = available(project, config)
     for command in COMMANDS:
+        if command.short not in names:
+            continue
         groups.setdefault(command.group, []).append(command)
     for title, entries in groups.items():
         lines += ["", title]
@@ -93,7 +97,7 @@ def manual_text(project, config, problem, documents=None):
     lines += ["  Files: ordinary Markdown/JSON/Python and historical archive directories; .diff/.patch get text-integrity checks.",
               "  Full: TeX, figures, bibliography or build controls; make check covers every document. See docs/validation.md."]
     if names.get("snapshot") or names.get("snapshots"):
-        lines += ["", "Before a risky change (an upgrade, a large edit, an agent let loose on the files)",
+        lines += ["", "Optional snapshots (enabled for this project)",
                   *line("snapshot", "keep a copy of every file, uncommitted ones too, outside the project (needs Git installed; the project need not use it)", 'SNAPSHOT_NOTE="why"'),
                   *line("snapshots", "list the copies, with the commands that restore from one (write a file's path where it says FILE; that overwrites the file)")]
     if config is not None:

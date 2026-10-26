@@ -14,7 +14,7 @@ import tempfile
 import time
 import processes
 
-VERSION = "6.2.1"
+VERSION = "6.3.0"
 CONFIG = ".latex-ai.json"
 # Trees that are never project sources: version control, workbench state, environments, caches and installed packages. Every
 # walk and every check of a declared path agrees on them; the installer adds the folders it alone leaves out.
@@ -230,6 +230,16 @@ def integrations(config):
     if not isinstance(adapter, dict):
         raise WorkbenchError("integrations must be an object")
     return {"editor": adapter.get("editor", False)}
+
+
+def snapshots_enabled(config):
+    """Snapshots are an explicit project choice, off unless opted in."""
+    if not isinstance(config, dict):
+        return False
+    value = config.get("snapshots", False)
+    if not isinstance(value, bool):
+        raise WorkbenchError("snapshots must be true or false")
+    return value
 
 
 def atomic_write(path, data):

@@ -19,7 +19,7 @@ sys.dont_write_bytecode = True
 import guide
 from commands import RECIPE_ARGUMENTS, COMMANDS
 from core import (CONFIG, MAKEFILES, VERSION, WorkbenchError, atomic_write, effective_config, git_output,
-                  integrations, line_buffered, local_path, runtime_sources)
+                  integrations, line_buffered, local_path, runtime_sources, snapshots_enabled)
 from diagnostics import recorded_digests, sha256_text
 from latex import bibliography_check
 from schema import document_settings, load_config, specifications, validate_config
@@ -353,6 +353,7 @@ def main(argv=None):
             backup = apply(project, updates)
         tex = document_settings(config)
         report = {"version": VERSION, "project": str(project), "git": git, "config": config, "document": tex,
+                  "snapshots": snapshots_enabled(config),
                   "changes": [{"path": u["path"], "action": "create" if u["before"] is None else "update"} for u in updates],
                   "conflicts": conflicts, "notes": notes, "backup": backup, "applied": not conflicts and not args.dry_run}
         if args.json:
@@ -361,6 +362,7 @@ def main(argv=None):
             print(f"LaTeX AI Workbench {VERSION}: {args.mode} {project}")
             print(git["status"] or "No Git repository (no Git initialization performed)")
             print("Documents: " + ", ".join(document.name for document in specifications(config)))
+            print("Snapshots: " + ("enabled" if snapshots_enabled(config) else "disabled (optional; off by default)"))
             if tex:
                 print(f"Document {tex['name']}: root {tex['root']}; engine: {tex['engine']}; bibliography: {tex['bibliography']['backend']}; "
                       f"output: {tex['output_dir']}; lint: {'enabled' if tex['lint']['enabled'] else 'disabled'}")

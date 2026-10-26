@@ -27,8 +27,10 @@ builder still performs whatever that project explicitly declares as its build.
 
 ## The daily loop
 
-Start from the project root. Before a risky edit or upgrade, use
-[`make snapshot`](snapshots.md) to keep a recoverable copy outside the project.
+Start from the project root. Use the project's Git history for version recovery.
+An additional checkpoint is a deliberate choice for the task; ordinary edits
+and upgrades do not require one. [Snapshots](snapshots.md) are optional and off
+by default.
 
 ```mermaid
 flowchart TD

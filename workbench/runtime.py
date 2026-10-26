@@ -21,7 +21,7 @@ import diagnostics
 import guide
 import processes
 import snapshot
-from core import CONFIG, GENERATED_TREES, VERSION, WorkbenchError, atomic_write, damaged_text, environment_root, git_read_env, operation_lock, line_buffered, local_path, run, path_name, tracked_name, effective_config, CAPTURE_COMMANDS, read_tex
+from core import CONFIG, GENERATED_TREES, VERSION, WorkbenchError, atomic_write, damaged_text, environment_root, git_read_env, operation_lock, line_buffered, local_path, run, path_name, tracked_name, effective_config, CAPTURE_COMMANDS, read_tex, read_json, snapshots_enabled
 from schema import document_settings, load_config, required_tools, resolve, specifications
 
 
@@ -465,11 +465,22 @@ def do_issue(project, config, persisted, args):
 
 
 def do_snapshot(project, config, persisted, args):
+    require_snapshots(project)
     args.result = snapshot.take(project, tier=args.tier or "manual", note=args.note)
 
 
 def do_snapshots(project, config, persisted, args):
+    require_snapshots(project)
     args.result = snapshot.listing(project)
+
+
+def require_snapshots(project):
+    # Read only the opt-in flag: recovery must also work when a TeX root is missing.
+    path = project / CONFIG
+    config = read_json(path, CONFIG) if path.is_file() else None
+    if not snapshots_enabled(config):
+        raise WorkbenchError("Snapshots are disabled for this project",
+                             hint='set "snapshots": true in .latex-ai.json only if you want this optional backup; existing stores are kept')
 
 
 def do_help(project, config, persisted, args):
