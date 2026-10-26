@@ -20,6 +20,7 @@ The repository was recreated on 13 October 2026 from the same tree, with its his
 removed from one record). The first version's pull requests and runs went with it, so pull request numbers here start again at 1; the hosted results of
 4.0.0 to 4.4.0 that ran there are given in the records as plain text.
 
+- [Version 6.3.1 verification](verification-6.3.1.md): stress-test repairs for declared inputs, path spelling and snapshot orientation.
 - [Version 6.3.0 verification](verification-6.3.0.md): snapshots selected at setup and disabled by default.
 - [Version 6.2.1 verification](verification-6.2.1.md): Git checkpoints across requests and reduced repeated inspection.
 - [Version 6.2.0 verification](verification-6.2.0.md): incremental custom-builder hint and explicit editing batches.

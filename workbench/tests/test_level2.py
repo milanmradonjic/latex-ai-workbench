@@ -76,6 +76,30 @@ class Level2Routing(ProjectCase):
                 self.assertEqual(plan['reasons'][name], 'declared in .latex-ai.json: full validation')
         self.assertEqual(self.plan('archive/other.tex')['level'], 'files')
 
+    def test_declared_build_inputs_are_active_whatever_their_suffix_or_folder(self):
+        self.config['documents']['paper']['build_command'] = ['python3', 'build.py']
+        self.config['documents']['paper']['inputs'] = ['archive/table.csv', './archive/runs/**/*.dat', 'data/params.json']
+        (self.project / 'archive/runs/a').mkdir(parents=True)
+        (self.project / 'archive/table.csv').write_text('1\n')
+        for name in ('archive/table.csv', 'archive/runs/a/b.dat', 'archive/runs/top.dat', 'data/params.json'):
+            with self.subTest(path=name):  # also deleted: a pattern names files that are not there now
+                plan = self.plan(name)
+                self.assertEqual(plan['level'], 'full')
+                self.assertEqual(plan['reasons'][name], 'declared in .latex-ai.json: full validation')
+        for name in ('archive/runs/a/b.csv', 'archive/other.csv', 'data/other.json'):
+            with self.subTest(path=name):
+                self.assertEqual(self.plan(name)['level'], 'files')
+
+    def test_declared_paths_are_compared_in_their_canonical_spelling(self):
+        (self.project / 'archive').mkdir(exist_ok=True)
+        self.config['documents']['paper']['lint'] = {'enabled': True, 'baseline': 'archive/../archive/accepted.json'}
+        self.assertEqual(self.plan('archive/accepted.json')['level'], 'full')
+        (self.project / 'archive/main.tex').write_text('\\documentclass{article}\\begin{document}x\\end{document}\n')
+        (self.project / 'main.tex').unlink()
+        (self.project / 'main.tex').symlink_to('archive/main.tex')
+        plan = self.plan('archive/main.tex')  # what Git reports when the root's target changes
+        self.assertEqual((plan['level'], plan['reasons']['archive/main.tex']), ('full', 'declared in .latex-ai.json: full validation'))
+
     def test_without_git_file_checks_cover_every_project_file(self):
         (self.project / 'analysis').mkdir()
         (self.project / 'analysis/results.json').write_text('{')

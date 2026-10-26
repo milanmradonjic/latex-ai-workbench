@@ -52,7 +52,7 @@ full validation. Agent policy changes need structure checks and semantic review.
 Directories named exactly `archive`, at any depth, contain historical reference
 material: their files receive lightweight checks regardless of extension, except
 paths that `.latex-ai.json` names (roots, bibliography files, lint baselines,
-build scripts), which stay active wherever they live. Revision `.diff` and `.patch`
+build scripts, document `inputs`), which stay active wherever they live. Revision `.diff` and `.patch`
 files receive text-integrity checks. Copy or move a historical file out of an
 archive before making it an active build input. Routing uses these conventions
 and does not discover arbitrary manuscript dependencies.

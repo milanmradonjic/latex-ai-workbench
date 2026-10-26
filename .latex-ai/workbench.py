@@ -2,6 +2,7 @@
 """Project-local workbench dispatcher. Run through the project Makefile."""
 import argparse
 import contextlib
+import fnmatch
 import io
 import ast
 import json
@@ -21,7 +22,7 @@ import diagnostics
 import guide
 import processes
 import snapshot
-from core import CONFIG, GENERATED_TREES, VERSION, WorkbenchError, atomic_write, damaged_text, environment_root, git_read_env, operation_lock, line_buffered, local_path, run, path_name, tracked_name, effective_config, CAPTURE_COMMANDS, read_tex, read_json, snapshots_enabled
+from core import CONFIG, GENERATED_TREES, VERSION, WorkbenchError, atomic_write, damaged_text, environment_root, git_read_env, operation_lock, line_buffered, local_path, run, path_name, tracked_name, effective_config, CAPTURE_COMMANDS, read_tex, snapshots_opted_in
 from schema import document_settings, load_config, required_tools, resolve, specifications
 
 
@@ -174,6 +175,22 @@ PATCH_SUFFIXES = frozenset({".diff", ".patch"})
 CHECKED_SUFFIXES = DOCUMENT_SUFFIXES | DATA_SUFFIXES | TEX_SUFFIXES | PATCH_SUFFIXES | {".rules"}
 
 
+def declared_name(project, name):
+    try:
+        return tracked_name(project, name)
+    except WorkbenchError:
+        return Path(name).as_posix()
+
+
+def glob_match(pattern, parts):
+    """Whether a path's parts match a project glob's, as Path.glob reads it: '**' is any number of folders."""
+    if not pattern:
+        return not parts
+    if pattern[0] == "**":
+        return glob_match(pattern[1:], parts) or bool(parts) and glob_match(pattern, parts[1:])
+    return bool(parts) and fnmatch.fnmatchcase(parts[0], pattern[0]) and glob_match(pattern[1:], parts[1:])
+
+
 def validation_plan(project, config, paths=None, base=None):
     """Files, or files followed by the complete project check; no dependency routing."""
     fallback = None
@@ -182,18 +199,20 @@ def validation_plan(project, config, paths=None, base=None):
     paths = sorted({tracked_name(project, name) for name in paths})
     targets = specifications(effective_config(config))
     from latex import command_files
-    declared = set()  # what the configuration names is active wherever it lives, even inside an archive directory
+    declared, patterns = set(), []  # what the configuration names is active wherever it lives, even inside an archive directory
     for target in targets:
         bibliography = target.view.get("bibliography") or {}
         export = bibliography.get("export") or {}
-        declared.update(command_files(project, target.view, authored=True, existing=False))
-        declared.update(Path(name).as_posix() for name in (target.view["lint"]["baseline"], target.view["root"],
-                                                           *bibliography.get("files", []), *([export["path"]] if export.get("path") else [])))
+        named = (*command_files(project, target.view, authored=True, existing=False), target.view["lint"]["baseline"], target.view["root"],
+                 *bibliography.get("files", []), *([export["path"]] if export.get("path") else []))
+        declared.update(Path(name).as_posix() for name in named)
+        declared.update(declared_name(project, name) for name in named)  # the spelling the paths have: '..' and links resolved
+        patterns.extend(PurePosixPath(pattern).parts for pattern in target.view.get("inputs", []))  # also matches a deleted input
     reasons, full, policy = {}, bool(fallback), bool(fallback)
     for name in paths:
         path = PurePosixPath(name)
         suffix = path.suffix.lower()
-        if name in declared:
+        if name in declared or any(glob_match(pattern, path.parts) for pattern in patterns):
             full = True
             reason = f"declared in {CONFIG}: full validation"
         elif "archive" in path.parts[:-1]:
@@ -476,9 +495,7 @@ def do_snapshots(project, config, persisted, args):
 
 def require_snapshots(project):
     # Read only the opt-in flag: recovery must also work when a TeX root is missing.
-    path = project / CONFIG
-    config = read_json(path, CONFIG) if path.is_file() else None
-    if not snapshots_enabled(config):
+    if not snapshots_opted_in(project):
         raise WorkbenchError("Snapshots are disabled for this project",
                              hint='set "snapshots": true in .latex-ai.json only if you want this optional backup; existing stores are kept')
 

@@ -393,7 +393,8 @@ class DocumentTests(unittest.TestCase):
     def test_deleted_declared_input_is_still_rejected_by_build(self):
         config = self.configuration()
         config["documents"]["note"]["inputs"] = ["notes/context.md"]
-        self.assertEqual(runtime.validation_plan(self.project, config, ["notes/context.md"])["documents"], [])
+        # 6.3.1: a declared input is a path the configuration names, so it selects Full whatever its suffix.
+        self.assertEqual(runtime.validation_plan(self.project, config, ["notes/context.md"])["documents"], ["note", "paper"])
         (self.project / core.CONFIG).write_text(json.dumps(config))
         self.install("init")
         result = self.command("build", "--document", "note", expected=1)
