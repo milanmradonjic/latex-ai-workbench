@@ -14,7 +14,7 @@ import tempfile
 import time
 import processes
 
-VERSION = "6.2.0"
+VERSION = "6.2.1"
 CONFIG = ".latex-ai.json"
 # Trees that are never project sources: version control, workbench state, environments, caches and installed packages. Every
 # walk and every check of a declared path agrees on them; the installer adds the folders it alone leaves out.

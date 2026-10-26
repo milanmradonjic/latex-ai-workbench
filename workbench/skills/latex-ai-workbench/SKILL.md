@@ -59,10 +59,17 @@ checks all documents. Input hashes and green checks do not prove scientific vali
 
 ## Manuscript editing workflow
 
-1. Inspect branch, status and current diff before changing files. Distinguish
-   existing user changes from your work. Do not reset, restore or clean them.
-   Read the root and relevant input files, macros and local notation. Inspect
-   the canonical validation path without rewriting it.
+1. At editing-session start, inspect branch, status, and relevant staged/unstaged
+   diffs. Distinguish existing user changes from your work. The session may span
+   successive requests; a new message, preview, or completed validation batch
+   does not require another Git checkpoint. Refresh relevant Git checks when
+   context is stale, a branch/index change is indicated, scope expands,
+   unexpected changes appear, or before a sequence of approved Git mutations.
+   Known uncommitted work does not block requested edits or require reinspection.
+   Do not reset, restore, clean, or discard unrelated user changes. Read policy,
+   configuration, build commands, and relevant notation once, then reuse that
+   context until it changes or becomes unreliable. Before every edit, read the
+   current target passage and patch it narrowly to preserve concurrent edits.
 2. Determine the requested scientific and structural scope. Preserve macros,
    equation numbering, citation keys, labels, bibliography style and prose
    conventions unless the task actually requires a change. For an uncertain
@@ -79,17 +86,21 @@ checks all documents. Input hashes and green checks do not prove scientific vali
    preview is needed. Run `make validate` from the project root when the
    requested batch is complete, before delivery or Git handoff; a single editing
    request ends at delivery. Intermediate previews do not complete validation.
+   Use a preview only when it is useful; do not run a separate build, check, or
+   validation-plan immediately before validate merely to repeat its work.
    Capture complete compiler output in a generated log, retain the exit status,
    and return a concise result with relevant warnings and failure context.
-   Reuse session context and inspect the relevant source range and diff for small
-   follow-up edits. Diagnose observed output. Separate
+   Reuse session context and inspect the current source range and resulting patch
+   for small follow-up edits. Diagnose observed output. Separate
    syntax/build failures, undefined references/citations, duplicate keys/labels,
    stale rerun requests, and advisory typesetting warnings. Fix introduced
    problems; report pre-existing issues without silently broadening the task.
    Do not weaken lint or permission settings to obtain a green result.
-6. Inspect `git diff --check`, the final diff and status. Report changed source,
-   validation results, relevant warnings and unresolved assumptions. Human
-   approval comes after a concrete, reviewable change is ready.
+6. Review each requested edit and report changed source, validation results,
+   relevant warnings, and unresolved assumptions. At session completion or before
+   Git handoff, inspect the relevant diff, `git diff --check`, and status; do not
+   repeat that checkpoint for every small request or preview. Human approval
+   comes after a concrete, reviewable change is ready.
 
 Use a second model when its independent assessment can improve confidence in
 consequential science, structure or integration. Ordinary typos do not need a
