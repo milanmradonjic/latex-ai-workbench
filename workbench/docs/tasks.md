@@ -15,6 +15,7 @@ Run commands from the project root. `make help` lists the fixed interface.
 | Build the PDF | `make build` (`make lint`, `make bib-check`, `make pdf-artifact`) | [daily use](daily-use.md) |
 | Build one named document, or every document | `make build DOC=NAME`, `make all` | [TeX notes](tex-notes.md) |
 | Add another LaTeX document (notes, a supplement) | add it under `documents` in `.latex-ai.json` | [TeX notes](tex-notes.md) |
+| Build an article and a supplement that cite each other (`xr-hyper`) | a project-owned `build_command` that settles both | [coupled-documents example](../examples/coupled-documents/README.md) |
 | Check one named TeX document | `make document-check DOC=NAME` | [TeX notes](tex-notes.md) |
 | Adopt the style check on a paper that already has warnings | `make lint-baseline` (accepts today's warnings; new ones still fail) | [configuration](configuration.md#accepting-existing-style-warnings) |
 | Change what is checked | edit `.latex-ai.json` | [configuration](configuration.md) |

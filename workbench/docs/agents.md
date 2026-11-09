@@ -85,6 +85,57 @@ points to a `PreToolUse` hook that inspects the full command, or to the sandbox.
 and Git run through a script or program cannot be covered by command rules. `AGENTS.md`
 is therefore the policy and these files only supplement it.
 
+## Optional: standing approval to refresh a lint baseline
+
+By default `AGENTS.md` makes every refresh of a lint baseline the owner's decision: ask first, and never do it to
+get a passing check. That is the right default, and the workbench does not change it. It does cost a question each
+time an ordinary edit makes an already accepted warning look new. A baseline entry is identified by the file, the
+ChkTeX warning number and the full text of the source line, so editing, reflowing or moving a line makes its
+old warning "new" although nothing about it changed.
+
+An owner who is willing to let agents handle that case can say so in the project's own `AGENTS.md`, replacing the
+sentence about the baseline. The clause below comes from a real manuscript project and is offered as a
+starting point; it grants nothing unless you copy it in, and you should edit it to your own conventions.
+
+```markdown
+A document's configured lint baseline lists the style warnings the owner accepted.
+Warnings are matched by file, warning number, and full source-line text, so an
+edit can make an unchanged offending construct appear new. Prefer straightforward
+source fixes for genuine warnings rather than accepting them into the baseline.
+
+The owner grants standing approval to refresh an existing ChkTeX baseline without
+further confirmation when all of the following conditions hold:
+
+- Every added or changed entry is an unchanged, previously accepted warning on
+  an edited, reflowed, or moved line, or a verified false positive for a local
+  typographic convention already accepted by the owner. Compare the warning
+  number, message, offending construct, context, and occurrence count with the
+  previous source and baseline. A familiar warning number alone is insufficient;
+  explain any increase in occurrences individually. Obsolete entries may be
+  removed when their warnings no longer occur.
+- The diagnostics have been reviewed for their actual meaning. The refresh
+  accepts no unresolved TeX, mathematical, citation/reference, or scientific
+  problem. Compilation and text/reference integrity checks must pass; inspect
+  the rendered output when the warning or edit could affect typography or layout.
+- Every current warning in the affected document is already accepted or meets
+  these conditions: `make lint-baseline` captures all current warnings, so it
+  must not sweep unrelated or unreviewed diagnostics into the baseline.
+- Use `make lint-baseline DOC=name`, inspect the baseline diff against the
+  reviewed diagnostics, and finish with `make validate`. Report what was newly
+  accepted or matched again, what was removed, and any remaining failures.
+
+Creating a baseline, accepting a genuinely new warning or local convention,
+changing lint settings, or disabling checks still requires explicit approval.
+If a warning's safety or provenance is uncertain, fix it or obtain the owner's
+decision before refreshing that document. Never accept an unreviewed or
+substantive diagnostic merely to make a check pass.
+```
+
+The clause keeps the rule that matters: a baseline is never refreshed to make a check pass. It only moves the
+question from "may I refresh?" to "does this refresh meet the four conditions?", which the agent must show in its report. It does not touch
+the Git rules above; committing the refreshed baseline still needs the owner's approval. Do not
+weaken the guardrail files for this: it is a line of `AGENTS.md`, like the topic-branch line mentioned earlier.
+
 ## Suspected workbench defects
 
 The workbench tells its own faults apart from ordinary failures. A failed check or a malformed file is reported as `ERROR:` with exit status 1. Anything
