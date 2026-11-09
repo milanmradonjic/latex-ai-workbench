@@ -43,6 +43,7 @@ default document. `make guide` names the targets, and `diff` shows an existing p
 import copy
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -323,6 +324,45 @@ class Documents(unittest.TestCase):
         self.assertIn("Prepare `.latex-ai.json`", text)
         self.assertIn("does not", text)
         self.assertFalse((PACKAGE / "docs/migrating.md").exists())
+
+
+@unittest.skipUnless((PACKAGE / "examples/coupled-documents").is_dir(), "a standalone distribution may carry no examples")
+class CoupledDocumentsExample(ProjectCase):
+    """Added with the coupled-documents example, taken from a real article-and-supplement project."""
+
+    EXAMPLE = PACKAGE / "examples/coupled-documents"
+
+    def setUp(self):
+        super().setUp()
+        shutil.copytree(self.EXAMPLE, self.project, dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__", "build"))
+
+    def initialize(self):
+        self.run_command(sys.executable, "-B", str(PACKAGE / "latex-ai-init"), "init", str(self.project))
+
+    def test_the_example_installs_with_both_documents_and_make_all(self):
+        self.initialize()
+        self.assertEqual([row["id"] for row in documents.report(self.project, schema.load_config(self.project))], ["paper", "supplement"])
+        self.assertIn("\nall:\n", (self.project / "Makefile").read_text())
+
+    def test_both_documents_declare_both_sources_and_the_adapter(self):
+        declared = json.loads((self.project / core.CONFIG).read_text())["documents"]
+        for name, settings in declared.items():
+            with self.subTest(document=name):
+                self.assertEqual(settings["build_command"][:2], ["python3", "build_documents.py"])
+                self.assertEqual(settings["build_command"][2], name)
+                self.assertEqual(sorted(settings["inputs"]), ["build_documents.py", "paper.tex", "supplement.tex"])
+
+    def test_the_adapters_own_tests_pass(self):
+        result = self.run_command(sys.executable, "-B", "-m", "unittest", "discover", "-p", "test_*.py", cwd=self.project)
+        self.assertIn("OK", result.stderr)
+
+    @unittest.skipUnless(shutil.which("latexmk") and shutil.which("pdflatex"), "needs real latexmk/pdfLaTeX")
+    def test_make_all_settles_the_references_and_leaves_both_documents_current(self):
+        self.initialize()
+        self.run_command("make", "all")
+        self.assertEqual({row["id"]: row["state"] for row in documents.report(self.project, schema.load_config(self.project))},
+                         {"paper": "current", "supplement": "current"})
+        self.assertEqual(self.run_command("make", "all").returncode, 0)  # unchanged: nothing to settle again
 
 
 class Running(ProjectCase):

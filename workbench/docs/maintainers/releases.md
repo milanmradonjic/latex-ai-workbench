@@ -3,6 +3,25 @@
 Workbench 6 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## Unreleased — an example from a real project, and one optional policy clause
+
+Documentation and an example only: no template, runtime file, setting, command or generated file changes, so
+`core.py:VERSION` stays 6.3.1 and installed projects need no update. Both come from the Dipolar BEC pilot
+(an article and its supplement), compared against 6.3.1 on 9 November 2026.
+
+- **[Coupled-documents example](../../examples/coupled-documents/README.md).** A project-owned `build_command`
+  adapter for two documents that cite each other through `xr-hyper`, with its tests. It implements the
+  coupled-roots contract that [the configuration page](../configuration.md#build-receipts-and-recovery) already
+  described: incremental builds in a shared folder, the companion `.aux` each document consumed, bounded
+  rounds, a bootstrapped `.aux`, and the `LATEX_AI_BUILD_FORCE` hint. It is not runtime code and is not vendored.
+  Four tests in `tests/test_documents.py` install the example, run its tests, and build it with real
+  `latexmk` (skipped without it).
+- **[Optional standing approval for a lint-baseline refresh](../agents.md#optional-standing-approval-to-refresh-a-lint-baseline).**
+  A clause an owner may copy into their own `AGENTS.md`. The default stays "ask first"; the template is unchanged.
+- Considered and not taken: the pilot's VS Code PDF-watcher check (it parses undocumented editor log lines), its
+  commit-approval wording and `git add`/`git commit` allow rules (project preferences), and its `.gitignore` lines.
+  The pilot's per-document editor tasks are what the generator already writes.
+
 ## 6.3.1 — stress-test repairs
 
 A stress test of 6.3.0 against its release notes and user docs found three gaps; each has a regression

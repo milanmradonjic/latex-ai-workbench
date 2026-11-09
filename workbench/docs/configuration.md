@@ -113,6 +113,9 @@ declares another path. Keep it in version control. Creating or refreshing the
 baseline is the owner's decision. Warning identity includes the source line;
 editing that line makes its warning new. Accepted warnings are not globally
 disabled. `lint.args` and `.chktexrc` control deliberate checker policy.
+A project whose owner wants agents to refresh the baseline after routine edits can say so in
+its own `AGENTS.md`; [the agents page](agents.md#optional-standing-approval-to-refresh-a-lint-baseline)
+has a worked clause. The default policy is to ask.
 
 For a deliberate compiler-only project, set `defaults.lint.enabled` to
 `false`; document settings override that shared default. Missing ChkTeX is otherwise a failed check,
@@ -142,6 +145,8 @@ reference state actually consumed by each root, and bound convergence attempts.
 Do not force an already rebuilt selected document again. Preserve the configured
 PDF/log paths and `-synctex=1` for editor use. Test pagination changes as well as
 label changes, cold starts, missing outputs, and interrupted builds.
+[The coupled-documents example](../examples/coupled-documents/README.md) is such an adapter for two
+documents that cite each other through `xr-hyper`, with its tests.
 
 When a custom command leaves existing outputs without a valid receipt, the
 Workbench moves them aside and runs the command once more. Per-attempt intent

@@ -15,7 +15,7 @@ when the records were written; the first citation of each in a section of a reco
 | `tests/test_architecture.py` | 22 | Contracts between components: the command registry, import layering, one table for each fact, the repository's own workflows | 5 older files |
 | `tests/test_bibliography.py` | 12 | The bibliography checks: parsing, duplicate keys, the export and the backend logs | 6 older files |
 | `tests/test_diagnostics.py` | 24 | The doctor, the issue report and the labelling of internal faults | 5 older files |
-| `tests/test_documents.py` | 28 | Named documents and their views: defaults, selectors, notes, `make all` and a target for each | 5 older files |
+| `tests/test_documents.py` | 32 | Named documents and their views: defaults, selectors, notes, `make all` and a target for each | 5 older files |
 | `tests/test_guide.py` | 49 | What the tool says to a person: the manual, help, status, the reasons and the hints | 6 older files |
 | `tests/test_installer.py` | 114 | The installer and the files it writes: init, diff and runtime, the configuration and its errors, the generated Makefile, editor and policy files | 20 older files |
 | `tests/test_planner.py` | 70 | The validation plan: which checks a change needs, change discovery, the lightweight file checks and what routes to the manuscript build | 10 older files |

@@ -1,0 +1,26 @@
+{
+  "schema_version": 4,
+  "default_document": "paper",
+  "defaults": {
+    "output_dir": "build",
+    "lint": {
+      "enabled": false
+    }
+  },
+  "documents": {
+    "paper": {
+      "root": "paper.tex",
+      "build_command": ["python3", "build_documents.py", "paper"],
+      "inputs": ["paper.tex", "supplement.tex", "build_documents.py"]
+    },
+    "supplement": {
+      "root": "supplement.tex",
+      "build_command": ["python3", "build_documents.py", "supplement"],
+      "inputs": ["paper.tex", "supplement.tex", "build_documents.py"]
+    }
+  },
+  "integrations": {
+    "editor": false
+  },
+  "snapshots": false
+}
