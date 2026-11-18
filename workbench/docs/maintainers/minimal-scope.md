@@ -57,7 +57,7 @@ A shadow Git repository outside the project, so that it works for projects with 
 A `PERIOD` file in each repository records the period it holds; when it differs from the current one the repository is deleted and
 started again. The script removes only folders under `~/.snapshots/<project>/` and refuses anything else. Snapshots are taken before and
 after an update; a daily scheduled run is an optional step the owner sets up. It protects against mistakes, not disk failure.
-*This design was replaced on 14 October 2026 (see "Decided since" below, and [snapshots](../snapshots.md)): three stores and counted retention, because rotation by week and month lets a clock that jumps forward delete the history.*
+*This design was replaced on 14 October 2026 (see "Decided since" below, and [the historical snapshot guide](https://github.com/milanmradonjic/latex-ai-workbench/blob/f8988602b81cd478679a2e55e8704eea9fe2f6c0/workbench/docs/snapshots.md)): three stores and counted retention, because rotation by week and month lets a clock that jumps forward delete the history.*
 
 ## Risks accepted
 

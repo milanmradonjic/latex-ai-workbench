@@ -41,7 +41,6 @@ misread, or could not find, is fixed here, and each claim the manual now makes i
 * where the PDF goes after `make build`, from the same rule the build uses;
 * "verified build", read as "the checks passed", is gone from the states;
 * `make all` stops at the first failure; an undefined reference or citation is an ERROR; an error does not always have a Hint;
-* the snapshot commands need Git installed (the project need not use it) and print FILE for the reader to replace;
 * `lint-baseline` is for style warnings, never an ERROR;
 * what the agents ask about, in the words of the installed rules; where to read how to update; what `validate` does without Git.
 """
@@ -532,28 +531,11 @@ class Manual(ProjectCase):
         self.assertIn("undefined", result.stderr)
         self.assertEqual(self.state(), "failed")
 
-    def test_the_snapshot_lines_say_git_is_needed_and_what_to_replace_in_the_command(self):
+    def test_the_manual_points_to_git_history_for_recovery(self):
         self.paper()
-        self.edit_config(lambda config: config.update(snapshots=True))
         text = self.guide()
-        self.assertIn("needs Git installed; the project need not use it", text)
-        self.assertIn("write a file's path where it says FILE", text)
-        self.command("snapshot")
-        self.assertIn("FILE", self.command("snapshots").stdout)  # what the manual tells the reader to replace is really printed
-
-    def test_a_snapshot_keeps_uncommitted_files_as_the_manual_says(self):
-        self.paper()
-        self.edit_config(lambda config: config.update(snapshots=True))
-        self.assertIn("keep a copy of every file, uncommitted ones too, outside the project", self.guide())
-        for arguments in (["init", "-q"], ["add", "-A"], ["commit", "-q", "-m", "first"]):
-            subprocess.run(["git", *arguments], cwd=self.project, env={**fixture_env(), **IDENTITY}, check=True, capture_output=True)
-        (self.project / "notes.txt").write_text("never committed\n")
-        self.command("snapshot")
-        printed = re.search(r"--git-dir=(\S+) --work-tree=\S+ checkout (\w+) -- FILE", self.command("snapshots").stdout)
-        self.assertTrue(printed)
-        names = subprocess.run(["git", f"--git-dir={printed[1]}", "ls-tree", "-r", "--name-only", printed[2]], env=fixture_env(), check=True,
-                               capture_output=True, text=True).stdout.split("\n")
-        self.assertIn("notes.txt", names)
+        self.assertIn("Use Git history for recovery", text)
+        self.assertIn("approved checkpoint commit", text)
 
     def test_lint_baseline_is_for_style_warnings_and_never_for_an_error(self):
         self.paper()

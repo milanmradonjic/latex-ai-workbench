@@ -5,27 +5,15 @@ Both are read-only. Commands come from the fixed registry; configured documents 
 from pathlib import Path
 
 from commands import COMMANDS  # the registry derives every name shown to readers
-from core import VERSION, WorkbenchError, document_paths, snapshots_enabled, snapshots_opted_in
+from core import VERSION, document_paths
 from schema import STATES, specifications
 
 
-def available(project, config=None):
-    """The supported template has one fixed name for each public command. Without a valid configuration the
-    snapshot commands are shown when the flag alone opts in, as the commands themselves decide."""
-    snapshots = snapshots_enabled(config) if config is not None else lenient_opt_in(project)
-    return {command.short: command.short for command in COMMANDS
-            if command.action not in {"snapshot", "snapshots"} or snapshots}
-
-
-def lenient_opt_in(project):
-    try:
-        return snapshots_opted_in(project)
-    except (OSError, WorkbenchError):
-        return False  # orientation explains the broken configuration; it does not fail on it
+COMMAND_NAMES = {command.short: command.short for command in COMMANDS}
 
 
 def command_name(project, short):
-    return short if short in {command.short for command in COMMANDS} else None
+    return COMMAND_NAMES.get(short)
 
 
 def installer(arguments):
@@ -40,10 +28,7 @@ def help_text(project, config, problem):
     if problem:
         lines += ["", f"Configuration problem: {problem[0]}", f"  To fix it: {problem[1]}"]
     groups = {}
-    names = available(project, config)
     for command in COMMANDS:
-        if command.short not in names:
-            continue
         groups.setdefault(command.group, []).append(command)
     for title, entries in groups.items():
         lines += ["", title]
@@ -85,13 +70,14 @@ def failed_log(project, config, name):
 
 def manual_text(project, config, problem, documents=None):
     """The short manual: how to work in this project, written with the command names that work in it."""
-    names = available(project, config)
+    names = COMMAND_NAMES
 
     def line(short, text, usage=""):
         return [f"  make {names[short]}{(' ' + usage) if usage else ''}", f"      {text}"] if names.get(short) else []
     lines = [f"LaTeX AI Workbench {VERSION}: manual for {project.name}", ""]
     if problem:
-        lines += [f"Configuration problem: {problem[0]}", f"  To fix it: {problem[1]}", "  Until then only help, status, this manual" + (", the issue report and the snapshots work." if names.get("snapshot") else " and the issue report work."), ""]
+        lines += [f"Configuration problem: {problem[0]}", f"  To fix it: {problem[1]}",
+                  "  Until then only help, status, this manual and the issue report work.", ""]
     else:
         lines.append("LaTeX project; make check checks every declared document.")
     if documents:
@@ -105,10 +91,7 @@ def manual_text(project, config, problem, documents=None):
               *line("check", "explicitly run the full check (build, references, citations and, if on, lint)")]
     lines += ["  Files: ordinary Markdown/JSON/Python and historical archive directories; .diff/.patch get text-integrity checks.",
               "  Full: TeX, figures, bibliography or build controls; make check covers every document. See docs/validation.md."]
-    if names.get("snapshot") or names.get("snapshots"):
-        lines += ["", "Optional snapshots (enabled for this project)",
-                  *line("snapshot", "keep a copy of every file, uncommitted ones too, outside the project (needs Git installed; the project need not use it)", 'SNAPSHOT_NOTE="why"'),
-                  *line("snapshots", "list the copies, with the commands that restore from one (write a file's path where it says FILE; that overwrites the file)")]
+    lines += ["  Use Git history for recovery. A large change may warrant an approved checkpoint commit."]
     if config is not None:
         lines += ["", "One document (DOC=NAME; without it, the default document)",
                   *line("build", f"build the PDF (into {pdf_folders(config)})", "DOC=NAME"),
@@ -139,7 +122,7 @@ def document_summary(document):
 
 
 def status_text(project, config, problem, installed, git, plan, plan_error, documents=None):
-    names = available(project, config)
+    names = COMMAND_NAMES
     lines = [f"LaTeX AI Workbench {VERSION}: status of {project.name}", ""]
     next_steps, validate_step, last_steps, waiting = [], [], [], []
 

@@ -102,11 +102,9 @@ the same Make commands, and build exclusively from repository contents.
 
 # Git safety
 
-Snapshots are an optional project choice in `.latex-ai.json`, off by default.
 Use the project's Git history for version recovery. Ordinary edits and upgrades
-require neither a snapshot nor a new commit. A large change may warrant an
-explicitly approved checkpoint commit. Use snapshots only when the project has
-opted in with `"snapshots": true`; do not add backup steps or timers routinely.
+do not require a new commit. A large change may warrant an explicitly approved
+checkpoint commit.
 
 - At the start of an editing session, inspect branch, status, and relevant staged
   and unstaged diffs; distinguish existing user changes from this work. A session

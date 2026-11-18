@@ -120,7 +120,7 @@ The tests that need TeX are skipped without it, and `portability` stops, naming 
 enough to run both (`apt-get update` first if the package index is empty):
 
 ```sh
-apt-get install -y --no-install-recommends texlive-latex-base texlive-latex-recommended texlive-fonts-recommended texlive-binaries latexmk chktex
+apt-get install -y --no-install-recommends git texlive-latex-base texlive-latex-recommended texlive-fonts-recommended texlive-binaries latexmk chktex
 ```
 
 The tests of what `init` tells a lualatex, xelatex or biber paper to do build one with the real tool, and skip without it; for them add

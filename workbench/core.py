@@ -14,7 +14,7 @@ import tempfile
 import time
 import processes
 
-VERSION = "6.3.1"
+VERSION = "6.4.0"
 CONFIG = ".latex-ai.json"
 # Trees that are never project sources: version control, workbench state, environments, caches and installed packages. Every
 # walk and every check of a declared path agrees on them; the installer adds the folders it alone leaves out.
@@ -232,23 +232,6 @@ def integrations(config):
     return {"editor": adapter.get("editor", False)}
 
 
-def snapshots_enabled(config):
-    """Snapshots are an explicit project choice, off unless opted in."""
-    if not isinstance(config, dict):
-        return False
-    value = config.get("snapshots", False)
-    if not isinstance(value, bool):
-        raise WorkbenchError("snapshots must be true or false")
-    return value
-
-
-def snapshots_opted_in(project):
-    """The opt-in flag alone, so that recovery works while a TeX root or another setting is broken.
-    A missing configuration is not an opt-in; a malformed one raises."""
-    path = project / CONFIG
-    return snapshots_enabled(read_json(path, CONFIG) if path.is_file() else None)
-
-
 def atomic_write(path, data):
     """Publish complete state (UTF-8 text, or bytes) with one replacement, preserving existing mode."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -357,7 +340,7 @@ def effective_config(config):
 # Distribution runtime and installer sources. runtime_sources below selects the files
 # vendored in every project; distribution tests are run explicitly by Make and CI.
 RUNTIME_FILES = ("runtime.py", "commands.py", "schema.py", "core.py", "latex.py", "documents.py", "diagnostics.py",
-                 "guide.py", "processes.py", "output_transaction.py", "snapshot.py",
+                 "guide.py", "processes.py", "output_transaction.py",
                  "bootstrap.py", "latex-ai-init")
 
 

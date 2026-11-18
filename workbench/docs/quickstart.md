@@ -1,6 +1,6 @@
 # Quickstart
 
-A project needs Python 3.10+, Make, an existing LaTeX root, and explicit schema-4
+A project needs Python 3.10+, Make, Git, an existing LaTeX root, and explicit schema-4
 configuration. Native builds also need latexmk, pdflatex, and ChkTeX; BibTeX is
 needed when declared. A custom command can supply another compiler.
 
@@ -13,8 +13,7 @@ Prepare `.latex-ai.json` using [the minimal example](../examples/minimal/.latex-
   "schema_version": 4,
   "default_document": "manuscript",
   "documents": {"manuscript": {"root": "main.tex"}},
-  "integrations": {"editor": false},
-  "snapshots": false
+  "integrations": {"editor": false}
 }
 ```
 
@@ -59,7 +58,7 @@ make validate
 Ordinary Markdown/JSON/Python edits receive file checks. Active TeX, figures,
 bibliography, build controls, and uncertain inputs select full document checks.
 Historical `archive` directories and revision patches stay file-only.
-Without a Git repository and comparison history, validation selects full checks.
+When a Git repository is absent or has no comparison history, validation selects full checks.
 Use `make build DOC=name` for an optional PDF preview during an editing batch,
 then run `make validate` when the requested batch is complete, before sharing.
 `make validate` prints its own plan; use `make validation-plan` separately only

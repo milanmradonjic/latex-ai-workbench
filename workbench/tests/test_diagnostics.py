@@ -325,8 +325,8 @@ class ConfigurationAudit(ProjectCase):
     def test_doctor_does_not_require_the_native_toolchain_for_a_custom_builder(self):
         tools = self.root / 'tools'
         tools.mkdir()
-        make = tools / 'make'
-        make.symlink_to(shutil.which('make'))
+        for name in ("make", "git"):
+            (tools / name).symlink_to(shutil.which(name))
         result = self.command('doctor', env={**self.env, 'PATH': str(tools)})
         self.assertIn('All required tools found', result.stdout)
         self.assertNotIn('latexmk:', result.stdout)
@@ -350,10 +350,11 @@ class Doctor(ProjectCase):
         change(record)
         path.write_text(json.dumps(record))
 
-    def test_metadata_diagnostics_need_only_the_declared_tools(self):
+    def test_metadata_diagnostics_need_only_the_required_tools(self):
         tools = self.root / "metadata-tools"
         tools.mkdir()
-        (tools / "make").symlink_to(shutil.which("make"))
+        for name in ("make", "git"):
+            (tools / name).symlink_to(shutil.which(name))
         result = self.command("doctor", env={**self.env, "PATH": str(tools)})
         self.assertIn("All required tools found", result.stdout)
         self.assertNotIn("pdflatex:", result.stdout)

@@ -104,7 +104,7 @@ class ExplicitProjects(ExplicitProjectCase):
         self.init()
         self.assertEqual(before, (self.project / core.CONFIG).read_bytes())
         self.assertFalse((self.project / ".vscode").exists())
-        self.assertEqual(set(schema.required_tools(schema.load_config(self.project))), {"make", sys.executable})
+        self.assertEqual(set(schema.required_tools(schema.load_config(self.project))), {"make", "git", sys.executable})
 
     def test_all_document_declarations_are_validated_before_installation(self):
         config = self.config()

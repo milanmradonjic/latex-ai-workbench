@@ -14,7 +14,7 @@ import shutil
 PACKAGE = Path(__file__).resolve().parents[1]
 CLI = PACKAGE / "latex-ai-init"
 PARENT = Path(os.environ.get("LATEX_AI_PORTABILITY_PARENT", tempfile.gettempdir()))
-TOOLS = ("python3", "make", "latexmk", "pdflatex", "chktex", "bibtex")
+TOOLS = ("python3", "make", "git", "latexmk", "pdflatex", "chktex", "bibtex")
 
 BIB = """% Synthetic validation fixture, not a literature reference.
 @misc{fixture,

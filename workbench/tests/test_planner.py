@@ -831,7 +831,7 @@ class WorkbenchTests(unittest.TestCase):
         before = index.read_bytes()
         self.assertEqual(rt.changed_files(self.project), ([], None))  # a touched file is not a change
         rt.project_files(self.project)
-        boot.git_snapshot(self.project)
+        boot.git_metadata(self.project)
         self.assertEqual(index.read_bytes(), before)
 
     def throwaway_git(self, *args):
@@ -871,7 +871,7 @@ class WorkbenchTests(unittest.TestCase):
         before = {path: path.read_bytes() for path in tracked}
         self.assertEqual(rt.changed_files(self.project), ([], None))
         rt.project_files(self.project)
-        boot.git_snapshot(self.project)
+        boot.git_metadata(self.project)
         self.assertEqual({path: path.read_bytes() for path in tracked}, before)
 
     def test_every_git_query_runs_with_optional_locks_disabled(self):
@@ -886,7 +886,7 @@ class WorkbenchTests(unittest.TestCase):
         with patch.object(rt.subprocess, "run", side_effect=fake):
             rt.changed_files(self.project)
             rt.project_files(self.project)
-            boot.git_snapshot(self.project)
+            boot.git_metadata(self.project)
             diagnostics.git_state(self.project)
         self.assertGreaterEqual({command for command, _ in seen}, {"diff", "ls-files", "status", "rev-parse", "config", "branch"})
         self.assertEqual({lock for _, lock in seen}, {"0"})  # git status/diff would otherwise rewrite a stale .git/index

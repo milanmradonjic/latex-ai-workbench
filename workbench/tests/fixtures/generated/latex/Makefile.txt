@@ -1,7 +1,7 @@
 # The project configuration is .latex-ai.json. Keep validation in one place.
 PYTHON ?= python3
 .DEFAULT_GOAL := build
-export ISSUE_NOTE ISSUE_COMMAND SNAPSHOT_NOTE DOC
+export ISSUE_NOTE ISSUE_COMMAND DOC
 .PHONY: check
 check:
 	@$(PYTHON) .latex-ai/workbench.py check
@@ -53,9 +53,3 @@ clean:
 .PHONY: issue
 issue:
 	@$(PYTHON) .latex-ai/workbench.py issue --note "$$ISSUE_NOTE" --command "$$ISSUE_COMMAND"
-.PHONY: snapshot
-snapshot:
-	@$(PYTHON) .latex-ai/workbench.py snapshot --note="$$SNAPSHOT_NOTE"
-.PHONY: snapshots
-snapshots:
-	@$(PYTHON) .latex-ai/workbench.py snapshots

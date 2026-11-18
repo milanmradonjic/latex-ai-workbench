@@ -11,7 +11,7 @@ from typing import NamedTuple, Tuple
 # What a recipe takes from Make variables, by the ``selects`` of a target (DOC and the issue
 # variables reach recipes through the environment, never as Make text spliced into a shell line).
 RECIPE_ARGUMENTS = {"": "", "document": ' --document "$$DOC"', "all": " --all",
-                    "note": ' --note "$$ISSUE_NOTE" --command "$$ISSUE_COMMAND"', "label": ' --note="$$SNAPSHOT_NOTE"'}
+                    "note": ' --note "$$ISSUE_NOTE" --command "$$ISSUE_COMMAND"'}
 
 
 class Target(NamedTuple):
@@ -19,7 +19,7 @@ class Target(NamedTuple):
     short: str
     group: str
     description: str
-    selects: str = ""     # what the recipe takes from Make variables: "document", "all", "note" or "label"
+    selects: str = ""     # what the recipe takes from Make variables: "document", "all" or "note"
     usage: str = ""       # the assignment `make help` shows after the name: DOC=NAME
 
 
@@ -82,10 +82,6 @@ ACTIONS = (
         Target("clean", "Manuscript", "Remove build files", selects="document", usage="DOC=NAME"),)),
     Action("issue", standalone=True, targets=(
         Target("issue", "Inspect and report", 'Write a local report on a suspected workbench defect: ISSUE_NOTE="observed ... expected ..."', selects="note"),)),
-    Action("snapshot", standalone=True, targets=(
-        Target("snapshot", "Snapshots", 'Keep a copy of every file outside the project, to restore from (yours: never deleted): SNAPSHOT_NOTE="why" labels it', selects="label"),)),
-    Action("snapshots", standalone=True, targets=(
-        Target("snapshots", "Snapshots", "List the snapshots and the Git command that restores from one"),)),
 )
 
 NAMES = tuple(action.name for action in ACTIONS)

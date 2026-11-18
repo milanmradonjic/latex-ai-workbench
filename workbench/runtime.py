@@ -21,8 +21,7 @@ import commands
 import diagnostics
 import guide
 import processes
-import snapshot
-from core import CONFIG, GENERATED_TREES, VERSION, WorkbenchError, atomic_write, damaged_text, environment_root, git_read_env, operation_lock, line_buffered, local_path, run, path_name, tracked_name, effective_config, CAPTURE_COMMANDS, read_tex, snapshots_opted_in
+from core import CONFIG, GENERATED_TREES, VERSION, WorkbenchError, atomic_write, damaged_text, environment_root, git_read_env, operation_lock, line_buffered, local_path, run, path_name, tracked_name, effective_config, CAPTURE_COMMANDS, read_tex
 from schema import document_settings, load_config, required_tools, resolve, specifications
 
 
@@ -426,9 +425,8 @@ def main():
     parser.add_argument("action", choices=ACTIONS)
     parser.add_argument("--document", help="Named LaTeX document; omitted uses the default for document operations")
     parser.add_argument("--all", action="store_true", help="build: every declared document, one after another")
-    parser.add_argument("--note", default="", help="issue: what you observed and what you expected; snapshot: its label")
+    parser.add_argument("--note", default="", help="issue: what you observed and what you expected")
     parser.add_argument("--template", default=os.environ.get("LATEX_AI_TEMPLATE"), help="doctor: the folder of a release (default $LATEX_AI_TEMPLATE) to compare the project with")
-    parser.add_argument("--tier", choices=snapshot.TIERS, help="snapshot: which store it goes to (default manual; a timer uses frequent or weekly)")
     parser.add_argument("--command", dest="failed_command", default="", help="issue: the command that misbehaved")
     parser.add_argument("--project", type=Path, default=Path.cwd(), help="Project root (default: current directory); an installed runtime belongs to its own project")
     parser.add_argument("--base", default=os.environ.get("LATEX_AI_BASE"), help="Git revision to compare; default HEAD plus local/untracked changes")
@@ -481,23 +479,6 @@ def structured_command(project, args):
 # `view`), the persisted configuration and the parsed arguments, and returns an exit status or None for success.
 def do_issue(project, config, persisted, args):
     return issue(project, args)
-
-
-def do_snapshot(project, config, persisted, args):
-    require_snapshots(project)
-    args.result = snapshot.take(project, tier=args.tier or "manual", note=args.note)
-
-
-def do_snapshots(project, config, persisted, args):
-    require_snapshots(project)
-    args.result = snapshot.listing(project)
-
-
-def require_snapshots(project):
-    # Read only the opt-in flag: recovery must also work when a TeX root is missing.
-    if not snapshots_opted_in(project):
-        raise WorkbenchError("Snapshots are disabled for this project",
-                             hint='set "snapshots": true in .latex-ai.json only if you want this optional backup; existing stores are kept')
 
 
 def do_help(project, config, persisted, args):

@@ -6,6 +6,7 @@ in its docstring, which file and release it came from. No test was renamed, and 
 when the records were written; the first citation of each in a section of a record now says where those tests are.
 
 `test_support.py` (the shared fixtures) and `portability.py` (the real-TeX scenarios) are not tests of a component and did not move.
+Workbench 6.4.0 retired `test_snapshots.py` with the snapshot feature. The older-file map records its former location.
 
 ## By component
 
@@ -22,7 +23,6 @@ when the records were written; the first citation of each in a section of a reco
 | `tests/test_processes.py` | 10 | The processes a build starts: locks, ownership of a build, interruption and the compiler's cleanup | 4 older files |
 | `tests/test_receipts.py` | 75 | Build receipts and a document's state: what a build records, freshness, the output and its safety, the recorder, lint and the full check | 13 older files |
 | `tests/test_scope.py` | 32 | What the workbench no longer does: each removal of a release, pinned so that it stays removed | 6 older files |
-| `tests/test_snapshots.py` | 84 | Snapshots: the three stores, retention, exact bytes, isolation, the timers | 3 older files |
 
 ## By older file
 
