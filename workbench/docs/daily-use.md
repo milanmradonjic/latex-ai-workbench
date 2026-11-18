@@ -68,9 +68,8 @@ integrity checks, then lint (so a TeX error is reported even when ChkTeX also ob
 PDF. `make check` validates bibliography and compiler results.
 
 Use the project's Git history for version recovery. Ordinary edits and upgrades
-need neither snapshots nor new commits. A large change may warrant an explicitly
-approved checkpoint commit. [Snapshots](snapshots.md) are an optional working-copy
-backup selected with `"snapshots": true` at setup; they are off by default.
+do not require a new commit. A large change may warrant an explicitly approved
+checkpoint commit. Git history contains the files included in each commit.
 
 Do not clean routinely. Build logs, unresolved citations, references, duplicate
 labels and bibliography/backend failures are errors. Typesetting and unrelated

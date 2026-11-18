@@ -9,7 +9,7 @@ refused with a hint, and nothing is converted.
 
 The agent follows [the update recipe in the skill file](../skills/latex-ai-workbench/references/installation.md#update), which is the one copy. In short:
 
-1. **Consider recovery:** use the project's Git history; a checkpoint commit needs the project's usual approval. `make snapshot` is optional, only for a project with `"snapshots": true` ([snapshots](snapshots.md)). Ordinary upgrades require neither a snapshot nor a new commit.
+1. **Consider recovery.** Use the project's Git history. A checkpoint commit needs the project's usual approval. Ordinary upgrades do not require a new commit.
 2. **Read what changed:** `make status` (or `make doctor`) shows the project's version stamp, and the [release notes](maintainers/releases.md) say what each release since changed.
 3. **See the difference:** the new release's `latex-ai-init diff PROJECT --diff` (or `make doctor LATEX_AI_TEMPLATE=/path/to/new-workbench`). It writes nothing.
 4. **Refresh the runtime:** `latex-ai-init runtime PROJECT`, which backs up what it replaces; an edited runtime file is refused.

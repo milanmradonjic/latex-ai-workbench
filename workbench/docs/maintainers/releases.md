@@ -3,11 +3,24 @@
 Workbench 6 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
-## Unreleased — an example from a real project, and one optional policy clause
+## 6.4.0 — Git-based recovery
 
-Documentation and an example only: no template, runtime file, setting, command or generated file changes, so
-`core.py:VERSION` stays 6.3.1 and installed projects need no update. Both come from the Dipolar BEC pilot
-(an article and its supplement), compared against 6.3.1 on 9 November 2026.
+Use the project's Git history for version recovery. Git is required on PATH for
+installation and is checked by `make doctor`. Repository initialization and
+checkpoint commits are explicit Git operations.
+
+This release removes the Workbench snapshot commands and backend. Before running
+`latex-ai-init diff` or `runtime` on an existing project, remove the `snapshots`
+key from `.latex-ai.json` if present. Schema 4 remains in use and rejects the
+retired key for either boolean value. During the [upgrade](../upgrading.md),
+remove `SNAPSHOT_NOTE` and the `snapshot` and `snapshots` targets from the
+project Makefile, remove the retired `.latex-ai/snapshot.py` file after checking
+it against version control, and adopt the Git recovery paragraph in `AGENTS.md`.
+The runtime refresh updates the managed-file record. Existing backup stores
+are outside this upgrade.
+
+The example and policy clause below come from the Dipolar BEC pilot (an article
+and its supplement), compared against 6.3.1 on 9 November 2026.
 
 - **[Coupled-documents example](../../examples/coupled-documents/README.md).** A project-owned `build_command`
   adapter for two documents that cite each other through `xr-hyper`, with its tests. It implements the
@@ -302,7 +315,7 @@ Step 3.6 of [the plan after 4.4.0](plan-after-4.4.0.md): a copy of every file of
   which repository it deletes and when its newest snapshot was; an unknown home folder, a long project name and a path that is not UTF-8 give a message or a store, not a traceback.
 - **Added to the Makefile `init` writes:** `export SNAPSHOT_NOTE` and the two commands with their short names, eleven lines in all. `diff` shows a project from 4.6 and before exactly those lines, and `runtime` does not
   touch the Makefile. The reference's Makefile gained them by hand, and the guard's stored Makefiles were regenerated on purpose.
-- **Docs:** [snapshots](../snapshots.md) is new; `upgrading.md` and `migrating.md` take a snapshot as their first step (the new release can snapshot a project that has no workbench yet:
+- **Docs:** [snapshots](https://github.com/milanmradonjic/latex-ai-workbench/blob/f8988602b81cd478679a2e55e8704eea9fe2f6c0/workbench/docs/snapshots.md) is new; `upgrading.md` and `migrating.md` take a snapshot as their first step (the new release can snapshot a project that has no workbench yet:
   `python3 /path/to/workbench/runtime.py snapshot --project PROJECT`); the manual, `make help`, the task list, daily use and troubleshooting name it.
 - **Moved:** `environment_root` from `runtime.py` to `core.py`, which the planner and the snapshot walk now share.
 - **Unchanged:** every other file `init` writes, every other runtime action, the receipts. Differences between 4.6.0 and this tree on identical projects are only these additions ([the record](verification-4.7.0.md)).

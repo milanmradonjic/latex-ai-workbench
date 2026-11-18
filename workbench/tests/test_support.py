@@ -73,7 +73,7 @@ class ProjectCase(unittest.TestCase):
         self.project = self.root / "project"
         self.project.mkdir()
         self.env = fixture_env()
-        # Commands that snapshot or populate TeX caches must never write into the real home.
+        # Tests must keep writes to home and TeX caches inside the fixture.
         home = self.root / "fixture-home"
         home.mkdir()
         cache = home / "texmf-var"

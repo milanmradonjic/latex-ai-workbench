@@ -588,13 +588,16 @@ class Repairs(ProjectCase):
             "integrations": lambda c: c.update(integrations={"cii": {}}),
             "module": lambda c: c.update(bibliography={"pth": "refs.bib"}),
             "validation": lambda c: c.update(validation={"manuscript_input": []}),
+            "snapshot opt-in": lambda c: c.update(snapshots=True),
+            "snapshot opt-out": lambda c: c.update(snapshots=False),
         }
         for label, edit in cases.items():
             config = json.loads(json.dumps(base))
             edit(config)
-            with self.subTest(label), self.assertRaises(core.WorkbenchError) as caught:
-                schema.validate_config(self.project, config)
-            self.assertRegex(str(caught.exception), r"rooot|documnts|moduls|cii|pth|validation", label)
+            with self.subTest(label):
+                with self.assertRaises(core.WorkbenchError) as caught:
+                    schema.validate_config(self.project, config)
+                self.assertRegex(str(caught.exception), r"rooot|documnts|moduls|cii|pth|validation|snapshots", label)
 
     def test_invalid_schema_hint_says_what_to_do(self):
         with self.assertRaises(core.WorkbenchError) as caught:
@@ -728,14 +731,23 @@ class ReviewFixes(unittest.TestCase):
         return subprocess.run([sys.executable, "-B", str(bootstrap.PACKAGE / "latex-ai-init"),
                                "init", str(self.project), *arguments], env=env, capture_output=True, text=True)
 
-    def test_installation_and_diff_without_git(self):
+    def test_git_is_required_at_installation_and_reported_by_doctor(self):
         tools = self.project / "tools"; tools.mkdir()
         for name in ("make", "python3"):
             (tools / name).symlink_to(shutil.which(name))
         # Hermetic: CI exports LATEX_AI_BASE, all zeros on a new branch, which would replace the Git diagnosis.
         env = {**{k: v for k, v in os.environ.items() if k != "LATEX_AI_BASE"}, "PATH": str(tools)}
         result = self.install(env=env)
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("Git", result.stderr)
+        self.assertFalse((self.project / ".latex-ai").exists())
+        result = self.install()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse((self.project / ".git").exists())
+        result = subprocess.run([sys.executable, str(self.project / ".latex-ai/workbench.py"), "doctor", "--project", str(self.project)],
+                                env=env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("git: MISSING", result.stdout)
         result = subprocess.run([sys.executable, str(bootstrap.PACKAGE / "latex-ai-init"), "diff", str(self.project)],
                                 env=env, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -777,6 +789,13 @@ class Init(ProjectCase):
         self.assertTrue(record["files"] and all(name.startswith(".latex-ai/") for name in record["files"]))
         for name, digest in record["files"].items():
             self.assertEqual(digest, diagnostics.sha256_text((self.project / name).read_text(encoding="utf-8")), name)
+
+    def test_init_does_not_ship_snapshot_commands_or_their_backend(self):
+        self.install("init", lint=False, editor=False)
+        makefile = (self.project / "Makefile").read_text()
+        self.assertNotIn("snapshot", makefile.lower())
+        self.assertFalse((self.project / ".latex-ai/snapshot.py").exists())
+        self.assertIn("invalid choice", self.command("snapshot", expected=2).stderr)
 
     def test_init_refuses_a_project_that_is_installed_and_writes_nothing(self):
         (self.project / "main.tex").write_text(SOURCE_4_3_0)
@@ -1236,11 +1255,11 @@ class Recipe(unittest.TestCase):
     def recipe(self):
         return re.search(r"^## Update\n(.*?)(?=^## |\Z)", SKILL.read_text(encoding="utf-8"), re.S | re.M)[1]
 
-    def test_the_skill_holds_the_whole_recipe_with_git_recovery_and_optional_snapshots(self):
+    def test_the_skill_holds_the_whole_recipe_with_git_recovery(self):
         text = self.recipe()
         steps = dict(re.findall(r"^(\d)\. (.*?)(?=^\d\. |^Never delete|\Z)", text, re.S | re.M))
         self.assertEqual(sorted(steps), list("1234567"))
-        for number, words in {"1": ["Git history", "optional", "make snapshot"], "2": ["make doctor", "releases.md"], "3": ["latex-ai-init diff", "LATEX_AI_TEMPLATE"], "4": ["latex-ai-init runtime", "--dry-run"],
+        for number, words in {"1": ["Git history", "checkpoint", "approval"], "2": ["make doctor", "releases.md"], "3": ["latex-ai-init diff", "LATEX_AI_TEMPLATE"], "4": ["latex-ai-init runtime", "--dry-run"],
                               "5": ["AGENTS.md", "stricter"], "6": [".latex-ai.json"], "7": ["make doctor LATEX_AI_TEMPLATE", "make check", "git diff"]}.items():
             for word in words:
                 self.assertIn(word, steps[number], f"step {number} lacks {word}")
@@ -1248,7 +1267,7 @@ class Recipe(unittest.TestCase):
     def test_upgrading_md_points_at_the_recipe_and_keeps_to_what_a_person_needs(self):
         text = (PACKAGE / "docs/upgrading.md").read_text(encoding="utf-8")
         self.assertIn("skills/latex-ai-workbench/references/installation.md", text)
-        for word in ("diff", "runtime", "releases.md", "make check", "snapshot", "make doctor"):
+        for word in ("diff", "runtime", "releases.md", "make check", "Git history", "make doctor"):
             self.assertIn(word, text)
         self.assertLessEqual(len(text.splitlines()), 45)
 

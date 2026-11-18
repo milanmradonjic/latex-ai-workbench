@@ -27,6 +27,5 @@
       "required": true,
       "format": "bibtex"
     }
-  },
-  "snapshots": false
+  }
 }

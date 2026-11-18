@@ -29,6 +29,6 @@ jobs:
           os: debian
           run: |
             apt-get update -qq
-            apt-get install -y --no-install-recommends python3 make
+            apt-get install -y --no-install-recommends python3 make git
             make -C workbench portability
             make check

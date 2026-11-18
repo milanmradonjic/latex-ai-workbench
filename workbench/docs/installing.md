@@ -6,10 +6,8 @@ root and its default document. Bibliography checking and editor integration are
 optional settings within that project. Non-LaTeX and standalone bibliography
 projects are unsupported.
 
-Choose snapshots when preparing the configuration. Use `"snapshots": false`
-(the default) for the normal Git workflow, or `true` only for an explicitly
-requested additional working-copy backup. The installer reports the choice;
-it never creates snapshot stores or installs timers.
+Install Git and make it available on PATH before running `init`. Start from a
+clone or initialize the project's Git repository explicitly to use version history.
 
 ## Explicit configuration
 
@@ -52,8 +50,8 @@ rules; local overrides are the project's responsibility.
 Keep the distribution folder intact for installation. Every project receives the
 same standalone runtime in `.latex-ai/`, plus an installation record containing
 version and file digests. Builds do not need the original distribution location.
-Python 3.10+ and Make are required; Git metadata is optional. No particular GNU
-Make version is required. Editor tasks and CI use the canonical Make interface.
+Python 3.10+, Make, and Git are required. No particular GNU Make version is
+required. Editor tasks and CI use the canonical Make interface.
 
 An installed project is refused by `init`. `latex-ai-init diff PROJECT --diff`
 compares it with a release without writing; `latex-ai-init runtime PROJECT`
