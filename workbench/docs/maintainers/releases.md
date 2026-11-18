@@ -15,9 +15,11 @@ Documentation and an example only: no template, runtime file, setting, command o
   described: incremental builds in a shared folder, the companion `.aux` each document consumed, bounded
   rounds, a bootstrapped `.aux`, and the `LATEX_AI_BUILD_FORCE` hint. It is not runtime code and is not vendored.
   Four tests in `tests/test_documents.py` install the example, run its tests, and build it with real
-  `latexmk` (skipped without it).
+  `latexmk` (skipped without it). The real-TeX portability job also checks the PDF link
+  targets and moves a label stored in a child AUX file.
 - **[Optional standing approval for a lint-baseline refresh](../agents.md#optional-standing-approval-to-refresh-a-lint-baseline).**
-  A clause an owner may copy into their own `AGENTS.md`. The default stays "ask first"; the template is unchanged.
+  A clause an owner may copy into their own `AGENTS.md` for baselines dedicated to one document.
+  The template keeps the default of asking first.
 - Considered and not taken: the pilot's VS Code PDF-watcher check (it parses undocumented editor log lines), its
   commit-approval wording and `git add`/`git commit` allow rules (project preferences), and its `.gitignore` lines.
   The pilot's per-document editor tasks are what the generator already writes.

@@ -3,6 +3,7 @@
 import json
 import argparse
 import os
+import re
 from test_support import fixture_env
 from pathlib import Path
 import subprocess
@@ -211,6 +212,52 @@ def main():
         raise RuntimeError("Fragment validation rebuilt an unrelated document")
     run(name + "-incremental-check", project, ["make", "-j4", "check"])
     run(name + "-diff", project, [sys.executable, str(CLI), "diff", str(project)])
+
+    name = "coupled-documents"
+    coupled = base / name
+    shutil.copytree(PACKAGE / "examples" / name, coupled,
+                    ignore=shutil.ignore_patterns("__pycache__", "build"))
+    for document, reference in (("paper", "SM-sec:derivation"), ("supplement", "ART-sec:result")):
+        tex = coupled / (document + ".tex")
+        # Keep the PDF link annotations readable without adding a PDF tool dependency.
+        diagnostics = (r"\pdfobjcompresslevel=0\relax" "\n"
+                       rf"\AtEndDocument{{\typeout{{COUPLED-PAGE: \getpagerefnumber{{{reference}}}}}}}")
+        tex.write_text(tex.read_text().replace(r"\begin{document}", diagnostics + "\n" + r"\begin{document}"))
+    supplement = coupled / "supplement.tex"
+    label = r"\section{Derivation}\label{sec:derivation}"
+    supplement.write_text(supplement.read_text().replace(label, r"\include{derivation-part}"))
+    part = coupled / "derivation-part.tex"
+    part.write_text(label + "\n" + r"\clearpage\null" + "\n")
+    # Force the adapter to notice a change that latexmk's AUX hashing ignores.
+    (coupled / ".latexmkrc").write_text("$hash_calc_ignore_pattern{'aux'} = '^.*$';\n")
+
+    def declare_part(data):
+        for document in data["documents"].values():
+            document["inputs"].append(part.name)
+
+    config(coupled, declare_part)
+    init(name, coupled)
+    run(name + "-cold-build", coupled, ["make", "all"])
+    build = coupled / "build"
+    paper_log = build / "paper.log"
+    if "COUPLED-PAGE: 1\n" not in paper_log.read_text():
+        raise RuntimeError("Coupled paper did not initially resolve the supplement label to page 1")
+    root_aux = build / "supplement.aux"
+    before = root_aux.read_bytes()
+    part.write_text(r"\null\clearpage" + "\n" + label + "\n")
+    run(name + "-move-label", coupled, ["make", "build", "DOC=supplement"])
+    if root_aux.read_bytes() != before:
+        raise RuntimeError("Moving the label changed the root AUX and bypassed the child AUX regression")
+    problems = []
+    if "COUPLED-PAGE: 2\n" not in paper_log.read_text():
+        problems.append("paper still references the supplement label's old page")
+    for document, companion in (("paper", "supplement.pdf"), ("supplement", "paper.pdf")):
+        pdf = build / (document + ".pdf")
+        targets = re.findall(rb"/F\s*\(([^)]*)\)\s*/S\s*/GoToR\b", pdf.read_bytes())
+        if targets != [companion.encode()] * 2:
+            problems.append(f"{pdf.name} links to {targets!r}, expected two links to {companion}")
+    if problems:
+        raise RuntimeError("Coupled document verification failed: " + ", ".join(problems))
 
     mixed_notes = create("mixed-tex-notes", {})
     shutil.copytree(PACKAGE / "examples/tex-notes", mixed_notes, dirs_exist_ok=True)

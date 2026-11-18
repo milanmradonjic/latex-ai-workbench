@@ -1,7 +1,7 @@
 # Two documents that cite each other
 
 This synthetic example is an article and its supplement. Each reads the other's
-`.aux` file through `xr-hyper` (`\externaldocument`), so a label that moves in one
+`.aux` files through `xr-hyper` (`\externaldocument`), so a label that moves in one
 document changes the references in the other. One `latexmk` run of each is not
 enough; the build has to repeat until both documents have read the other's
 current state.
@@ -13,8 +13,8 @@ is a project-owned adapter that does the settling. It follows the
 
 - builds the selected document and its companion incrementally, in the shared
   `build/` folder, and keeps `-synctex=1` for the editor;
-- records which companion `.aux` each document last consumed, and rebuilds a
-  document that `latexmk` skipped although the companion's `.aux` changed;
+- records the state of the companion's root and included `.aux` files, and
+  rebuilds a document that `latexmk` skipped after one of those files changed;
 - stops after `MAX_ROUNDS` (6) rounds and reports non-convergence;
 - bootstraps an `.aux` that a failed TeX run left missing or truncated;
 - regenerates missing outputs, and regenerates the selected document once when
@@ -37,7 +37,9 @@ To adapt it to your own documents, edit the constants at the top of
 folder and the input patterns) and the matching entries in `.latex-ai.json`.
 Both documents must declare both sources, the adapter and any shared resources
 under `inputs`, so that an edit to any of them makes a build stale. Use the same
-output folder for both and name it in each `\externaldocument{build/NAME}`.
+output folder for both. In `\externaldocument{build/NAME}[NAME.pdf]`, the first
+path finds the companion's AUX file from the TeX working directory and the
+second resolves the link from the generated PDF's directory.
 
 The adapter has its own tests, which need no TeX installation apart from the one
 test that exercises the real bibliography backend:

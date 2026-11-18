@@ -1,9 +1,9 @@
 """Build two TeX documents that cite each other, such as an article and its supplement.
 
-Each document reads the other's .aux file (xr-hyper), so one build is not enough:
+Each document reads the other's .aux files (xr-hyper), so one build is not enough:
 a label that moves in one document changes the references in the other. This
 adapter builds the selected document and its companion with incremental latexmk,
-records which companion .aux each document last consumed, and repeats until both
+records the companion .aux state each document last consumed, and repeats until both
 have consumed the other's current state, at most MAX_ROUNDS times.
 
 It is project-owned code, not part of the workbench runtime. Its cache records
@@ -16,6 +16,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -29,6 +30,7 @@ BUILD = SOURCES / OUTDIR
 STAMP = BUILD / "coupled-inputs.json"
 INPUT_PATTERNS = ("*.tex", "*.bib", "*.cls", "*.bst", "*.sty", "figures/*")
 MAX_ROUNDS = 6
+AUX_INPUT = re.compile(rb"^[ \t]*\\@input[ \t]*\{([^}\r\n]+)\}", re.MULTILINE)
 
 
 def digest(path):
@@ -44,9 +46,31 @@ def sources():
     return {p.relative_to(PROJECT).as_posix(): digest(p) for p in sorted(paths)}
 
 
+def auxiliary_digest(name):
+    root = BUILD / (name + ".aux")
+    if not root.is_file():
+        return None
+    combined = hashlib.sha256()
+    pending = [root]
+    seen = set()
+    while pending:
+        path = pending.pop().resolve()
+        if path in seen:
+            continue
+        seen.add(path)
+        try:
+            content = path.read_bytes()
+        except FileNotFoundError:
+            combined.update(b"\x00")
+            continue
+        combined.update(b"\x01" + hashlib.sha256(content).digest())
+        # xr-hyper resolves each \@input against the imported root AUX's directory.
+        pending.extend(root.parent / os.fsdecode(child) for child in AUX_INPUT.findall(content))
+    return combined.hexdigest()
+
+
 def auxiliaries():
-    return {name: digest(p) if (p := BUILD / (name + ".aux")).is_file() else None
-            for name in DOCUMENTS}
+    return {name: auxiliary_digest(name) for name in DOCUMENTS}
 
 
 def output_identities(name):
@@ -108,7 +132,7 @@ def settle(document, *, log, force=False):
     pending = [document, companion[document]]
     for _ in range(MAX_ROUNDS):
         for name in pending:
-            imported = auxiliaries()[companion[name]]
+            imported = auxiliary_digest(companion[name])
             identities = output_identities(name)
             compile_one(name, force=None in identities, log=log)
             # Some latexmk configurations ignore changes to external AUX files.
