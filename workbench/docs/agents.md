@@ -89,9 +89,9 @@ is therefore the policy and these files only supplement it.
 
 By default `AGENTS.md` makes every refresh of a lint baseline the owner's decision: ask first, and never do it to
 get a passing check. That is the right default, and the workbench does not change it. It does cost a question each
-time an ordinary edit makes an already accepted warning look new. A baseline entry is identified by the file, the
-ChkTeX warning number and the full text of the source line, so editing, reflowing or moving a line makes its
-old warning "new" although nothing about it changed.
+time an ordinary edit makes an already accepted warning look new. A baseline entry is identified by the file,
+the ChkTeX warning number and the source-line text with surrounding whitespace trimmed. Editing or reflowing
+a line, or moving it to another file, can make an otherwise unchanged warning look new.
 
 An owner who is willing to let agents handle that case can say so in the project's own `AGENTS.md`, replacing the
 sentence about the baseline. The clause below comes from a real manuscript project and is offered as a
@@ -99,7 +99,7 @@ starting point; it grants nothing unless you copy it in, and you should edit it 
 
 ```markdown
 A document's configured lint baseline lists the style warnings the owner accepted.
-Warnings are matched by file, warning number, and full source-line text, so an
+Warnings are matched by file, warning number, and trimmed source-line text, so an
 edit can make an unchanged offending construct appear new. Prefer straightforward
 source fixes for genuine warnings rather than accepting them into the baseline.
 
@@ -117,15 +117,17 @@ further confirmation when all of the following conditions hold:
   accepts no unresolved TeX, mathematical, citation/reference, or scientific
   problem. Compilation and text/reference integrity checks must pass; inspect
   the rendered output when the warning or edit could affect typography or layout.
-- Every current warning in the affected document is already accepted or meets
-  these conditions: `make lint-baseline` captures all current warnings, so it
-  must not sweep unrelated or unreviewed diagnostics into the baseline.
+- The selected document is the only one configured to use this baseline file.
+  Check the resolved paths, including inherited defaults. A refresh replaces the
+  file with all current warnings from the selected document. Every one of those
+  warnings must already be accepted or meet these conditions.
 - Use `make lint-baseline DOC=name`, inspect the baseline diff against the
   reviewed diagnostics, and finish with `make validate`. Report what was newly
   accepted or matched again, what was removed, and any remaining failures.
 
-Creating a baseline, accepting a genuinely new warning or local convention,
-changing lint settings, or disabling checks still requires explicit approval.
+Creating a baseline, refreshing a shared baseline, accepting a genuinely new
+warning or local convention, changing lint settings, or disabling checks still
+requires explicit approval.
 If a warning's safety or provenance is uncertain, fix it or obtain the owner's
 decision before refreshing that document. Never accept an unreviewed or
 substantive diagnostic merely to make a check pass.
