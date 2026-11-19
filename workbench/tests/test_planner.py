@@ -744,6 +744,40 @@ class WorkbenchTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.WorkbenchError, "delegate"):
             rt.file_checks(self.project, plan)
 
+    def test_policy_validation_allows_a_project_that_has_not_adopted_gemini(self):
+        self.init()
+        for name in ("GEMINI.md", ".gemini/settings.json", ".gemini/policies/git-safety.toml"):
+            (self.project / name).unlink()
+        rt.file_checks(self.project, self.selection("AGENTS.md"))
+        # An independently configured Gemini setup does not opt into Workbench's policy.
+        (self.project / "GEMINI.md").write_text("Existing project instructions.\n")
+        (self.project / ".gemini/settings.json").write_text('{"context":{"fileName":"AGENTS.md"}}\n')
+        rt.file_checks(self.project, self.selection("AGENTS.md", ".gemini/settings.json"))
+
+    def test_adopted_gemini_policy_must_exist_and_be_valid_toml(self):
+        self.init()
+        policy = self.project / ".gemini/policies/git-safety.toml"
+        plan = self.selection("AGENTS.md")
+        policy.write_text("[[rule]\n")
+        with self.assertRaisesRegex(rt.WorkbenchError, "not valid TOML"):
+            rt.file_checks(self.project, plan)
+        policy.unlink()
+        with self.assertRaisesRegex(rt.WorkbenchError, "Missing Gemini policy.*git-safety.toml"):
+            rt.file_checks(self.project, plan)
+
+    def test_policy_validation_flags_the_obsolete_workbench_policy_path(self):
+        self.init()
+        settings_path = self.project / ".gemini/settings.json"
+        settings = json.loads(settings_path.read_text())
+        settings["policyPaths"] = [".gemini/policies"]
+        settings_path.write_text(json.dumps(settings))
+        plan = self.selection(".gemini/settings.json")
+        with self.assertRaisesRegex(rt.WorkbenchError, "obsolete Workbench policyPaths"):
+            rt.file_checks(self.project, plan)
+        settings.pop("policyPaths")
+        settings_path.write_text(json.dumps(settings))
+        rt.file_checks(self.project, plan)
+
     def test_package_sources_do_not_schedule_package_tests(self):
         self.init()
         (self.project / "workbench").mkdir()

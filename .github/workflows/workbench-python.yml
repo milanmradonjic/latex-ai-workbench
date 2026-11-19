@@ -25,5 +25,18 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: matrix.python == '3.12'
+        with:
+          node-version: '24'
+      - name: Prepare the pinned Gemini CLI policy validator
+        if: matrix.python == '3.12'
+        run: |
+          policy_utils="$RUNNER_TEMP/gemini-policy-v0.69.0.ts"
+          curl --fail --silent --show-error --location --retry 3 --max-time 30 \
+            https://raw.githubusercontent.com/google-gemini/gemini-cli/58840eb92ebf1474193a05817c34a74820bd444a/packages/core/src/policy/utils.ts \
+            --output "$policy_utils"
+          printf '54ff4f89b9801df45f923cbc7dbb3f7b015b491c49486f0831fb8c9ebaf61de5  %s\n' "$policy_utils" | sha256sum --check
+          printf 'WORKBENCH_GEMINI_UTILS=%s\n' "$policy_utils" >> "$GITHUB_ENV"
       - name: Test distribution and reference parity
         run: make -C workbench test

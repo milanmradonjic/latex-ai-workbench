@@ -172,7 +172,7 @@ class ImportLayering(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.package = Path(__file__).resolve().parents[1]
-        cls.modules = sorted(name[:-3] for name in core.RUNTIME_FILES if name.endswith(".py"))
+        cls.modules = sorted(name[:-3] for name in core.RUNTIME_FILES if name.endswith(".py") and "/" not in name)
         cls.graph = {module: cls.imports(cls.package, module, cls.modules) for module in cls.modules}
 
     @staticmethod

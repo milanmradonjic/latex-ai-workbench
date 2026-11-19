@@ -3,6 +3,19 @@
 Workbench 6 is the supported development line. Entries for earlier releases are
 retained historical records, with no backports or compatibility commitment.
 
+## 6.4.1 — Gemini policy compatibility and validation
+
+The bundled Gemini CLI rules pass the v0.69.0 policy validator. The project
+settings preserve the user's policy loading defaults. Review the
+[Gemini setup instructions](../agents.md#gemini-setup) before enabling the rules,
+and remove the old Workbench `policyPaths` setting from any project using it.
+
+Existing projects can refresh their runtime without adopting Gemini. Projects
+that adopt the Workbench Gemini files check the delegation, settings, and policy
+presence and syntax. The runtime bundles Tomli 2.0.1 under its MIT license for
+Python 3.10. Python 3.11 and later use the standard library's TOML parser.
+See the [verification record](verification-6.4.1.md).
+
 ## 6.4.0 — Git-based recovery
 
 Use the project's Git history for version recovery. Git is required on PATH for

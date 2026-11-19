@@ -53,6 +53,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import bootstrap
 import bootstrap as boot
+from _workbench_vendor import tomli
 import guide
 from test_support import ProjectCase, fixture_env, isolate_environment, own_targets, prepare_config
 
@@ -122,44 +123,9 @@ except ImportError:  # Python 3.10 lacks tomllib
     tomllib = None
 
 
-def parse_policy_toml(text):
-    """Minimal stdlib parser for Gemini CLI [[rule]] policy files (for Python 3.10, cross-checked with tomllib on 3.11+)."""
-    def parse_scalar(raw):
-        if raw.startswith("'") and raw.endswith("'"):
-            return raw[1:-1]
-        if raw.startswith('"') and raw.endswith('"'):
-            return json.loads(raw)
-        return int(raw)
-
-    rules, current, lines, index = [], None, text.splitlines(), 0
-    while index < len(lines):
-        line = lines[index].strip()
-        index += 1
-        if not line or line.startswith("#"):
-            continue
-        if line == "[[rule]]":
-            current = {}
-            rules.append(current)
-            continue
-        key, _, value = line.partition("=")
-        key, value = key.strip(), value.strip()
-        if value.startswith("["):
-            chunk = value
-            while not chunk.rstrip().endswith("]"):
-                chunk += "\n" + lines[index].strip()
-                index += 1
-            items = []
-            for part in re.findall(r"'(?:[^']*)'|\"(?:\\.|[^\"\\])*\"|-?\d+", chunk):
-                items.append(parse_scalar(part))
-            current[key] = items
-        else:
-            current[key] = parse_scalar(value)
-    return rules
-
-
 def gemini_rules():
     text = (TEMPLATES / ".gemini/policies/git-safety.toml").read_text(encoding="utf-8")
-    return tomllib.loads(text)["rule"] if tomllib is not None else parse_policy_toml(text)
+    return (tomllib or tomli).loads(text)["rule"]
 
 
 def gemini_shell_decision(command):
@@ -200,6 +166,27 @@ def gemini_mcp_decision(mcp_name, tool_name):
         return None
     top = max(priority for priority, _ in matched)
     return next(decision for priority, decision in matched if priority == top)
+
+
+class GeminiUpstreamCompatibility(unittest.TestCase):
+    @unittest.skipUnless(os.environ.get("WORKBENCH_GEMINI_UTILS"), "needs the pinned upstream Gemini policy helper")
+    def test_upstream_policy_validator_accepts_every_shipped_pattern(self):
+        script = """
+import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+const { buildArgsPatterns, isSafeRegExp } = await import(pathToFileURL(process.argv[1]));
+const rules = JSON.parse(readFileSync(0, 'utf8'));
+for (const [index, rule] of rules.entries()) {
+    const patterns = buildArgsPatterns(rule.argsPattern, rule.commandPrefix, rule.commandRegex);
+    if (patterns.some(pattern => pattern && !isSafeRegExp(pattern))) {
+        console.error(`Gemini rejected rule ${index + 1} (${rule.decision})`);
+        process.exitCode = 1;
+    }
+}
+"""
+        result = subprocess.run(["node", "--input-type=module", "-e", script, os.environ["WORKBENCH_GEMINI_UTILS"]],
+                                input=json.dumps(gemini_rules()), capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 def pushes_to_the_default_branch():
@@ -491,7 +478,7 @@ class WorkbenchTests(unittest.TestCase):
         # and the ask_user commandPrefix set must match Claude and Codex identically.
         policy_text = (templates / ".gemini/policies/git-safety.toml").read_text(encoding="utf-8")
         if tomllib is not None:
-            self.assertEqual(parse_policy_toml(policy_text), tomllib.loads(policy_text)["rule"])
+            self.assertEqual(tomli.loads(policy_text), tomllib.loads(policy_text))
         gemini_policy = gemini_rules()
         gemini_ask = set()
         for rule in gemini_policy:
@@ -507,7 +494,7 @@ class WorkbenchTests(unittest.TestCase):
             self.assertNotEqual(gemini_shell_decision(not_allowed), "allow", not_allowed)
         gemini_settings = json.loads((templates / ".gemini/settings.json").read_text(encoding="utf-8"))
         self.assertEqual(gemini_settings["context"]["fileName"], ["AGENTS.md", "GEMINI.md"])
-        self.assertEqual(gemini_settings["policyPaths"], [".gemini/policies"])
+        self.assertNotIn("policyPaths", gemini_settings)
         # Claude's wildcard denies (4.10.0: `git push *:main` and the like) have no Codex counterpart, which matches whole words only; the others agree.
         self.assertEqual(commands(entry for entry in settings.get("deny", []) if "*" not in entry[len("Bash("):-1].removesuffix(":*")), refused)
         # Refused outright: pushes to the default branch and merging pull requests (3.0.4); everything else prompts.

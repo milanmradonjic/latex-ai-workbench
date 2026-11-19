@@ -19,18 +19,18 @@ review the existing working diff without creating a worktree.
 
 ## Agent permission guardrails
 
-`.claude/settings.json`, `.codex/rules/git-safety.rules` and `.gemini/policies/git-safety.toml` make the agents prompt
+`.claude/settings.json`, `.codex/rules/git-safety.rules` and the opt-in Gemini CLI rules in
+`.gemini/policies/git-safety.toml` make the agents prompt
 before the Git commands that write history, branches or the working tree; a regression
 test keeps the three files aligned and covering what `AGENTS.md` names: committing, pushing,
 pulling, merging, rebasing, resetting, restoring, cleaning, stashing, branch
 changes and deletion, worktree creation and removal, and history rewriting (plus
 neighbours such as `cherry-pick`, `revert`, `rm`, `mv`, `tag`, `update-ref`, `init`, `clone`
-and `remote set-url`). Staging (`git add`) and `git fetch` do not prompt: they change no commit, no
-branch and no file of the working tree, and the commit or merge that follows does prompt.
+and `remote set-url`). Staging (`git add`) and `git fetch` do not prompt in Claude or Codex.
+The commit or merge that follows does prompt.
 Read-only commands (`status`, `diff`, `log`, `show`, `worktree list`,
-`remote -v`) stay prompt-free; the allow lists hold no Git entry because Claude Code
-already runs read-only forms of `git` unasked, and an explicit `git diff:*` allow would
-also cover `git diff --output=PATH`. In a workbench session of this repository the agent's own
+`remote -v`) stay prompt-free in Claude and Codex. Gemini CLI applies its own
+shell approval settings to commands without a Workbench rule. In a workbench session of this repository the agent's own
 commits and pushes to a topic branch need no prompt of the owner's, once the task's work is done:
 that is a line of `AGENTS.md`, not a rule in these files, which keep their prompts for every project.
 
@@ -39,8 +39,8 @@ rules in `.claude/settings.json` and `.gemini/policies/git-safety.toml` and `for
 `git push [-u|--set-upstream|-f|--force|--force-with-lease] origin <ref>` for `main`, `master`,
 `HEAD:main`, `HEAD:refs/heads/main` and their `+` forms. Claude's file adds wildcard rules
 (`git push * main`, `git push *:main`, `git push *:refs/heads/main`, with and without arguments after
-them, and the same for `master` and the `+` forms), and Gemini's Policy Engine rule uses a
-higher-priority `commandRegex` (`priority = 200` over `ask_user` at `priority = 100`), which refuse any remote, any option and any source:
+them, and the same for `master` and the `+` forms). Gemini's Policy Engine rule uses a
+higher-priority `commandRegex` for the explicit default-branch destinations described above.
 `git push upstream feature:main` is refused. Codex rules match whole words, so there it only prompts,
 as every push does. This carries the policy that changes
 reach the default branch only through a pull request, where the hosting service cannot
@@ -57,15 +57,28 @@ by the policy alone. Not every route is matched: a local `git merge` into `main`
 a plain `git push` only prompts, as every merge and push does; the policy covers it, and the
 hook below refuses it on your machine.
 
-For Gemini tooling, `GEMINI.md` delegates to `AGENTS.md` and `.gemini/settings.json` sets
-`context.fileName` to `["AGENTS.md", "GEMINI.md"]` and `policyPaths` to `[".gemini/policies"]`.
-Gemini CLI currently disables automatic loading of workspace-tier `.gemini/policies/*.toml`
-files by default ([gemini-cli#18186](https://github.com/google-gemini/gemini-cli/issues/18186)):
-if your Gemini CLI version does not pick up `.gemini/policies/git-safety.toml` via `policyPaths`,
-pass `--policy .gemini/policies/git-safety.toml` or copy the file into `~/.gemini/policies/`.
+### Gemini setup
+
+`GEMINI.md` delegates to `AGENTS.md`, and `.gemini/settings.json` lists both as context files.
+Fresh installs receive these files and the Workbench TOML policy. To adopt these
+rules in an existing project, copy or adapt the three files together. Projects
+with independently configured Gemini files can keep their own setup.
+
+Gemini CLI's automatic workspace policy tier is disabled. Review the Workbench rules
+before opting in to them at user level. If you use Gemini CLI's default user policy
+directory, add the reviewed file under `~/.gemini/policies/` with a distinct name and
+preserve the files already there. If you configured policy paths yourself, add the
+reviewed file to that existing list. A project-level `policyPaths` or a standalone
+`--policy` argument can displace the user's existing rules. Remove the old
+`"policyPaths": [".gemini/policies"]` setting if a previous Workbench template
+installed it. Review and refresh any copies of the older Workbench TOML. See the
+[Gemini CLI policy documentation](https://geminicli.com/docs/reference/policy-engine/).
+
 Google Antigravity reads `AGENTS.md` natively (as well as `GEMINI.md`) and stores its own
-allow/ask/deny command permissions in user configuration under `~/.gemini/` rather than in a
-project rule file, so `AGENTS.md` and the local hook below carry the repository boundary there.
+command permissions separately. Configure permissions in Antigravity for its
+terminal and MCP tools. The local hook below can also enforce the Git push rule.
+
+### Local Git hook
 
 For enforcement on your own machine, independent of the agent, a local `pre-push` hook can
 refuse pushes to the default branch. The workbench never writes Git configuration or hooks,

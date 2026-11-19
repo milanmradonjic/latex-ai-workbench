@@ -4,8 +4,5 @@
       "AGENTS.md",
       "GEMINI.md"
     ]
-  },
-  "policyPaths": [
-    ".gemini/policies"
-  ]
+  }
 }
