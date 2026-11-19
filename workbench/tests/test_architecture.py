@@ -135,7 +135,7 @@ class ArchitectureTests(unittest.TestCase):
         self.assertEqual(result, 0, output.getvalue())  # the runtime files are this release's
         config = schema.load_config(reference)
         wanted = boot.desired_files(config, reference)
-        for name in ("AGENTS.md", "CLAUDE.md", "Makefile"):  # the files the reference may add to, but must still contain
+        for name in ("AGENTS.md", "CLAUDE.md", "GEMINI.md", "Makefile"):  # the files the reference may add to, but must still contain
             self.assertIn(wanted[name], (reference / name).read_text(encoding="utf-8"), name)
 
     @unittest.skipUnless(shutil.which("latexmk") and shutil.which("pdflatex"), "needs real latexmk/pdfLaTeX")

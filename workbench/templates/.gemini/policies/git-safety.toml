@@ -1,0 +1,104 @@
+# Gemini CLI Policy Engine guardrails for Git safety.
+# Keep aligned with .claude/settings.json and .codex/rules/git-safety.rules.
+# Priority order (higher wins): allow (10) < ask_user (100) < deny (200).
+
+[[rule]]
+toolName = "run_shell_command"
+commandRegex = 'make (?:check|build|lint)(?=")'
+decision = "allow"
+priority = 10
+
+[[rule]]
+toolName = "run_shell_command"
+commandPrefix = [
+  "git init",
+  "git clone",
+  "git commit",
+  "git push",
+  "git pull",
+  "git merge",
+  "git rebase",
+  "git reset",
+  "git restore",
+  "git clean",
+  "git checkout",
+  "git switch",
+  "git stash",
+  "git branch -d",
+  "git branch -D",
+  "git branch --delete",
+  "git branch -m",
+  "git branch -M",
+  "git branch --move",
+  "git branch -c",
+  "git branch -C",
+  "git branch --copy",
+  "git branch -f",
+  "git branch --force",
+  "git branch -u",
+  "git branch --set-upstream-to",
+  "git branch --unset-upstream",
+  "git branch --edit-description",
+  "git worktree add",
+  "git worktree remove",
+  "git worktree move",
+  "git worktree prune",
+  "git worktree lock",
+  "git worktree unlock",
+  "git worktree repair",
+  "git cherry-pick",
+  "git revert",
+  "git am",
+  "git rm",
+  "git mv",
+  "git tag",
+  "git apply --index",
+  "git apply --cached",
+  "git update-index",
+  "git read-tree",
+  "git checkout-index",
+  "git update-ref",
+  "git filter-branch",
+  "git filter-repo",
+  "git replace",
+  "git commit-tree",
+  "git reflog expire",
+  "git reflog delete",
+  "git remote add",
+  "git remote remove",
+  "git remote rm",
+  "git remote rename",
+  "git remote set-url",
+  "git remote set-head",
+  "git remote set-branches",
+  "git remote prune",
+  "git remote update",
+  "git submodule add",
+  "git submodule update",
+  "git submodule init",
+  "git submodule deinit",
+  "git submodule sync",
+]
+decision = "ask_user"
+priority = 100
+
+[[rule]]
+toolName = "run_shell_command"
+commandRegex = 'git push\s+(?:[^"]*\s)?(?:\+|[^\s"]*:)?(?:refs/heads/)?(?:main|master)(?=\s|")'
+decision = "deny"
+priority = 200
+denyMessage = "Changes reach the default branch only through a pull request; the owner merges it."
+
+[[rule]]
+toolName = "run_shell_command"
+commandPrefix = "gh pr merge"
+decision = "deny"
+priority = 200
+denyMessage = "Agents open pull requests; only the owner merges them."
+
+[[rule]]
+mcpName = "github"
+toolName = ["merge_pull_request", "enable_pr_auto_merge"]
+decision = "deny"
+priority = 200
+denyMessage = "Agents open pull requests; only the owner merges them."

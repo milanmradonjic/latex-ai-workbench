@@ -6,7 +6,7 @@ description: Bootstrap, review, update, edit, and review projects using the loca
 # LaTeX AI Workbench operating skill
 
 Use the workbench as deterministic infrastructure for the project's declared LaTeX documents. Start
-with the selected project's AGENTS policy; CLAUDE delegates to it. Read the
+with the selected project's AGENTS policy; CLAUDE and GEMINI delegate to it. Read the
 project config and Makefile to learn declared documents, paths, commands and conventions. Do not
 copy an example's root name or bibliography style into an unrelated manuscript.
 
@@ -108,7 +108,7 @@ checks all documents. Input hashes and green checks do not prove scientific vali
 
 Use a second model when its independent assessment can improve confidence in
 consequential science, structure or integration. Ordinary typos do not need a
-writer/reviewer ceremony. Either Codex or Claude can write or review; use the
+writer/reviewer ceremony. Codex, Claude or Gemini can write or review; use the
 user's existing subscription-authenticated workflow and preserve credentials.
 
 ## Bibliography judgment
@@ -135,7 +135,7 @@ or export another project's sources. The user controls GUI applications.
 ## Safety invariants
 
 - AGENTS is canonical semantic policy. Avoid a second independent rule set in
-  CLAUDE, editor prompts or this skill.
+  CLAUDE, GEMINI, editor prompts or this skill.
 - Make commands are canonical; the editor invokes them instead of replicating
   TeX command logic. Preserve the project's own build steps.
   Commands have fixed names: `make build DOC=name` and `make all` select documents.
@@ -144,7 +144,7 @@ or export another project's sources. The user controls GUI applications.
   changes, stashes, resets/restores/cleaning and worktree changes require the
   owner's explicit approval. Existing session authorization remains valid for
   its stated operation and scope; do not ask twice or assume a broader grant.
-- Do not weaken local Codex/Claude guardrails. Prefix rules supplement semantic
+- Do not weaken local Codex/Claude/Gemini guardrails. Prefix and policy rules supplement semantic
   policy; they do not protect against all alternative command forms.
 - A suspected workbench defect (`INTERNAL ERROR`, a verdict that contradicts
   its inputs or a check that skips what it should cover) is reported, not repaired in passing:

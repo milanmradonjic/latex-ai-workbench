@@ -116,6 +116,92 @@ def codex_decisions(command):
     return {decision for decision, pattern in codex_rules_4_10_0() if len(pattern) <= len(words) and all(word in alternatives for word, alternatives in zip(words, pattern))}
 
 
+try:
+    import tomllib
+except ImportError:  # Python 3.10 lacks tomllib
+    tomllib = None
+
+
+def parse_policy_toml(text):
+    """Minimal stdlib parser for Gemini CLI [[rule]] policy files (for Python 3.10, cross-checked with tomllib on 3.11+)."""
+    def parse_scalar(raw):
+        if raw.startswith("'") and raw.endswith("'"):
+            return raw[1:-1]
+        if raw.startswith('"') and raw.endswith('"'):
+            return json.loads(raw)
+        return int(raw)
+
+    rules, current, lines, index = [], None, text.splitlines(), 0
+    while index < len(lines):
+        line = lines[index].strip()
+        index += 1
+        if not line or line.startswith("#"):
+            continue
+        if line == "[[rule]]":
+            current = {}
+            rules.append(current)
+            continue
+        key, _, value = line.partition("=")
+        key, value = key.strip(), value.strip()
+        if value.startswith("["):
+            chunk = value
+            while not chunk.rstrip().endswith("]"):
+                chunk += "\n" + lines[index].strip()
+                index += 1
+            items = []
+            for part in re.findall(r"'(?:[^']*)'|\"(?:\\.|[^\"\\])*\"|-?\d+", chunk):
+                items.append(parse_scalar(part))
+            current[key] = items
+        else:
+            current[key] = parse_scalar(value)
+    return rules
+
+
+def gemini_rules():
+    text = (TEMPLATES / ".gemini/policies/git-safety.toml").read_text(encoding="utf-8")
+    return tomllib.loads(text)["rule"] if tomllib is not None else parse_policy_toml(text)
+
+
+def gemini_shell_decision(command):
+    """Highest-priority decision for a `run_shell_command` invocation under Gemini CLI's Policy Engine."""
+    payload = json.dumps({"command": command}, separators=(",", ":"))
+    matched = []
+    for rule in gemini_rules():
+        tools = rule.get("toolName")
+        names = [tools] if isinstance(tools, str) else list(tools or ())
+        if rule.get("mcpName") or "run_shell_command" not in names:
+            continue
+        hit = False
+        if "commandPrefix" in rule:
+            prefixes = [rule["commandPrefix"]] if isinstance(rule["commandPrefix"], str) else rule["commandPrefix"]
+            hit = any(command == prefix or command.startswith(prefix + " ") for prefix in prefixes)
+        elif "commandRegex" in rule:
+            hit = re.search('"command":"' + rule["commandRegex"], payload) is not None
+        if hit:
+            matched.append((rule.get("priority", 0), rule["decision"]))
+    if not matched:
+        return None
+    top = max(priority for priority, _ in matched)
+    decisions = {decision for priority, decision in matched if priority == top}
+    assert len(decisions) == 1, f"ambiguous Gemini policy tie at priority {top} for {command!r}: {decisions}"
+    return next(iter(decisions))
+
+
+def gemini_mcp_decision(mcp_name, tool_name):
+    matched = []
+    for rule in gemini_rules():
+        if rule.get("mcpName") != mcp_name:
+            continue
+        tools = rule.get("toolName")
+        names = [tools] if isinstance(tools, str) else list(tools or ())
+        if tool_name in names:
+            matched.append((rule.get("priority", 0), rule["decision"]))
+    if not matched:
+        return None
+    top = max(priority for priority, _ in matched)
+    return next(decision for priority, decision in matched if priority == top)
+
+
 def pushes_to_the_default_branch():
     """Equivalent spellings of one act: pushing to main or master."""
     for remote, options, branch, source, trailing in itertools.product(
@@ -168,6 +254,8 @@ class Audit3Repairs(unittest.TestCase):
             self.assertIn(('git',action),rules)
             self.assertIn('Bash(git '+action+')',claude)
             self.assertIn('Bash(git '+action+':*)',claude)
+            self.assertEqual(gemini_shell_decision('git '+action),'ask_user')
+            self.assertEqual(gemini_shell_decision('git '+action+' arg'),'ask_user')
 
 
 class ModuleTests(unittest.TestCase):
@@ -218,6 +306,7 @@ class PullRequestPolicy(ProjectCase):
         (self.project / "main.tex").write_text(SOURCE)
         self.install('init', editor=False)
         self.assertIn(RULE, (self.project / "AGENTS.md").read_text())
+        self.assertIn("AGENTS.md", (self.project / "GEMINI.md").read_text())
 
     def test_agents_refuse_pushes_to_the_default_branch_and_still_ask_for_other_pushes(self):
         permissions = json.loads((TEMPLATES / ".claude/settings.json").read_text())["permissions"]
@@ -226,9 +315,12 @@ class PullRequestPolicy(ProjectCase):
                 self.assertIn(f"Bash({command})", permissions["deny"])
                 self.assertIn(f"Bash({command}:*)", permissions["deny"])
                 self.assertIn(tuple(command.split()), codex_rules("forbidden"))
+                self.assertEqual(gemini_shell_decision(command), "deny")
         self.assertIn("Bash(git push:*)", permissions["ask"])  # nothing weakened
         self.assertIn(("git", "push"), codex_rules("prompt"))
         self.assertNotIn(("git", "push", "origin", "main-fix"), codex_rules("forbidden"))
+        self.assertEqual(gemini_shell_decision("git push"), "ask_user")
+        self.assertEqual(gemini_shell_decision("git push origin main-fix"), "ask_user")
 
     def test_agents_cannot_merge_pull_requests_themselves(self):
         """A pull request an agent merges itself has had no review: merging is the owner's."""
@@ -237,6 +329,10 @@ class PullRequestPolicy(ProjectCase):
             with self.subTest(rule=rule):
                 self.assertIn(rule, deny)
         self.assertIn(("gh", "pr", "merge"), codex_rules("forbidden"))
+        self.assertEqual(gemini_shell_decision("gh pr merge"), "deny")
+        self.assertEqual(gemini_shell_decision("gh pr merge 42 --auto"), "deny")
+        self.assertEqual(gemini_mcp_decision("github", "merge_pull_request"), "deny")
+        self.assertEqual(gemini_mcp_decision("github", "enable_pr_auto_merge"), "deny")
 
 
 class Pushes(unittest.TestCase):
@@ -260,7 +356,11 @@ class Pushes(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertTrue(any(claude_matches(rule, command) for rule in deny), f"Claude does not refuse: {command}")
                 self.assertTrue(codex_decisions(command), f"Codex does not even prompt: {command}")  # forbidden for the plain forms, a prompt for the rest
+                self.assertEqual(gemini_shell_decision(command), "deny", f"Gemini does not refuse: {command}")
         self.assertGreater(count, 1000)
+        for deletion in ("git push origin :main", "git push origin :master", "git push upstream :refs/heads/main"):
+            with self.subTest(command=deletion):
+                self.assertEqual(gemini_shell_decision(deletion), "deny")
 
     def test_the_wildcards_leave_topic_branches_alone_and_every_push_still_prompts(self):
         deny, ask = claude_rules()["deny"], claude_rules()["ask"]
@@ -271,6 +371,10 @@ class Pushes(unittest.TestCase):
                 self.assertFalse(any(claude_matches(rule, command) for rule in deny), f"a topic branch is refused: {command}")
                 self.assertTrue(any(claude_matches(rule, command) for rule in ask), f"Claude does not prompt: {command}")
                 self.assertEqual(codex_decisions(command), {"prompt"})
+                self.assertEqual(gemini_shell_decision(command), "ask_user", f"Gemini: {command}")
+        for extra in ("git push origin feature/main", "git push origin main:feature"):
+            with self.subTest(command=extra):
+                self.assertEqual(gemini_shell_decision(extra), "ask_user")
 
     def test_the_wildcard_denies_are_claudes_alone_and_the_literal_ones_still_agree_with_codex(self):
         deny = claude_rules()["deny"]
@@ -302,12 +406,14 @@ class Prompts(unittest.TestCase):
                 with self.subTest(command=command):
                     self.assertTrue(any(claude_matches(rule, command) for rule in claude_rules()["ask"]), f"Claude: {command}")
                     self.assertIn("prompt", codex_decisions(command), f"Codex: {command}")
+                    self.assertEqual(gemini_shell_decision(command), "ask_user", f"Gemini: {command}")
 
     def test_staging_and_fetch_no_longer_prompt_in_either_agent(self):
         for command in ("git add", "git add -A", "git add paper.tex", "git fetch", "git fetch origin", "git fetch --all"):
             with self.subTest(command=command):
                 self.assertFalse(any(claude_matches(rule, command) for rule in claude_rules()["ask"] + claude_rules()["deny"]), f"Claude: {command}")
                 self.assertEqual(codex_decisions(command), set(), f"Codex: {command}")
+                self.assertIsNone(gemini_shell_decision(command), f"Gemini: {command}")
         self.assertNotIn("add", self.commands())
         self.assertNotIn("fetch", self.commands())
 
@@ -315,11 +421,13 @@ class Prompts(unittest.TestCase):
         for command in ("git init", "git clone https://example.invalid/x.git"):
             self.assertTrue(any(claude_matches(rule, command) for rule in claude_rules()["ask"]), command)
             self.assertIn("prompt", codex_decisions(command), command)
+            self.assertEqual(gemini_shell_decision(command), "ask_user", command)
 
     def test_inspection_stays_prompt_free(self):
         for command in ("git status", "git diff", "git log --oneline", "git show HEAD", "git ls-files", "git rev-parse HEAD", "git worktree list", "git remote -v"):
             self.assertFalse(any(claude_matches(rule, command) for rule in claude_rules()["ask"] + claude_rules()["deny"]), command)
             self.assertEqual(codex_decisions(command), set(), command)
+            self.assertIsNone(gemini_shell_decision(command), command)
 
 
 class Wording(ProjectCase):
@@ -334,19 +442,20 @@ class Wording(ProjectCase):
     def test_an_installed_project_receives_the_rules_and_the_policy(self):
         (self.project / "main.tex").write_text("\\documentclass{article}\\begin{document}x\\end{document}\n")
         self.install('init', editor=False)
-        for name in (".claude/settings.json", ".codex/rules/git-safety.rules", "AGENTS.md"):
+        for name in (".claude/settings.json", ".codex/rules/git-safety.rules", ".gemini/settings.json",
+                     ".gemini/policies/git-safety.toml", "AGENTS.md", "GEMINI.md"):
             self.assertEqual((self.project / name).read_bytes(), (TEMPLATES / name).read_bytes(), name)
         self.assertIn("Bash(git push *:main)", json.loads((self.project / ".claude/settings.json").read_text())["permissions"]["deny"])
 
     @unittest.skipUnless((REPOSITORY / ".claude/settings.json").is_file(), "a standalone distribution is not inside the repository")
     def test_this_repositorys_rule_files_are_the_templates(self):
-        for name in (".claude/settings.json", ".codex/rules/git-safety.rules"):
+        for name in (".claude/settings.json", ".codex/rules/git-safety.rules", ".gemini/settings.json", ".gemini/policies/git-safety.toml"):
             self.assertEqual((REPOSITORY / name).read_bytes(), (TEMPLATES / name).read_bytes(), name)
 
     def test_the_docs_describe_what_prompts_and_what_is_refused(self):
         text = " ".join((PACKAGE / "docs/agents.md").read_text().split())
         for words in ("Staging (`git add`) and `git fetch` do not prompt", "`git push upstream feature:main` is refused.", "Codex rules match whole words, so there it only prompts",
-                      "that is a line of `AGENTS.md`, not a rule in these files"):
+                      "that is a line of `AGENTS.md`, not a rule in these files", ".gemini/policies/git-safety.toml", "Antigravity"):
             self.assertIn(words, text)
 
 
@@ -377,7 +486,28 @@ class WorkbenchTests(unittest.TestCase):
         def commands(entries):  # shell rules; Claude's GitHub-tool rules (mcp__...) have no Codex counterpart
             return {tuple(entry[len("Bash("):-1].removesuffix(":*").split()) for entry in entries if entry.startswith("Bash(")}
         claude = commands(settings["ask"])
-        self.assertEqual(claude, codex)  # the two agents must not drift apart
+        self.assertEqual(claude, codex)  # the agents must not drift apart
+        # Gemini policy TOML: Python 3.10 fallback parser must agree with tomllib on 3.11+, priorities stay in 0..999,
+        # and the ask_user commandPrefix set must match Claude and Codex identically.
+        policy_text = (templates / ".gemini/policies/git-safety.toml").read_text(encoding="utf-8")
+        if tomllib is not None:
+            self.assertEqual(parse_policy_toml(policy_text), tomllib.loads(policy_text)["rule"])
+        gemini_policy = gemini_rules()
+        gemini_ask = set()
+        for rule in gemini_policy:
+            self.assertIsInstance(rule.get("priority"), int)
+            self.assertTrue(0 <= rule["priority"] <= 999, f"Gemini CLI drops priorities outside 0..999: {rule}")
+            if rule.get("decision") == "ask_user" and "commandPrefix" in rule:
+                prefixes = [rule["commandPrefix"]] if isinstance(rule["commandPrefix"], str) else rule["commandPrefix"]
+                gemini_ask.update(tuple(prefix.split()) for prefix in prefixes)
+        self.assertEqual(gemini_ask, codex)
+        for allowed in ("make check", "make build", "make lint"):
+            self.assertEqual(gemini_shell_decision(allowed), "allow", allowed)
+        for not_allowed in ("make check && git push origin main", "make check-extra", "git status", "git diff"):
+            self.assertNotEqual(gemini_shell_decision(not_allowed), "allow", not_allowed)
+        gemini_settings = json.loads((templates / ".gemini/settings.json").read_text(encoding="utf-8"))
+        self.assertEqual(gemini_settings["context"]["fileName"], ["AGENTS.md", "GEMINI.md"])
+        self.assertEqual(gemini_settings["policyPaths"], [".gemini/policies"])
         # Claude's wildcard denies (4.10.0: `git push *:main` and the like) have no Codex counterpart, which matches whole words only; the others agree.
         self.assertEqual(commands(entry for entry in settings.get("deny", []) if "*" not in entry[len("Bash("):-1].removesuffix(":*")), refused)
         # Refused outright: pushes to the default branch and merging pull requests (3.0.4); everything else prompts.

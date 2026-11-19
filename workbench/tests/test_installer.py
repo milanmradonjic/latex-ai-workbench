@@ -1384,6 +1384,18 @@ class WorkbenchTests(unittest.TestCase):
         self.assertEqual(self.cli("init"), 2)
         self.assertEqual(before, self.snapshot())
 
+    def test_changed_gemini_guardrail_preserved(self):
+        for rel, body in ((".gemini/settings.json", '{"context":{"fileName":["GEMINI.md"]}}\n'),
+                          (".gemini/policies/git-safety.toml", '[[rule]]\ndecision = "deny"\n')):
+            with self.subTest(path=rel):
+                path = self.project / rel
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(body)
+                before = self.snapshot()
+                self.assertEqual(self.cli("init"), 2)
+                self.assertEqual(before, self.snapshot())
+                path.unlink()
+
     def test_symlink_destination_refused(self):
         target = self.project / "own-policy.md"
         target.write_text("Policy")
