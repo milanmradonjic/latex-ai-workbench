@@ -27,7 +27,8 @@ from schema import document_settings, load_config, specifications, validate_conf
 PACKAGE = Path(__file__).resolve().parent
 STATE = ".latex-ai/installation.json"  # what init and runtime wrote: the version, and a digest of each runtime file
 COPIED = ((".latex-ai/", "workbench runtime"), (".claude/", "agent guardrails that prompt before Git changes"),
-          (".codex/", "agent guardrails that prompt before Git changes"))
+          (".codex/", "agent guardrails that prompt before Git changes"),
+          (".gemini/", "agent guardrails that prompt before Git changes"))
 
 
 def encoded(value):
@@ -144,7 +145,8 @@ def runtime_files(config):
 def desired_files(config, project=None):
     config = effective_config(config)
     files = {}
-    for name in ["AGENTS.md", "CLAUDE.md", "Makefile", ".gitignore", ".claude/settings.json", ".codex/rules/git-safety.rules"]:
+    for name in ["AGENTS.md", "CLAUDE.md", "GEMINI.md", "Makefile", ".gitignore", ".claude/settings.json", ".codex/rules/git-safety.rules",
+                 ".gemini/settings.json", ".gemini/policies/git-safety.toml"]:
         files[name] = (PACKAGE / "templates" / name).read_text(encoding="utf-8")
     files.update(runtime_files(config))
     files[".gitignore"] = ".DS_Store\n__pycache__/\n.latex-ai/backups/\n.latex-ai/artifacts/\n"

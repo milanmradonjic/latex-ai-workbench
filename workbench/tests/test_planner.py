@@ -729,12 +729,18 @@ class WorkbenchTests(unittest.TestCase):
 
     def test_policy_checks_without_a_manuscript_build(self):
         self.init()
-        plan = self.selection("AGENTS.md", "CLAUDE.md", ".claude/settings.json", "workbench/skills/latex-ai-workbench/SKILL.md")
+        plan = self.selection("AGENTS.md", "CLAUDE.md", "GEMINI.md", ".claude/settings.json", ".gemini/settings.json",
+                              ".gemini/policies/git-safety.toml", "workbench/skills/latex-ai-workbench/SKILL.md")
         self.assertTrue(plan["policy"])
         self.assertFalse((plan["level"] == "full"))
         with patch.object(rt, "run", side_effect=AssertionError("Build tool invoked")), contextlib.redirect_stdout(io.StringIO()):
             rt.validate_changes(self.project, plan)
+        original = (self.project / "CLAUDE.md").read_text()
         (self.project / "CLAUDE.md").write_text("Competing policy\n")
+        with self.assertRaisesRegex(rt.WorkbenchError, "delegate"):
+            rt.file_checks(self.project, plan)
+        (self.project / "CLAUDE.md").write_text(original)
+        (self.project / "GEMINI.md").write_text("Competing policy\n")
         with self.assertRaisesRegex(rt.WorkbenchError, "delegate"):
             rt.file_checks(self.project, plan)
 

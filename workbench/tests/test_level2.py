@@ -105,6 +105,7 @@ class Level2Routing(ProjectCase):
         (self.project / 'analysis/results.json').write_text('{')
         (self.project / 'AGENTS.md').write_text('# Policy\n')
         (self.project / 'CLAUDE.md').write_text('Read AGENTS.md.\n')
+        (self.project / 'GEMINI.md').write_text('Read AGENTS.md.\n')
         with patch.object(runtime, 'git_names', side_effect=FileNotFoundError('git')):
             plan = runtime.validation_plan(self.project, self.config)
         self.assertEqual(plan['level'], 'full')
@@ -139,10 +140,11 @@ class Level2Routing(ProjectCase):
         self.assertIn('supplement.tex, custom build_command', guide.document_summary(rows['supplement']))
 
     def test_archived_policy_does_not_check_active_policy(self):
-        plan = self.plan('archive/CLAUDE.md', 'revision/archive/.claude/settings.json')
+        plan = self.plan('archive/CLAUDE.md', 'archive/GEMINI.md', 'revision/archive/.claude/settings.json', 'revision/archive/.gemini/settings.json')
         self.assertFalse(plan['policy'])
         self.assertEqual(plan['level'], 'files')
         self.assertTrue(self.plan('CLAUDE.md', '.codex/rules/git-safety.rules')['policy'])
+        self.assertTrue(self.plan('GEMINI.md', '.gemini/policies/git-safety.toml')['policy'])
 
     def test_full_invokes_canonical_check_once_and_files_only_invokes_nothing(self):
         plan = self.plan('main.tex', 'supplement.tex')

@@ -3,7 +3,7 @@
 Read `.latex-ai.json` for named LaTeX documents, paths, project commands and validation
 choices. Schema 4 is the only supported project configuration. Every project needs
 at least one LaTeX document; bibliography checks and editor integration are optional. This file is the canonical
-semantic policy; `CLAUDE.md` delegates here.
+semantic policy; `CLAUDE.md` and `GEMINI.md` delegate here.
 
 # Editing principles
 
@@ -151,7 +151,7 @@ The workbench is shared infrastructure. Its failures are not yours to hide, nor 
 
 # Writer/reviewer workflow
 
-Either Codex or Claude may write or review. The workbench package (it is not part
+Codex, Claude or Gemini may write or review. The workbench package (it is not part
 of this project; the owner knows where it is kept) holds an optional playbook,
 `skills/latex-ai-workbench/`, for bootstrap, review and upgrade tasks. Review correctness, scientific reasoning, compilation, citations,
 local style, and scope separately; mark preference-only suggestions clearly.

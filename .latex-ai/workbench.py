@@ -222,7 +222,7 @@ def validation_plan(project, config, paths=None, base=None):
               or name == CONFIG or name.startswith((".latex-ai/", ".vscode/"))):
             full = True
             reason = "build/configuration: full validation"
-        elif path.name in {"AGENTS.md", "CLAUDE.md", "SKILL.md"} or name.startswith((".claude/", ".codex/")):
+        elif path.name in {"AGENTS.md", "CLAUDE.md", "GEMINI.md", "SKILL.md"} or name.startswith((".claude/", ".codex/", ".gemini/")):
             policy = True
             reason = "agent policy: file/structure checks and semantic review"
         elif suffix in DOCUMENT_SUFFIXES or path.name in {".gitignore", "LICENSE"}:
@@ -289,11 +289,12 @@ def file_checks(project, plan):
             if broken is not None:
                 raise WorkbenchError(f"Broken local Markdown link in {name}: {broken}")
     if plan["policy"]:
-        for name in ("AGENTS.md", "CLAUDE.md"):
+        for name in ("AGENTS.md", "CLAUDE.md", "GEMINI.md"):
             if not local_path(project, name).is_file():
                 raise WorkbenchError(f"Missing canonical policy/delegation file: {name}")
-        if "AGENTS.md" not in (project / "CLAUDE.md").read_text():
-            raise WorkbenchError("CLAUDE.md must delegate to AGENTS.md")
+        for name in ("CLAUDE.md", "GEMINI.md"):
+            if "AGENTS.md" not in (project / name).read_text():
+                raise WorkbenchError(f"{name} must delegate to AGENTS.md")
         print("Policy structure checked; review policy/permission semantics in the diff")
     print("Manuscript text integrity checks passed" if integrity_only else
           ("File checks passed for every project file" if plan.get("fallback") else "Changed-file checks passed") + " (JSON/Python syntax, text conflicts, local Markdown links)")

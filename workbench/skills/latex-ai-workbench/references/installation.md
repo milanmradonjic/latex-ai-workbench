@@ -2,7 +2,7 @@
 
 ## Bootstrap an existing project
 
-Confirm the exact project scope. Read its status/branch/diff, AGENTS, CLAUDE,
+Confirm the exact project scope. Read its status/branch/diff, AGENTS, CLAUDE, GEMINI,
 Makefile or alternate build scripts, latexmk rc, editor files, agent permissions,
 workflows, TeX roots/inputs and bibliography declarations. Do not scan unrelated
 research repositories as discovery shortcuts. Preserve dirty files.
@@ -82,7 +82,7 @@ together) first; it is called `/path/to/new-workbench` below.
 4. **Refresh the runtime.** `python3 /path/to/new-workbench/latex-ai-init runtime /path/to/project --dry-run`, then without `--dry-run`. It replaces the runtime files in `.latex-ai/`, adds newly shipped files, backs the old files up under
    `.latex-ai/backups/`, and rewrites the record. A runtime file that was edited, or that the record does not know, is refused; restore it from version control. `--force` replaces it, and that is the
    owner's call, not a way past a refusal (the runtime is not meant to be edited: report a defect with `make issue` instead).
-5. **Read, then edit, the files that are yours.** `AGENTS.md`, `CLAUDE.md`, the Makefile, `.gitignore`, `.vscode/` and the guardrails (`.claude/`, `.codex/`) belong to the project. Take over what
+5. **Read, then edit, the files that are yours.** `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, the Makefile, `.gitignore`, `.vscode/` and the guardrails (`.claude/`, `.codex/`, `.gemini/`) belong to the project. Take over what
    the release notes name and the diff shows as new (a new command's lines in the Makefile, a line of policy); never weaken a permission or a Git guardrail, keep the stricter rule when two differ, and do not paste over local content.
 6. **Edit `.latex-ai.json` by hand** where the release notes say a setting changed. Keep named documents and optional bibliography/editor settings explicit.
 7. **Check.** `make doctor LATEX_AI_TEMPLATE=/path/to/new-workbench`: the stamp now matches the template and no runtime file differs, and whatever generated file still differs is the project's own
