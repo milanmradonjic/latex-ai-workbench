@@ -17,11 +17,16 @@ import tempfile
 from urllib.parse import unquote
 
 sys.dont_write_bytecode = True
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    from _workbench_vendor import tomli as tomllib
+
 import commands
 import diagnostics
 import guide
 import processes
-from core import CONFIG, GENERATED_TREES, VERSION, WorkbenchError, atomic_write, damaged_text, environment_root, git_read_env, operation_lock, line_buffered, local_path, run, path_name, tracked_name, effective_config, CAPTURE_COMMANDS, read_tex
+from core import CONFIG, GENERATED_TREES, VERSION, WorkbenchError, atomic_write, damaged_text, environment_root, git_read_env, operation_lock, line_buffered, local_path, run, path_name, tracked_name, effective_config, CAPTURE_COMMANDS, read_json, read_tex
 from schema import document_settings, load_config, required_tools, resolve, specifications
 
 
@@ -259,6 +264,39 @@ def broken_markdown_link(project, path, text):
     return None
 
 
+def gemini_policy_checks(project, paths):
+    delegation = "GEMINI.md"
+    settings = ".gemini/settings.json"
+    policy = ".gemini/policies/git-safety.toml"
+    # An earlier installation can have independently configured Gemini files.
+    if not (project / policy).exists() and policy not in paths:
+        delegate_path = (project / delegation).resolve()
+        if not delegate_path.is_relative_to(project.resolve()) or not delegate_path.is_file():
+            return
+        text = delegate_path.read_text(encoding="utf-8", errors="replace")
+        if "Read and follow `AGENTS.md`, the canonical semantic policy for this repository." not in text:
+            return
+    for name in (delegation, settings, policy):
+        if not local_path(project, name).is_file():
+            raise WorkbenchError(f"Missing Gemini policy file: {name}",
+                                 hint="see docs/agents.md for the Gemini files supplied by Workbench")
+    if "AGENTS.md" not in local_path(project, delegation).read_text(encoding="utf-8"):
+        raise WorkbenchError(f"{delegation} must delegate to AGENTS.md")
+    options = read_json(local_path(project, settings), settings)
+    if not isinstance(options, dict):
+        raise WorkbenchError(f"{settings} must be a JSON object")
+    if options.get("policyPaths") == [".gemini/policies"]:
+        raise WorkbenchError(f"{settings} uses the obsolete Workbench policyPaths setting",
+                             hint="remove the project setting and follow docs/agents.md to preserve your user policies")
+    try:
+        data = tomllib.loads(local_path(project, policy).read_text(encoding="utf-8"))
+    except ValueError as error:
+        raise WorkbenchError(f"{policy} is not valid TOML: {error}") from error
+    rules = data.get("rule")
+    if not isinstance(rules, list) or not rules or any(not isinstance(rule, dict) for rule in rules):
+        raise WorkbenchError(f"{policy} must contain at least one [[rule]] table")
+
+
 def file_checks(project, plan):
     integrity_only = plan.get("integrity_only", False)
     for name in plan["paths"]:
@@ -289,12 +327,12 @@ def file_checks(project, plan):
             if broken is not None:
                 raise WorkbenchError(f"Broken local Markdown link in {name}: {broken}")
     if plan["policy"]:
-        for name in ("AGENTS.md", "CLAUDE.md", "GEMINI.md"):
+        for name in ("AGENTS.md", "CLAUDE.md"):
             if not local_path(project, name).is_file():
                 raise WorkbenchError(f"Missing canonical policy/delegation file: {name}")
-        for name in ("CLAUDE.md", "GEMINI.md"):
-            if "AGENTS.md" not in (project / name).read_text():
-                raise WorkbenchError(f"{name} must delegate to AGENTS.md")
+        if "AGENTS.md" not in local_path(project, "CLAUDE.md").read_text(encoding="utf-8"):
+            raise WorkbenchError("CLAUDE.md must delegate to AGENTS.md")
+        gemini_policy_checks(project, plan["paths"])
         print("Policy structure checked; review policy/permission semantics in the diff")
     print("Manuscript text integrity checks passed" if integrity_only else
           ("File checks passed for every project file" if plan.get("fallback") else "Changed-file checks passed") + " (JSON/Python syntax, text conflicts, local Markdown links)")

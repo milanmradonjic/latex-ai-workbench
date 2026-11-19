@@ -4,7 +4,7 @@
 
 [[rule]]
 toolName = "run_shell_command"
-commandRegex = 'make (?:check|build|lint)(?=")'
+commandRegex = 'make (check|build|lint)"'
 decision = "allow"
 priority = 10
 
@@ -84,7 +84,9 @@ priority = 100
 
 [[rule]]
 toolName = "run_shell_command"
-commandRegex = 'git push\s+(?:[^"]*\s)?(?:\+|[^\s"]*:)?(?:refs/heads/)?(?:main|master)(?=\s|")'
+# Match a destination after the remote and consume the delimiter. This keeps the
+# pattern compatible with the CLI's nested-quantifier check and RE2.
+commandRegex = 'git push\s+[^"]+[\s:][+]?(refs/heads/|)(main|master)[\s"]'
 decision = "deny"
 priority = 200
 denyMessage = "Changes reach the default branch only through a pull request; the owner merges it."

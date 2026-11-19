@@ -14,7 +14,7 @@ import tempfile
 import time
 import processes
 
-VERSION = "6.4.0"
+VERSION = "6.4.1"
 CONFIG = ".latex-ai.json"
 # Trees that are never project sources: version control, workbench state, environments, caches and installed packages. Every
 # walk and every check of a declared path agrees on them; the installer adds the folders it alone leaves out.
@@ -341,6 +341,8 @@ def effective_config(config):
 # vendored in every project; distribution tests are run explicitly by Make and CI.
 RUNTIME_FILES = ("runtime.py", "commands.py", "schema.py", "core.py", "latex.py", "documents.py", "diagnostics.py",
                  "guide.py", "processes.py", "output_transaction.py",
+                 "_workbench_vendor/tomli/__init__.py", "_workbench_vendor/tomli/_parser.py",
+                 "_workbench_vendor/tomli/_re.py", "_workbench_vendor/tomli/_types.py", "_workbench_vendor/tomli/LICENSE",
                  "bootstrap.py", "latex-ai-init")
 
 

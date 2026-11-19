@@ -1,9 +1,14 @@
 {
   "schema_version": 3,
-  "version": "6.4.0",
+  "version": "6.4.1",
   "files": {
+    ".latex-ai/_workbench_vendor/tomli/LICENSE": "b80816b0d530b8accb4c2211783790984a6e3b61922c2b5ee92f3372ab2742fe",
+    ".latex-ai/_workbench_vendor/tomli/__init__.py": "26153057ae830758381efb7551009531d7c2bbe220015f055e6bc353da27c5de",
+    ".latex-ai/_workbench_vendor/tomli/_parser.py": "83df8435a00b4be07c768918a42bb35056a55a5a20ed3f922183232d9496aed3",
+    ".latex-ai/_workbench_vendor/tomli/_re.py": "75b8e0e428594f6dca6bdcfd0c73977ddb52a4fc147dd80c5e78fc34ea25cbec",
+    ".latex-ai/_workbench_vendor/tomli/_types.py": "f864c6d9552a929c7032ace654ee05ef26ca75d21b027b801d77e65907138b74",
     ".latex-ai/commands.py": "e07b84a215eb3eb464e410d35f751a21bfd88dff55e2d85311d4309874e5b7ef",
-    ".latex-ai/core.py": "38d69121a2ee3cddc92a65d70c8294c58d52b0f6ac117f5c2dbccd117fc0f97d",
+    ".latex-ai/core.py": "0df8711f2bb586f922ae79731fcd1e46617794d0d0d8eaf14647c8e36cde4639",
     ".latex-ai/diagnostics.py": "fbd0eb3497084107103a9bf20575e073fd2b55b6f97c67acad2a90e402610b85",
     ".latex-ai/documents.py": "3e999a17e024d5d9a76e504e56f9100e9c321b7ecb7ca8ef972812392c48421f",
     ".latex-ai/guide.py": "d8a6d90039fc4416c61db6a8dd2b33e7b51609b28ae099b3d70861118cec8e73",
@@ -11,6 +16,6 @@
     ".latex-ai/output_transaction.py": "00e845f4dc3377b4a4aa51882e5ede3e74d045ef600f890a9478c121edf73e18",
     ".latex-ai/processes.py": "5d756eaa5c8b1549427654d350435331b6a177b2c594d2dc1c448ffbaf9b7f32",
     ".latex-ai/schema.py": "7330b2c5049ace0541ea922f11a7a276ec1113fe851cea3c766b0802c69b9d8c",
-    ".latex-ai/workbench.py": "b8c5d45c0ac3e2608c6399b8839358cb77d01b8a7f6299dd69eed2803603d941"
+    ".latex-ai/workbench.py": "67bd4f578f02e56857c42df734abfc4662f021084ab3abefa3784650f416d178"
   }
 }
